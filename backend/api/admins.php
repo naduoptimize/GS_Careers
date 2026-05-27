@@ -1,0 +1,193 @@
+<?php
+// ============================================
+// Admins Management API (Super Admin Only)
+// ============================================
+require_once __DIR__ . '/../config.php';
+
+$action = $_GET['action'] ?? '';
+
+switch ($action) {
+    case 'list':
+        listAdmins();
+        break;
+    case 'create':
+        createAdmin();
+        break;
+    case 'update':
+        updateAdmin();
+        break;
+    case 'delete':
+        deleteAdmin();
+        break;
+    case 'reset-password':
+        resetPassword();
+        break;
+    default:
+        jsonResponse(400, 'Invalid action');
+}
+
+function listAdmins()
+{
+    $auth = requireSuperAdmin();
+    $db = getDB();
+
+    $stmt = $db->prepare("SELECT a.id, a.username, a.email, a.full_name, a.role, a.company_id, a.is_active, a.created_at, c.name as company_name FROM admins a LEFT JOIN companies c ON a.company_id = c.id ORDER BY a.role DESC, a.created_at ASC");
+    $stmt->execute();
+    $admins = $stmt->fetchAll();
+
+    jsonResponse(200, 'Admins retrieved', $admins);
+}
+
+function createAdmin()
+{
+    $auth = requireSuperAdmin();
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $username = sanitize($input['username'] ?? '');
+    $email = sanitize($input['email'] ?? '');
+    $fullName = sanitize($input['full_name'] ?? '');
+    $role = $input['role'] ?? 'sub_admin';
+    $companyId = !empty($input['company_id']) ? (int)$input['company_id'] : null;
+
+    if (empty($username) || empty($email) || empty($fullName)) {
+        jsonResponse(400, 'All fields are required');
+    }
+
+    if ($role === 'sub_admin' && empty($companyId)) {
+        jsonResponse(400, 'Company is required for sub admin');
+    }
+
+    $db = getDB();
+
+    // Check uniqueness
+    $stmt = $db->prepare("SELECT id FROM admins WHERE username = ? OR email = ?");
+    $stmt->execute([$username, $email]);
+    if ($stmt->fetch()) {
+        jsonResponse(409, 'Username or email already exists');
+    }
+
+    // Check if company already has a sub admin
+    if ($role === 'sub_admin' && $companyId) {
+        $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = 'sub_admin' AND is_active = 1");
+        $stmt->execute([$companyId]);
+        if ($stmt->fetch()) {
+            jsonResponse(409, 'This company already has an active sub admin');
+        }
+    }
+
+    // Generate a secure random password (10 chars: letters and numbers)
+    $tempPassword = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 10);
+    $hashedPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
+
+    $stmt = $db->prepare("INSERT INTO admins (username, email, password, full_name, role, company_id, require_password_change) VALUES (?, ?, ?, ?, ?, ?, 1)");
+    $stmt->execute([$username, $email, $hashedPassword, $fullName, $role, $companyId]);
+
+    jsonResponse(201, 'Admin created successfully', [
+        'id' => $db->lastInsertId(),
+        'temp_password' => $tempPassword
+    ]);
+}
+
+function updateAdmin()
+{
+    $auth = requireSuperAdmin();
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = (int)($input['id'] ?? 0);
+
+    if ($id <= 0)
+        jsonResponse(400, 'Invalid admin ID');
+
+    $db = getDB();
+
+    $fields = [];
+    $params = [];
+
+    if (!empty($input['full_name'])) {
+        $fields[] = "full_name = ?";
+        $params[] = sanitize($input['full_name']);
+    }
+    if (!empty($input['email'])) {
+        $fields[] = "email = ?";
+        $params[] = sanitize($input['email']);
+    }
+    if (isset($input['is_active'])) {
+        $fields[] = "is_active = ?";
+        $params[] = (int)$input['is_active'];
+    }
+    if (!empty($input['company_id'])) {
+        $fields[] = "company_id = ?";
+        $params[] = (int)$input['company_id'];
+    }
+
+    if (empty($fields)) {
+        jsonResponse(400, 'No fields to update');
+    }
+
+    $params[] = $id;
+    $sql = "UPDATE admins SET " . implode(', ', $fields) . " WHERE id = ?";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+
+    jsonResponse(200, 'Admin updated successfully');
+}
+
+function deleteAdmin()
+{
+    $auth = requireSuperAdmin();
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = (int)($input['id'] ?? 0);
+
+    if ($id <= 0)
+        jsonResponse(400, 'Invalid admin ID');
+
+    // Prevent deleting self
+    if ($id === (int)$auth['admin_id']) {
+        jsonResponse(400, 'Cannot delete your own account');
+    }
+
+    $db = getDB();
+    $stmt = $db->prepare("DELETE FROM admins WHERE id = ? AND role != 'super_admin'");
+    $stmt->execute([$id]);
+
+    if ($stmt->rowCount() === 0) {
+        jsonResponse(400, 'Cannot delete super admin or admin not found');
+    }
+
+    jsonResponse(200, 'Admin deleted successfully');
+}
+
+function resetPassword()
+{
+    $auth = requireSuperAdmin();
+    $input = json_decode(file_get_contents('php://input'), true);
+    $id = (int)($input['id'] ?? 0);
+
+    if ($id <= 0)
+        jsonResponse(400, 'Invalid admin ID');
+
+    $db = getDB();
+
+    // Verify admin exists and is not the current super admin
+    $stmt = $db->prepare("SELECT id, role FROM admins WHERE id = ?");
+    $stmt->execute([$id]);
+    $admin = $stmt->fetch();
+
+    if (!$admin) {
+        jsonResponse(404, 'Admin not found');
+    }
+
+    if ($admin['id'] === (int)$auth['admin_id']) {
+        jsonResponse(400, 'Cannot reset your own password here. Use profile settings.');
+    }
+
+    // Generate a secure random password
+    $tempPassword = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 10);
+    $hashedPassword = password_hash($tempPassword, PASSWORD_DEFAULT);
+
+    $stmt = $db->prepare("UPDATE admins SET password = ?, require_password_change = 1 WHERE id = ?");
+    $stmt->execute([$hashedPassword, $id]);
+
+    jsonResponse(200, 'Password reset successfully', [
+        'temp_password' => $tempPassword
+    ]);
+}

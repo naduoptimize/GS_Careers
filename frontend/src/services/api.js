@@ -1,0 +1,113 @@
+import axios from 'axios';
+
+export const API_BASE = "http://localhost/gs-Job/backend/api";
+
+const api = axios.create({
+    baseURL: API_BASE,
+});
+
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('gs_admin_token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Auth
+export const login = (data) => api.post('/auth.php?action=login', data);
+export const identifyAdmin = (data) => api.post('/auth.php?action=identify', data);
+export const sendRecoveryInfo = (data) => api.post('/auth.php?action=send-recovery', data);
+export const verifyResetToken = (token) => api.get(`/auth.php?action=verify-reset-token&token=${token}`);
+export const resetPasswordWithToken = (data) => api.post('/auth.php?action=reset-password-with-token', data);
+export const verifyToken = () => api.get('/auth.php?action=verify');
+export const changePassword = (data) => api.post('/auth.php?action=change-password', data);
+
+// Companies
+export const getCompanies = () => api.get('/companies.php?action=list');
+
+// Vacancies (Public)
+export const getVacancies = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/vacancies.php?action=list&${query}`);
+};
+export const getVacancy = (id) => api.get(`/vacancies.php?action=get&id=${id}`);
+
+// Vacancies (Admin)
+export const getAllVacancies = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/vacancies.php?action=all&${query}`);
+};
+export const createVacancy = (data) => api.post('/vacancies.php?action=create', data);
+export const updateVacancy = (data) => api.post('/vacancies.php?action=update', data);
+export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', data);
+
+// Applications
+export const applyForJob = (formData) => api.post('/applications.php?action=apply', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const getApplications = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=list&${query}`);
+};
+export const updateApplicationStatus = (data) => api.post('/applications.php?action=update_status', data);
+export const sendInterviewInvitation = (data) => api.post('/applications.php?action=send_interview', data);
+export const deleteApplication = (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+    return api.post('/applications.php', formData, { params: { action: 'delete' } });
+};
+export const bulkDeleteApplications = (data) => {
+    const formData = new FormData();
+    // Special handling for array of IDs
+    if (data.ids && Array.isArray(data.ids)) {
+        data.ids.forEach(id => formData.append('ids[]', id));
+    }
+    return api.post('/applications.php', formData, { params: { action: 'bulk_delete' } });
+};
+export const getSuggestions = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=get_suggestions&${query}`);
+};
+export const getCandidateCount = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=get_candidate_count&${query}`);
+};
+export const getMatchingCandidates = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=get_matching_candidates&${query}`);
+};
+export const getTalentPool = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=get_talent_pool&${query}`);
+};
+export const updateCandidateTags = (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+    return api.post('/applications.php', formData, { params: { action: 'update_candidate_tags' } });
+};
+export const exportApplications = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=export&${query}`, { responseType: 'blob' });
+};
+export const blockCandidate = (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+    return api.post('/applications.php', formData, { params: { action: 'block_candidate' } });
+};
+export const unblockCandidate = (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+    return api.post('/applications.php', formData, { params: { action: 'unblock_candidate' } });
+};
+export const getStats = () => api.get('/applications.php?action=stats');
+
+// Admins
+export const getAdmins = () => api.get('/admins.php?action=list');
+export const createAdmin = (data) => api.post('/admins.php?action=create', data);
+export const updateAdmin = (data) => api.post('/admins.php?action=update', data);
+export const deleteAdmin = (data) => api.post('/admins.php?action=delete', data);
+export const resetAdminPassword = (data) => api.post('/admins.php?action=reset-password', data);
+
+export default api;
