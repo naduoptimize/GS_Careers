@@ -12,9 +12,22 @@ CREATE TABLE companies (
     name VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
     logo VARCHAR(255) DEFAULT NULL,
+    location VARCHAR(255) DEFAULT NULL,
     description TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+-- ========================================
+-- COMPANY LOCATIONS TABLE
+-- ========================================
+CREATE TABLE company_locations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 
 -- ========================================
 -- ADMINS TABLE
@@ -28,6 +41,7 @@ CREATE TABLE admins (
     role ENUM('super_admin', 'sub_admin') NOT NULL DEFAULT 'sub_admin',
     company_id INT DEFAULT NULL,
     is_active TINYINT(1) DEFAULT 1,
+    require_password_change TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
@@ -49,6 +63,7 @@ CREATE TABLE vacancies (
     publish_date DATE NOT NULL,
     expire_date DATE NOT NULL,
     is_active TINYINT(1) DEFAULT 1,
+    hired_application_id INT DEFAULT NULL,
     created_by INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -77,6 +92,12 @@ CREATE TABLE applications (
     future_consent TINYINT(1) DEFAULT 0,
     is_blocked TINYINT(1) DEFAULT 0,
     block_reason TEXT DEFAULT NULL,
+    tags VARCHAR(255) DEFAULT NULL,
+    interview_type VARCHAR(50) DEFAULT NULL,
+    interview_date DATE DEFAULT NULL,
+    interview_time VARCHAR(50) DEFAULT NULL,
+    interview_location TEXT DEFAULT NULL,
+    interview_location_link TEXT DEFAULT NULL,
     FOREIGN KEY (vacancy_id) REFERENCES vacancies(id) ON DELETE CASCADE,
     UNIQUE KEY unique_email_vacancy (email, vacancy_id),
     UNIQUE KEY unique_phone_vacancy (contact_number, vacancy_id)
@@ -103,3 +124,24 @@ INSERT INTO companies (name, slug, description) VALUES
 -- ========================================
 INSERT INTO admins (username, email, password, full_name, role, company_id) VALUES
 ('superadmin', 'admin@georgesteuart.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Super Administrator', 'super_admin', NULL);
+
+-- ========================================
+-- FOREIGN KEYS DEFINED AFTER CREATION
+-- ========================================
+ALTER TABLE vacancies ADD CONSTRAINT fk_hired_application FOREIGN KEY (hired_application_id) REFERENCES applications(id) ON DELETE SET NULL;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

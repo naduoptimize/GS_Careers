@@ -18,6 +18,8 @@ import CreateVacancy from './pages/admin/CreateVacancy';
 import Applicants from './pages/admin/Applicants';
 import TalentPool from './pages/admin/TalentPool';
 import ManageAdmins from './pages/admin/ManageAdmins';
+import ManageCompanies from './pages/admin/ManageCompanies';
+import CompanyReports from './pages/admin/CompanyReports';
 import ChangePasswordPage from './pages/admin/ChangePasswordPage';
 import ForgotPasswordPage from './pages/admin/ForgotPasswordPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
@@ -88,7 +90,11 @@ function App() {
                                 <Route path="/applicants" element={<Applicants admin={admin} />} />
                                 <Route path="/talent-pool" element={<TalentPool admin={admin} />} />
                                 {admin.role === 'super_admin' && (
-                                    <Route path="/admins" element={<ManageAdmins admin={admin} />} />
+                                    <>
+                                        <Route path="/vacancies/reports" element={<CompanyReports admin={admin} />} />
+                                        <Route path="/companies" element={<ManageCompanies admin={admin} />} />
+                                        <Route path="/admins" element={<ManageAdmins admin={admin} />} />
+                                    </>
                                 )}
                                 <Route path="*" element={<Navigate to="/admin" />} />
                             </Routes>

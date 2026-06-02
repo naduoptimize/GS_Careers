@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getApplications, exportApplications, getAllVacancies, getCompanies, updateApplicationStatus, sendInterviewInvitation, getSuggestions, API_BASE, deleteApplication, bulkDeleteApplications } from '../../services/api';
+import { getApplications, exportApplications, getAllVacancies, getCompanies, updateApplicationStatus, sendInterviewInvitation, getSuggestions, API_BASE, deleteApplication, bulkDeleteApplications, getCompanyLocations } from '../../services/api';
 import { OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIONS, QUALIFICATION_OPTIONS, formatDate, formatDateTime } from '../../utils/constants';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
@@ -132,6 +132,7 @@ function Applicants({ admin }) {
     const [applications, setApplications] = useState([]);
     const [vacancies, setVacancies] = useState([]);
     const [companies, setCompanies] = useState([]);
+    const [locations, setLocations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showDetail, setShowDetail] = useState(null);
     const [showRejectModal, setShowRejectModal] = useState(false);
@@ -223,12 +224,14 @@ function Applicants({ admin }) {
 
     const loadMeta = async () => {
         try {
-            const [vacRes, compRes] = await Promise.all([
+            const [vacRes, compRes, locRes] = await Promise.all([
                 getAllVacancies(),
-                getCompanies()
+                getCompanies(),
+                getCompanyLocations()
             ]);
             setVacancies(vacRes.data.data || []);
             setCompanies(compRes.data.data || []);
+            setLocations(locRes.data.data || []);
         } catch (err) {
             console.error(err);
         }
@@ -1730,30 +1733,39 @@ function Applicants({ admin }) {
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     setLocationPreset(val);
-                                                    if (val !== 'Other') {
-                                                        let link = '';
-                                                        if (val.includes('No. 439, Galle Road')) link = 'https://maps.app.goo.gl/J6U6U5y8N6jV9vS68'; // GS Head Office
-                                                        if (val.includes('George Steuart Health')) link = 'https://maps.app.goo.gl/X9X9X9X9X9X9X9X9'; // Placeholder
-                                                        if (val.includes('Heladiv')) link = 'https://maps.app.goo.gl/Y9Y9Y9Y9Y9Y9Y9Y9'; // Placeholder
-                                                        if (val.includes('George Steuart Teas')) link = 'https://maps.app.goo.gl/Z9Z9Z9Z9Z9Z9Z9Z9'; // Placeholder
-                                                        
-                                                        setInviteData({ ...inviteData, interview_location: val, interview_location_link: link });
+                                                    if (val && val !== 'Other') {
+                                                        const locId = parseInt(val);
+                                                        const selectedLoc = locations.find(l => l.id === locId);
+                                                        if (selectedLoc) {
+                                                            // Find the company to get c.location
+                                                            const company = companies.find(c => c.id === selectedLoc.company_id);
+                                                            const mainLocation = company ? company.location : '';
+                                                            
+                                                            setInviteData({ 
+                                                                ...inviteData, 
+                                                                interview_location: `${selectedLoc.company_name} — ${selectedLoc.location}`, 
+                                                                interview_location_link: mainLocation || '' 
+                                                            });
+                                                        }
                                                     } else {
                                                         setInviteData({ ...inviteData, interview_location: '', interview_location_link: '' });
                                                     }
                                                 }}
                                             >
                                                 <option value="">— Select a location —</option>
-                                                <optgroup label="George Steuart Head Office">
-                                                    <option value="No. 439, Galle Road, Colombo 03 — Boardroom (Level 5)">Boardroom — Level 5, Colombo 03</option>
-                                                    <option value="No. 439, Galle Road, Colombo 03 — Conference Room (Level 3)">Conference Room — Level 3, Colombo 03</option>
-                                                    <option value="No. 439, Galle Road, Colombo 03 — HR Office (Level 2)">HR Office — Level 2, Colombo 03</option>
-                                                </optgroup>
-                                                <optgroup label="Subsidiary Offices">
-                                                    <option value="George Steuart Health — No. 7E, Postmasters Place,Off Templers Road,Mount Lavinia,Sri Lanka">GS Health — Mount Lavinia</option>
-                                                    <option value="Heladiv — HVA Foods (Pvt) Ltd, No. 118, Braybrooke Place,Colombo 2,Sri Lanka">Heladiv— Colombo 02</option>
-                                                    <option value="George Steuart Teas — No. 350, Union Place,Colombo 02,Sri Lanka">GS Teas — Colombo 02</option>
-                                                </optgroup>
+                                                {companies.map(c => {
+                                                    const companyLocs = locations.filter(loc => loc.company_id === c.id);
+                                                    if (companyLocs.length === 0) return null;
+                                                    return (
+                                                        <optgroup key={c.id} label={c.name}>
+                                                            {companyLocs.map(loc => (
+                                                                <option key={loc.id} value={loc.id}>
+                                                                    {loc.location}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    );
+                                                })}
                                                 <option value="Other">✏️ Other (type manually)</option>
                                             </select>
 

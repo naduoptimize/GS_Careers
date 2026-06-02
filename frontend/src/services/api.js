@@ -26,6 +26,19 @@ export const changePassword = (data) => api.post('/auth.php?action=change-passwo
 
 // Companies
 export const getCompanies = () => api.get('/companies.php?action=list');
+export const createCompany = (formData) => api.post('/companies.php?action=create', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const updateCompany = (formData) => api.post('/companies.php?action=update', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const deleteCompany = (data) => api.post('/companies.php?action=delete', data);
+
+// Company Locations
+export const getCompanyLocations = () => api.get('/locations.php?action=list');
+export const addCompanyLocation = (data) => api.post('/locations.php?action=create', data);
+export const updateCompanyLocation = (data) => api.post('/locations.php?action=update', data);
+export const deleteCompanyLocation = (data) => api.post('/locations.php?action=delete', data);
 
 // Vacancies (Public)
 export const getVacancies = (params = {}) => {
@@ -42,6 +55,7 @@ export const getAllVacancies = (params = {}) => {
 export const createVacancy = (data) => api.post('/vacancies.php?action=create', data);
 export const updateVacancy = (data) => api.post('/vacancies.php?action=update', data);
 export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', data);
+export const assignVacancyCandidate = (data) => api.post('/vacancies.php?action=assign_candidate', data);
 
 // Applications
 export const applyForJob = (formData) => api.post('/applications.php?action=apply', formData, {

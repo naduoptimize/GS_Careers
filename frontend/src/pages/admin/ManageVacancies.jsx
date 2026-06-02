@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllVacancies, deleteVacancy, getCompanies, getStats, API_BASE } from '../../services/api';
+import { getAllVacancies, deleteVacancy, getCompanies, getStats, API_BASE, getApplications, assignVacancyCandidate } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 import { formatDate, daysLeft } from '../../utils/constants';
@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
-    FiEye, FiMapPin, FiX, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo
+    FiEye, FiMapPin, FiX, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 
@@ -67,6 +67,73 @@ function ManageVacancies({ admin }) {
     const [viewDetail, setViewDetail] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
+
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [shortlistedCandidates, setShortlistedCandidates] = useState([]);
+    const [loadingShortlisted, setLoadingShortlisted] = useState(false);
+    const [searchCandidate, setSearchCandidate] = useState('');
+    const [assigningAppId, setAssigningAppId] = useState(null);
+
+    const handleOpenAssignModal = async () => {
+        try {
+            setLoadingShortlisted(true);
+            setShowAssignModal(true);
+            setSearchCandidate('');
+            setAssigningAppId(viewDetail?.selected_application_id || viewDetail?.hired_application_id || null);
+            
+            const res = await getApplications({ status: 'shortlisted' });
+            setShortlistedCandidates(res.data.data || []);
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to load shortlisted candidates');
+        } finally {
+            setLoadingShortlisted(false);
+        }
+    };
+
+    const handleConfirmAssignment = async () => {
+        try {
+            const data = {
+                vacancy_id: viewDetail.id,
+                application_id: assigningAppId
+            };
+            await assignVacancyCandidate(data);
+            
+            toast.success(assigningAppId ? 'Candidate assigned successfully!' : 'Assignment cleared successfully!');
+            
+            await loadData();
+            
+            if (assigningAppId) {
+                const selected = shortlistedCandidates.find(c => c.id === assigningAppId);
+                if (selected) {
+                    setViewDetail(prev => ({
+                        ...prev,
+                        hired_application_id: selected.id,
+                        selected_application_id: selected.id,
+                        selected_first_name: selected.first_name,
+                        selected_last_name: selected.last_name,
+                        selected_email: selected.email,
+                        selected_contact_number: selected.contact_number
+                    }));
+                }
+            } else {
+                setViewDetail(prev => ({
+                    ...prev,
+                    hired_application_id: null,
+                    selected_application_id: null,
+                    selected_first_name: null,
+                    selected_last_name: null,
+                    selected_email: null,
+                    selected_contact_number: null
+                }));
+            }
+            
+            setShowAssignModal(false);
+        } catch (err) {
+            console.error(err);
+            toast.error(err.response?.data?.message || 'Failed to assign candidate');
+        }
+    };
 
     useEffect(() => {
         loadData();
@@ -242,7 +309,16 @@ function ManageVacancies({ admin }) {
                                 <tr>
                                     <th>Position & Establishment</th>
                                     <th>Classification</th>
-                                    <th>Engagement Pulse</th>
+                                    <th style={{ width: '100px' }}>Engagement Pulse</th>
+                                    <th style={{ textAlign: 'center', width: '180px' }}>
+                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px', color: '#94a3b8', fontWeight: 800 }}>Stages</div>
+                                        <div style={{ display: 'flex', gap: '22px', justifyContent: 'center', alignItems: 'center' }}>
+                                            <span title="Pending (Orange)" style={{ display: 'flex' }}><FiClock size={13} style={{ color: '#d97706' }} /></span>
+                                            <span title="Under Review (Blue)" style={{ display: 'flex' }}><FiEye size={13} style={{ color: '#2563eb' }} /></span>
+                                            <span title="Rejected (Red)" style={{ display: 'flex' }}><FiXCircle size={13} style={{ color: '#dc2626' }} /></span>
+                                            <span title="Shortlisted (Green)" style={{ display: 'flex' }}><FiCheckCircle size={13} style={{ color: '#16a34a' }} /></span>
+                                        </div>
+                                    </th>
                                     <th>Registry Timeline</th>
                                     <th>Status</th>
                                     <th style={{ textAlign: 'right' }}>Operations</th>
@@ -266,6 +342,12 @@ function ManageVacancies({ admin }) {
                                                         />
                                                         <span className="entity-name" style={{ margin: 0 }}>{v.company_name}</span>
                                                     </div>
+                                                    {v.selected_first_name && (
+                                                        <div className="table-emp-badge" title={`Assigned: ${v.selected_first_name} ${v.selected_last_name} (${v.selected_email})`}>
+                                                            <span className="te-dot"></span>
+                                                            <span className="te-text">{v.selected_first_name} {v.selected_last_name}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td>
@@ -277,14 +359,33 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="pulse-cell">
+                                                <div className="pulse-cell" style={{ maxWidth: '80px' }}>
                                                     <div className="pulse-info">
-                                                        <strong>{v.application_count || 0}</strong>
-                                                        <span>Applicants</span>
+                                                        <strong style={{ fontSize: '1.1rem' }}>{v.application_count || 0}</strong>
                                                     </div>
-                                                    <div className="mini-bar">
+                                                    <div className="mini-bar" style={{ marginTop: '4px' }}>
                                                         <div className="bar-fill" style={{ width: `${Math.min((v.application_count || 0) * 5, 100)}%` }}></div>
                                                     </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: '22px', justifyContent: 'center', alignItems: 'center', padding: '4px 0' }}>
+                                                    {/* Pending */}
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.pending_count > 0 ? '#b8860b' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
+                                                        {v.pending_count || 0}
+                                                    </span>
+                                                    {/* Under Review */}
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.review_count > 0 ? '#1e40af' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
+                                                        {v.review_count || 0}
+                                                    </span>
+                                                    {/* Rejected */}
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.rejected_count > 0 ? '#991b1b' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
+                                                        {v.rejected_count || 0}
+                                                    </span>
+                                                    {/* Shortlisted */}
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.shortlisted_count > 0 ? '#15803d' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
+                                                        {v.shortlisted_count || 0}
+                                                    </span>
                                                 </div>
                                             </td>
                                             <td>
@@ -417,6 +518,42 @@ function ManageVacancies({ admin }) {
                         {/* ── MODAL BODY ── */}
                         <div className="vd-body">
 
+                            {/* Selected Employee Section */}
+                            <div className="vd-selected-employee-section">
+                                {viewDetail.selected_first_name ? (
+                                    <div className="vd-employee-card active">
+                                        <div className="vd-employee-info">
+                                            <div className="vd-employee-badge">SELECTED EMPLOYEE</div>
+                                            <div className="vd-emp-name">
+                                                {viewDetail.selected_first_name} {viewDetail.selected_last_name}
+                                            </div>
+                                            <div className="vd-emp-meta">
+                                                <span>{viewDetail.selected_email}</span>
+                                                {viewDetail.selected_contact_number && (
+                                                    <>
+                                                        <span className="vd-divider">|</span>
+                                                        <span>{viewDetail.selected_contact_number}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button className="vd-emp-btn change" onClick={handleOpenAssignModal}>
+                                            Change Employee
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="vd-employee-card empty">
+                                        <div className="vd-employee-info">
+                                            <div className="vd-emp-name-empty">No Employee Assigned Yet</div>
+                                            <p className="vd-emp-subline">Select a shortlisted candidate to assign to this vacancy.</p>
+                                        </div>
+                                        <button className="vd-emp-btn assign" onClick={handleOpenAssignModal}>
+                                            Select Employee
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Meta grid */}
                             <div className="vd-meta-grid">
                                 <div className="vd-meta-item">
@@ -478,7 +615,481 @@ function ManageVacancies({ admin }) {
                 </div>
             )}
 
+            {/* Shortlisted Selection Modal */}
+            {showAssignModal && (
+                <div className="sam-overlay" onClick={() => setShowAssignModal(false)}>
+                    <div className="sam-modal" onClick={e => e.stopPropagation()}>
+                        <div className="sam-header">
+                            <div className="sam-title-row">
+                                <h3>Select Employee</h3>
+                                <button className="sam-close-btn" onClick={() => setShowAssignModal(false)}>
+                                    <FiX />
+                                </button>
+                            </div>
+                            <p className="sam-subtitle">Assign a shortlisted candidate for <strong>{viewDetail.title}</strong></p>
+                            
+                            <div className="sam-search-bar">
+                                <FiSearch className="sam-search-icon" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, email or contact number..."
+                                    value={searchCandidate}
+                                    onChange={e => setSearchCandidate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="sam-body">
+                            {loadingShortlisted ? (
+                                <div className="sam-loading">
+                                    <div className="spinner-p"></div>
+                                    <p>Retrieving shortlisted candidates...</p>
+                                </div>
+                            ) : shortlistedCandidates.length === 0 ? (
+                                <div className="sam-empty">
+                                    <FiUsers size={32} style={{ color: '#cbd5e1', marginBottom: '12px' }} />
+                                    <p className="sam-empty-title">No Shortlisted Candidates</p>
+                                    <p className="sam-empty-text">No applicants have been shortlisted yet.</p>
+                                </div>
+                            ) : (() => {
+                                const filtered = shortlistedCandidates.filter(c => 
+                                    `${c.first_name} ${c.last_name}`.toLowerCase().includes(searchCandidate.toLowerCase()) ||
+                                    c.email.toLowerCase().includes(searchCandidate.toLowerCase()) ||
+                                    (c.contact_number && c.contact_number.includes(searchCandidate))
+                                );
+                                
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div className="sam-empty">
+                                            <FiSearch size={28} style={{ color: '#cbd5e1', marginBottom: '12px' }} />
+                                            <p className="sam-empty-title">No search matches</p>
+                                            <p className="sam-empty-text">Try searching with a different keyword.</p>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="sam-candidates-list">
+                                        {filtered.map(c => {
+                                            const isSelected = assigningAppId === c.id;
+                                            return (
+                                                <div 
+                                                    key={c.id} 
+                                                    className={`sam-candidate-item ${isSelected ? 'selected' : ''}`}
+                                                    onClick={() => setAssigningAppId(c.id)}
+                                                >
+                                                    <div className="sam-item-selection">
+                                                        <input 
+                                                            type="radio" 
+                                                            name="assigning_candidate" 
+                                                            checked={isSelected}
+                                                            onChange={() => setAssigningAppId(c.id)}
+                                                        />
+                                                    </div>
+                                                    <div className="sam-item-details">
+                                                        <div className="sam-item-name">{c.first_name} {c.last_name}</div>
+                                                        <div className="sam-item-meta">
+                                                            <span>{c.email}</span>
+                                                            <span className="sam-meta-divider">•</span>
+                                                            <span>{c.contact_number}</span>
+                                                            {c.vacancy_title && (
+                                                                <>
+                                                                    <span className="sam-meta-divider">•</span>
+                                                                    <span className="sam-vacancy-badge" title={`Shortlisted vacancy: ${c.vacancy_title}`}>
+                                                                        {c.vacancy_title}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {isSelected && (
+                                                        <div className="sam-check-icon">
+                                                            <FiCheckCircle />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        <div className="sam-footer">
+                            {(viewDetail.hired_application_id || viewDetail.selected_application_id) && (
+                                <button 
+                                    className="sam-btn danger" 
+                                    onClick={() => setAssigningAppId(null)}
+                                    style={{ marginRight: 'auto' }}
+                                    title="Unassign current employee"
+                                >
+                                    Clear Assignment
+                                </button>
+                            )}
+                            <button className="sam-btn secondary" onClick={() => setShowAssignModal(false)}>Cancel</button>
+                            <button 
+                                className="sam-btn primary" 
+                                onClick={handleConfirmAssignment}
+                                disabled={loadingShortlisted || (assigningAppId === (viewDetail.selected_application_id || viewDetail.hired_application_id) && (viewDetail.selected_application_id || viewDetail.hired_application_id) !== null)}
+                            >
+                                Confirm Selection
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style jsx="true">{`
+                .vd-selected-employee-section {
+                    margin-bottom: 28px;
+                    animation: fadeIn 0.4s ease-out;
+                }
+                .vd-employee-card {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 18px 24px;
+                    border-radius: 20px;
+                    background: #f8fafc;
+                    border: 1.5px dashed #cbd5e1;
+                    gap: 16px;
+                    flex-wrap: wrap;
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .vd-employee-card.active {
+                    background: rgba(16, 185, 129, 0.03);
+                    border: 1.5px solid rgba(16, 185, 129, 0.2);
+                    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
+                }
+                .vd-employee-badge {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #10b981;
+                    font-size: 0.65rem;
+                    font-weight: 800;
+                    padding: 4px 10px;
+                    border-radius: 100px;
+                    letter-spacing: 1px;
+                    width: fit-content;
+                    margin-bottom: 8px;
+                }
+                .vd-employee-info {
+                    flex: 1;
+                }
+                .vd-emp-name {
+                    font-size: 1.15rem;
+                    font-weight: 800;
+                    color: #1e293b;
+                    margin-bottom: 4px;
+                }
+                .vd-emp-meta {
+                    display: flex;
+                    gap: 12px;
+                    font-size: 0.85rem;
+                    color: #64748b;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }
+                .vd-emp-name-empty {
+                    font-size: 1.05rem;
+                    font-weight: 800;
+                    color: #475569;
+                    margin-bottom: 4px;
+                }
+                .vd-emp-subline {
+                    font-size: 0.85rem;
+                    color: #94a3b8;
+                    margin: 0;
+                }
+                .vd-emp-btn {
+                    border: none;
+                    padding: 10px 20px;
+                    border-radius: 12px;
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    font-family: var(--font-body);
+                }
+                .vd-emp-btn.assign {
+                    background: #10b981;
+                    color: #fff;
+                    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.2);
+                }
+                .vd-emp-btn.assign:hover {
+                    background: #059669;
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+                }
+                .vd-emp-btn.change {
+                    background: #10b981;
+                    color: #fff;
+                    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15);
+                }
+                .vd-emp-btn.change:hover {
+                    background: #059669;
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+                }
+                .table-emp-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(16, 185, 129, 0.06);
+                    border: 1px solid rgba(16, 185, 129, 0.15);
+                    padding: 3px 8px;
+                    border-radius: 6px;
+                    font-size: 0.72rem;
+                    color: #10b981;
+                    font-weight: 700;
+                    margin-top: 6px;
+                    width: fit-content;
+                }
+                .te-dot {
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 50%;
+                    background: #10b981;
+                }
+                
+                /* Selection Modal */
+                .sam-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.4);
+                    backdrop-filter: blur(10px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1100;
+                    padding: 20px;
+                    animation: fadeIn 0.25s ease-out;
+                }
+                .sam-modal {
+                    background: #fff;
+                    border-radius: 24px;
+                    width: 100%;
+                    max-width: 580px;
+                    max-height: 85vh;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    box-shadow: 0 30px 70px rgba(0,0,0,0.15);
+                    animation: zoomInSpring 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    border: 1px solid rgba(0,0,0,0.04);
+                }
+                .sam-header {
+                    padding: 24px 28px 18px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                .sam-title-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 6px;
+                }
+                .sam-title-row h3 {
+                    font-family: var(--font-heading);
+                    font-size: 1.35rem;
+                    font-weight: 800;
+                    color: #1e293b;
+                    margin: 0;
+                }
+                .sam-close-btn {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 10px;
+                    background: #f1f5f9;
+                    border: none;
+                    color: #64748b;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    font-size: 0.95rem;
+                    transition: all 0.2s;
+                }
+                .sam-close-btn:hover {
+                    background: #e2e8f0;
+                    color: #1e293b;
+                }
+                .sam-subtitle {
+                    font-size: 0.85rem;
+                    color: #64748b;
+                    margin: 0 0 16px 0;
+                }
+                .sam-search-bar {
+                    position: relative;
+                    width: 100%;
+                }
+                .sam-search-icon {
+                    position: absolute;
+                    left: 14px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: #94a3b8;
+                    font-size: 1rem;
+                }
+                .sam-search-bar input {
+                    width: 100%;
+                    padding: 10px 16px 10px 40px;
+                    border-radius: 12px;
+                    border: 1.5px solid #f1f5f9;
+                    background: #f8fafc;
+                    font-size: 0.85rem;
+                    transition: all 0.2s;
+                }
+                .sam-search-bar input:focus {
+                    outline: none;
+                    background: #fff;
+                    border-color: #10b981;
+                    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
+                }
+                .sam-body {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 20px 28px;
+                }
+                .sam-loading {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 40px 0;
+                    gap: 12px;
+                    color: #64748b;
+                    font-size: 0.88rem;
+                }
+                .sam-empty {
+                    text-align: center;
+                    padding: 40px 0;
+                }
+                .sam-empty-title {
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: #475569;
+                    margin: 0 0 4px 0;
+                }
+                .sam-empty-text {
+                    font-size: 0.85rem;
+                    color: #94a3b8;
+                    margin: 0;
+                }
+                .sam-candidates-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+                .sam-candidate-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 14px 18px;
+                    border-radius: 16px;
+                    border: 1.5px solid #f1f5f9;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                    gap: 14px;
+                }
+                .sam-candidate-item:hover {
+                    border-color: rgba(16, 185, 129, 0.25);
+                    background: rgba(16, 185, 129, 0.01);
+                }
+                .sam-candidate-item.selected {
+                    border-color: #10b981;
+                    background: rgba(16, 185, 129, 0.04);
+                }
+                .sam-item-selection input {
+                    cursor: pointer;
+                    accent-color: #10b981;
+                    width: 16px;
+                    height: 16px;
+                }
+                .sam-item-details {
+                    flex: 1;
+                }
+                .sam-item-name {
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                    margin-bottom: 2px;
+                }
+                .sam-item-meta {
+                    display: flex;
+                    gap: 8px;
+                    font-size: 0.78rem;
+                    color: #64748b;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }
+                .sam-meta-divider {
+                    color: #cbd5e1;
+                }
+                .sam-vacancy-badge {
+                    background: #f1f5f9;
+                    color: #475569;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-size: 0.7rem;
+                    font-weight: 600;
+                    max-width: 120px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .sam-check-icon {
+                    color: #10b981;
+                    font-size: 1.25rem;
+                    display: flex;
+                }
+                .sam-footer {
+                    display: flex;
+                    justify-content: flex-end;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 18px 28px;
+                    border-top: 1px solid #f1f5f9;
+                    background: #fcfcfd;
+                }
+                .sam-btn {
+                    padding: 9px 18px;
+                    border-radius: 10px;
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-family: var(--font-body);
+                    border: none;
+                }
+                .sam-btn.secondary {
+                    background: transparent;
+                    border: 1.5px solid #e2e8f0;
+                    color: #64748b;
+                }
+                .sam-btn.secondary:hover {
+                    background: #f8fafc;
+                }
+                .sam-btn.primary {
+                    background: #10b981;
+                    color: #fff;
+                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+                }
+                .sam-btn.primary:hover:not(:disabled) {
+                    background: #059669;
+                    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+                }
+                .sam-btn.primary:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    box-shadow: none;
+                }
+                .sam-btn.danger {
+                    background: #fee2e2;
+                    color: #dc2626;
+                    border: 1.5px solid #fecaca;
+                }
+                .sam-btn.danger:hover {
+                    background: #fecaca;
+                }
+
                 .manage-vacancies-console {
                     padding: 8px 0;
                     animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);

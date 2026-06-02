@@ -87,7 +87,8 @@ function CreateVacancy({ admin }) {
         try {
             setLoading(true);
             const compRes = await getCompanies();
-            setCompanies(compRes.data.data || []);
+            const fetchedCompanies = compRes.data.data || [];
+            setCompanies(fetchedCompanies);
 
             if (isEditing) {
                 // If we're editing, we might need a specific getVacancyById api call
@@ -112,6 +113,18 @@ function CreateVacancy({ admin }) {
                         is_active: vacancy.is_active
                     });
                 }
+            } else {
+                // If not editing, and company_id is pre-selected (e.g. for sub-admin)
+                const preselectedCompanyId = admin.role === 'sub_admin' ? admin.company_id : '';
+                if (preselectedCompanyId) {
+                    const selectedComp = fetchedCompanies.find(c => c.id == preselectedCompanyId);
+                    if (selectedComp && selectedComp.location) {
+                        setForm(prev => ({
+                            ...prev,
+                            location: selectedComp.location
+                        }));
+                    }
+                }
             }
         } catch (err) {
             console.error(err);
@@ -124,7 +137,16 @@ function CreateVacancy({ admin }) {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setForm(prev => ({ ...prev, [name]: value }));
+        if (name === 'company_id') {
+            const selectedComp = companies.find(c => c.id == value);
+            setForm(prev => ({ 
+                ...prev, 
+                company_id: value,
+                location: selectedComp && selectedComp.location ? selectedComp.location : ''
+            }));
+        } else {
+            setForm(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handleSubmit = async (e) => {

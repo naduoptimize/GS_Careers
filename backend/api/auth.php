@@ -49,8 +49,8 @@ function handleLogin()
     }
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT a.*, c.name as company_name, c.logo as company_logo FROM admins a LEFT JOIN companies c ON a.company_id = c.id WHERE a.username = ? AND a.is_active = 1");
-    $stmt->execute([$username]);
+    $stmt = $db->prepare("SELECT a.*, c.name as company_name, c.logo as company_logo FROM admins a LEFT JOIN companies c ON a.company_id = c.id WHERE (a.username = ? OR a.email = ?) AND a.is_active = 1");
+    $stmt->execute([$username, $username]);
     $admin = $stmt->fetch();
 
     if (!$admin || !password_verify($password, $admin['password'])) {

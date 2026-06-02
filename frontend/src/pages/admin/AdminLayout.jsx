@@ -9,6 +9,8 @@ function AdminLayout({ admin, children }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [vacanciesExpanded, setVacanciesExpanded] = useState(location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies'));
 
     const handleLogout = () => {
         localStorage.removeItem('gs_admin_token');
@@ -41,7 +43,7 @@ function AdminLayout({ admin, children }) {
     })?.label || 'Dashboard';
 
     return (
-        <div className="admin-layout">
+        <div className={`admin-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
             {/* Mobile header */}
             <div className="admin-mobile-header">
                 <button className="hamburger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle Sidebar">
@@ -68,8 +70,8 @@ function AdminLayout({ admin, children }) {
                 {/* Sidebar decorative top bar */}
                 <div className="sidebar-top-accent"></div>
 
-                <div className="sidebar-header">
-                    <div className="sidebar-brand">
+                <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                    <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                         <div className="sidebar-logo-wrapper">
                             <img 
                                 src={admin.role === 'sub_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
@@ -79,34 +81,126 @@ function AdminLayout({ admin, children }) {
                                 style={{ background: admin.role === 'sub_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role === 'sub_admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
                             />
                         </div>
-                        <div>
-                            <div className="sidebar-title">{admin.role === 'sub_admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
+                        <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
+                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role === 'sub_admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
                             <div className="sidebar-role">
                                 <span className="role-dot"></span>
                                 {admin.role === 'super_admin' ? 'Super Admin' : 'Sub Admin'}
                             </div>
                         </div>
                     </div>
+                    <button 
+                        className="sidebar-collapse-toggle" 
+                        onClick={() => {
+                            if (window.innerWidth <= 1024) {
+                                setSidebarOpen(false);
+                            } else {
+                                setSidebarCollapsed(!sidebarCollapsed);
+                            }
+                        }}
+                        aria-label="Toggle Sidebar" 
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            color: 'var(--crimson)', 
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            padding: '8px', 
+                            borderRadius: '8px', 
+                            transition: 'all 0.2s',
+                            flexShrink: 0
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(139, 26, 43, 0.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                        <FiMenu size={20} />
+                    </button>
                 </div>
 
                 {/* Navigation label */}
                 <div className="sidebar-nav-label">NAVIGATION</div>
 
                 <nav className="sidebar-nav">
-                    {navItems.map(item => (
-                        <NavLink
-                            key={item.to}
-                            to={item.to}
-                            end={item.end}
-                            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-                            onClick={() => setSidebarOpen(false)}
-                        >
-                            <span className="sidebar-link-icon">{item.icon}</span>
-                            <span className="sidebar-link-text">{item.label}</span>
-                            {item.badge && <span className="sidebar-badge">{item.badge}</span>}
-                            <FiChevronRight className="sidebar-link-arrow" size={14} />
-                        </NavLink>
-                    ))}
+                    {navItems.map(item => {
+                        if (item.label === 'Vacancies') {
+                            const isVacanciesActive = location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies');
+                            return (
+                                <div key={item.to} className="sidebar-dropdown-container">
+                                    <div
+                                        className={`sidebar-link ${isVacanciesActive ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setVacanciesExpanded(!vacanciesExpanded);
+                                            navigate('/admin/vacancies');
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <span className="sidebar-link-icon">{item.icon}</span>
+                                        <span className="sidebar-link-text">{item.label}</span>
+                                        <FiChevronRight 
+                                            className="sidebar-link-arrow" 
+                                            size={14} 
+                                            style={{ 
+                                                transform: vacanciesExpanded ? 'rotate(90deg)' : 'translateX(-4px)',
+                                                opacity: 1,
+                                                transition: 'transform 0.2s ease'
+                                            }} 
+                                        />
+                                    </div>
+                                    
+                                    {vacanciesExpanded && (
+                                        <div className="sidebar-submenu animate-slide-down">
+                                              <NavLink
+                                                  to="/admin/vacancies"
+                                                  end
+                                                  className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                  onClick={() => setSidebarOpen(false)}
+                                              >
+                                                  <span className="sidebar-sublink-bullet"></span>
+                                                  <span>Add Vacancies</span>
+                                              </NavLink>
+                                              {admin.role === 'super_admin' && (
+                                                  <>
+                                                      <NavLink
+                                                          to="/admin/vacancies/reports"
+                                                          className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                          onClick={() => setSidebarOpen(false)}
+                                                      >
+                                                          <span className="sidebar-sublink-bullet"></span>
+                                                          <span>Manage Vacancies</span>
+                                                      </NavLink>
+                                                      <NavLink
+                                                          to="/admin/companies"
+                                                          className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                          onClick={() => setSidebarOpen(false)}
+                                                      >
+                                                          <span className="sidebar-sublink-bullet"></span>
+                                                          <span>Manage Company</span>
+                                                      </NavLink>
+                                                  </>
+                                              )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+                        
+                        return (
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end={item.end}
+                                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <span className="sidebar-link-icon">{item.icon}</span>
+                                <span className="sidebar-link-text">{item.label}</span>
+                                {item.badge && <span className="sidebar-badge">{item.badge}</span>}
+                                <FiChevronRight className="sidebar-link-arrow" size={14} />
+                            </NavLink>
+                        );
+                    })}
                 </nav>
 
                 <div className="sidebar-footer">
@@ -256,6 +350,69 @@ function AdminLayout({ admin, children }) {
                     padding-left: 26px;
                 }
 
+                /* Submenu / Dropdown Styles */
+                .sidebar-submenu {
+                    padding-left: 24px;
+                    margin-top: 4px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .sidebar-sublink {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 16px;
+                    color: #64748b;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    text-decoration: none;
+                    border-radius: 10px;
+                    transition: all 0.25s ease;
+                }
+
+                .sidebar-sublink-bullet {
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 50%;
+                    background: #cbd5e1;
+                    transition: all 0.25s ease;
+                }
+
+                .sidebar-sublink:hover {
+                    color: var(--crimson);
+                    background: rgba(139, 26, 43, 0.03);
+                    padding-left: 20px;
+                }
+
+                .sidebar-sublink:hover .sidebar-sublink-bullet {
+                    background: var(--crimson);
+                    transform: scale(1.3);
+                }
+
+                .sidebar-sublink.active {
+                    color: var(--crimson);
+                    background: linear-gradient(135deg, rgba(139, 26, 43, 0.05), rgba(139, 26, 43, 0.02));
+                    font-weight: 700;
+                }
+
+                .sidebar-sublink.active .sidebar-sublink-bullet {
+                    background: var(--crimson);
+                    transform: scale(1.4);
+                    box-shadow: 0 0 6px rgba(139, 26, 43, 0.4);
+                }
+
+                .animate-slide-down {
+                    animation: slideDown 0.25s ease-out;
+                }
+
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-8px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
                 /* User Card */
                 .sidebar-user-card {
                     display: flex;
@@ -341,6 +498,74 @@ function AdminLayout({ admin, children }) {
                     border-color: rgba(220, 38, 38, 0.2);
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+                }
+
+                /* ── COLLAPSED STATE STYLES ── */
+                @media (min-width: 1025px) {
+                    .admin-layout.sidebar-collapsed .enhanced-sidebar {
+                        width: 76px;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .admin-content {
+                        margin-left: 76px;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-brand-text,
+                    .admin-layout.sidebar-collapsed .sidebar-link-text,
+                    .admin-layout.sidebar-collapsed .sidebar-link-arrow,
+                    .admin-layout.sidebar-collapsed .sidebar-nav-label,
+                    .admin-layout.sidebar-collapsed .sidebar-user-info,
+                    .admin-layout.sidebar-collapsed .sidebar-logout-btn span,
+                    .admin-layout.sidebar-collapsed .sidebar-submenu {
+                        display: none !important;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-logo-wrapper {
+                        width: 36px;
+                        height: 36px;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-brand {
+                        justify-content: center;
+                        gap: 0;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-header {
+                        padding: 0 10px 20px;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-link {
+                        justify-content: center;
+                        padding: 12px;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-link-icon {
+                        margin: 0;
+                        width: auto;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-user-card {
+                        padding: 6px;
+                        justify-content: center;
+                        background: none;
+                        border: none;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-avatar-enhanced {
+                        margin: 0;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-logout-btn {
+                        padding: 10px;
+                        background: none;
+                        border: none;
+                        color: #dc2626;
+                    }
+                    
+                    .admin-layout.sidebar-collapsed .sidebar-logout-btn:hover {
+                        background: rgba(220, 38, 38, 0.08);
+                        box-shadow: none;
+                    }
                 }
             `}</style>
         </div>

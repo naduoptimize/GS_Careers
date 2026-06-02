@@ -26,6 +26,7 @@ function ApplyPage() {
     const [submitting, setSubmitting] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [step, setStep] = useState(1);
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
     const [form, setForm] = useState({
         first_name: '', last_name: '', email: '', contact_number: '',
@@ -48,15 +49,182 @@ function ApplyPage() {
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-    const handleFileChange = (e) => {
+    const [parsing, setParsing] = useState(false);
+
+    useEffect(() => {
+        console.log("Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
+    }, []);
+
+    const extractTextFromPdf = async (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const typedarray = new Uint8Array(e.target.result);
+                    const pdfjsLib = window.pdfjsLib;
+                    if (!pdfjsLib) {
+                        reject(new Error("PDFJS library not loaded yet. Please wait."));
+                        return;
+                    }
+                    const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                    let fullText = "";
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(" ");
+                        fullText += pageText + "\n";
+                    }
+                    resolve(fullText);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    const parseResumeWithAI = async (file) => {
+        setParsing(true);
+        const toastId = toast.info("✨ Steuart AI is analyzing your CV...", { autoClose: false });
+        try {
+            const text = await extractTextFromPdf(file);
+            if (!text || text.trim().length === 0) {
+                throw new Error("Unable to extract text content from PDF resume.");
+            }
+
+            const GEMINI_API_KEY = "AIzaSyC06D6PK0tgP9_LfvANEndQIBTDx6xkn4s";
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                parts: [
+                                    {
+                                        text: `You are an expert resume parser for George Steuart & Company Ltd. 
+Parse the following candidate resume text and extract the details strictly matching the requested JSON schema.
+Ensure phone numbers are extracted correctly (usually starting with +94 or 07), first/last names are clean and correctly separated, and qualifications & experience are mapped EXACTLY to the allowed enum options.
+
+Resume Text:
+${text}`
+                                    }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    first_name: { type: "STRING" },
+                                    last_name: { type: "STRING" },
+                                    email: { type: "STRING" },
+                                    contact_number: { type: "STRING" },
+                                    qualification: { 
+                                        type: "STRING", 
+                                        enum: ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification']
+                                    },
+                                    overall_experience: { 
+                                        type: "STRING", 
+                                        enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
+                                    },
+                                    relevant_experience: { 
+                                        type: "STRING", 
+                                        enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
+                                    },
+                                    salary_expectation: { type: "STRING" }
+                                },
+                                required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience"]
+                            }
+                        }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
+            }
+
+            const data = await response.json();
+            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!textResponse) {
+                throw new Error("No structured text response from AI.");
+            }
+
+            const parsed = JSON.parse(textResponse);
+
+            // Populate form
+            setForm(prev => ({
+                ...prev,
+                first_name: parsed.first_name || prev.first_name || '',
+                last_name: parsed.last_name || prev.last_name || '',
+                email: parsed.email || prev.email || '',
+                contact_number: parsed.contact_number || prev.contact_number || '',
+                qualification: parsed.qualification || prev.qualification || '',
+                overall_experience: parsed.overall_experience || prev.overall_experience || '',
+                relevant_experience: parsed.relevant_experience || prev.relevant_experience || '',
+                salary_expectation: parsed.salary_expectation || prev.salary_expectation || ''
+            }));
+
+            toast.update(toastId, {
+                render: "🎉 Steuart AI successfully parsed your CV and auto-filled the form!",
+                type: "success",
+                autoClose: 4000,
+                isLoading: false
+            });
+        } catch (err) {
+            console.error("CV parsing error:", err);
+            toast.update(toastId, {
+                render: `⚠️ AI auto-fill failed: ${err.message || 'Please enter details manually.'}`,
+                type: "warning",
+                autoClose: 7000,
+                isLoading: false
+            });
+        } finally {
+            setParsing(false);
+        }
+    };
+
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
-        if (file && file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5MB).'); return; }
-        setForm({ ...form, cv: file });
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5MB).'); return; }
+        
+        setForm(prev => ({ ...prev, cv: file }));
+
+        if (file.type === 'application/pdf') {
+            await parseResumeWithAI(file);
+        } else {
+            toast.info('AI auto-fill is optimized for PDF resumes. Forms can still be filled manually.');
+        }
     };
 
     const handleReview = (e) => {
         e.preventDefault();
         if (!form.cv) { toast.error('Please upload your CV.'); return; }
+        
+        // Validate Salary Expectation (LKR)
+        const salary = form.salary_expectation?.toString().trim();
+        if (!salary) {
+            toast.error('Salary Expectation (LKR) is required.');
+            return;
+        }
+
+        // Clean formatting commas and check numeric validity
+        const cleanSalary = salary.replace(/,/g, '');
+        if (!/^\d+(\.\d+)?$/.test(cleanSalary) || parseFloat(cleanSalary) <= 0) {
+            toast.error('Salary Expectation must be a valid positive numeric amount (digits only, e.g. 150000 or 150,000).');
+            return;
+        }
+
+        if (!privacyAccepted) {
+            toast.error('You must agree to the Privacy Policy to proceed.');
+            return;
+        }
+
         setStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -194,6 +362,53 @@ function ApplyPage() {
                                 <h2 className="apb-card-title">Your Application</h2>
 
                                 <form onSubmit={handleReview}>
+                                    <style>{`
+                                        .spinner-small {
+                                            width: 22px;
+                                            height: 22px;
+                                            border: 2px solid rgba(200, 169, 81, 0.15);
+                                            border-top-color: var(--gold-accent, #c8a951);
+                                            border-radius: 50%;
+                                            animation: spin-cv 0.8s linear infinite;
+                                        }
+                                        @keyframes spin-cv {
+                                            to { transform: rotate(360deg); }
+                                        }
+                                    `}</style>
+
+                                    {/* CV Upload at the TOP */}
+                                    <div className="apb-fieldset-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                        <span>Quick Apply: Upload Your CV</span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold', background: 'rgba(200, 169, 81, 0.08)', padding: '3px 10px', borderRadius: '100px', border: '1px solid rgba(200,169,81,0.15)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                                            ✨ Gemini AI Auto-Fill Enabled
+                                        </span>
+                                    </div>
+                                    <div className="apb-upload" style={{ position: 'relative', border: parsing ? '2px dashed var(--gold-accent)' : '2px dashed var(--border-light)', cursor: parsing ? 'not-allowed' : 'pointer' }} onClick={() => !parsing && document.getElementById('cv-file').click()}>
+                                        <input id="cv-file" type="file" accept=".pdf"
+                                            style={{ display: 'none' }} onChange={handleFileChange} disabled={parsing} />
+                                        
+                                        {parsing ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', padding: '4px 0' }}>
+                                                <div className="spinner-small" style={{ flexShrink: 0 }}></div>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>Steuart AI is parsing your resume...</div>
+                                                    <div className="apb-upload-hint">Extracting contact details, qualifications, and experience. Please wait.</div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className={`apb-upload-icon ${form.cv ? 'has-file' : ''}`}>
+                                                    {form.cv ? <FiCheck size={22} /> : <FiUpload size={22} />}
+                                                </div>
+                                                <div style={{ textAlign: 'left' }}>
+                                                    <div className="apb-upload-text">{form.cv ? form.cv.name : 'Click here to upload your PDF CV'}</div>
+                                                    <div className="apb-upload-hint">Upload a PDF resume to instantly pre-fill all form details in a single click!</div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
                                     {/* Personal Info */}
                                     <div className="apb-fieldset-label">Personal Information</div>
                                     <div className="apb-grid2">
@@ -245,9 +460,8 @@ function ApplyPage() {
                                             </div>
                                         </div>
                                         <div className="apb-field">
-                                            <label>Salary Expectation (LKR)</label>
-                                            <div className="apb-iw">
-
+                                            <label>Salary Expectation (LKR) <span className="req">*</span></label>
+                                            <div className="apb-iw"><FiDollarSign className="apb-ico" />
                                                 <input
                                                     type="text"
                                                     name="salary_expectation"
@@ -255,6 +469,7 @@ function ApplyPage() {
                                                     value={form.salary_expectation}
                                                     onChange={handleChange}
                                                     placeholder="e.g. 150,000"
+                                                    required
                                                 />
                                             </div>
                                         </div>
@@ -292,23 +507,17 @@ function ApplyPage() {
                                         </div>
                                     </div>
 
-                                    {/* CV Upload */}
-                                    <div className="apb-fieldset-label">Upload Your CV</div>
-                                    <div className="apb-upload" onClick={() => document.getElementById('cv-file').click()}>
-                                        <input id="cv-file" type="file" accept=".pdf,.doc,.docx"
-                                            style={{ display: 'none' }} onChange={handleFileChange} />
-                                        <div className={`apb-upload-icon ${form.cv ? 'has-file' : ''}`}>
-                                            {form.cv ? <FiCheck size={22} /> : <FiUpload size={22} />}
-                                        </div>
-                                        <div>
-                                            <div className="apb-upload-text">{form.cv ? form.cv.name : 'Click to upload your CV'}</div>
-                                            <div className="apb-upload-hint">PDF, DOC, DOCX · Max 5MB</div>
-                                        </div>
-                                    </div>
+                                    {/* CV is now uploaded and parsed at the top */}
 
                                     {/* Privacy Consent */}
                                     <div className="apb-consent">
-                                        <input type="checkbox" id="priv" required />
+                                        <input
+                                            type="checkbox"
+                                            id="priv"
+                                            checked={privacyAccepted}
+                                            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                            required
+                                        />
                                         <label htmlFor="priv">
                                             I agree my personal information may be processed for recruitment purposes per the <a href="#">Privacy Policy</a>.
                                         </label>
@@ -339,7 +548,15 @@ function ApplyPage() {
                                         {form.future_consent === false && <div className="apb-tp-note no">Only used for this application.</div>}
                                     </div>
 
-                                    <button type="submit" className="apb-submit">
+                                    <button
+                                        type="submit"
+                                        className="apb-submit"
+                                        disabled={!privacyAccepted}
+                                        style={{
+                                            opacity: !privacyAccepted ? 0.6 : 1,
+                                            cursor: !privacyAccepted ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
                                         Review Application <FiChevronRight />
                                     </button>
                                 </form>

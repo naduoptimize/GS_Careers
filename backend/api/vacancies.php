@@ -25,6 +25,9 @@ switch ($action) {
     case 'delete':
         deleteVacancy();
         break;
+    case 'assign_candidate':
+        assignCandidate();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -73,7 +76,13 @@ function listAllVacancies()
     $db = getDB();
 
     $sql = "SELECT v.*, c.name as company_name, c.logo as company_logo,
+            a_sel.first_name as selected_first_name, a_sel.last_name as selected_last_name,
+            a_sel.email as selected_email, a_sel.contact_number as selected_contact_number,
             (SELECT COUNT(*) FROM applications a WHERE a.vacancy_id = v.id) as application_count,
+            (SELECT COUNT(*) FROM applications a3 WHERE a3.vacancy_id = v.id AND a3.status = 'pending') as pending_count,
+            (SELECT COUNT(*) FROM applications a4 WHERE a4.vacancy_id = v.id AND a4.status = 'under_review') as review_count,
+            (SELECT COUNT(*) FROM applications a5 WHERE a5.vacancy_id = v.id AND a5.status = 'rejected') as rejected_count,
+            (SELECT COUNT(*) FROM applications a6 WHERE a6.vacancy_id = v.id AND a6.status = 'shortlisted') as shortlisted_count,
             (SELECT COUNT(DISTINCT a2.email) 
              FROM applications a2 
              JOIN vacancies v2 ON a2.vacancy_id = v2.id 
@@ -82,7 +91,8 @@ function listAllVacancies()
                AND v2.designation = v.designation
                AND a2.email NOT IN (SELECT email FROM applications WHERE vacancy_id = v.id)) as pool_match_count
             FROM vacancies v 
-            JOIN companies c ON v.company_id = c.id";
+            JOIN companies c ON v.company_id = c.id
+            LEFT JOIN applications a_sel ON v.hired_application_id = a_sel.id";
     $params = [];
 
     // Sub admin can only see their company's vacancies
@@ -113,7 +123,13 @@ function getVacancy()
         jsonResponse(400, 'Invalid vacancy ID');
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT v.*, c.name as company_name, c.logo as company_logo FROM vacancies v JOIN companies c ON v.company_id = c.id WHERE v.id = ?");
+    $stmt = $db->prepare("SELECT v.*, c.name as company_name, c.logo as company_logo,
+                          a_sel.first_name as selected_first_name, a_sel.last_name as selected_last_name,
+                          a_sel.email as selected_email, a_sel.contact_number as selected_contact_number
+                          FROM vacancies v 
+                          JOIN companies c ON v.company_id = c.id 
+                          LEFT JOIN applications a_sel ON v.hired_application_id = a_sel.id
+                          WHERE v.id = ?");
     $stmt->execute([$id]);
     $vacancy = $stmt->fetch();
 
@@ -228,4 +244,44 @@ function deleteVacancy()
     $stmt->execute([$id]);
 
     jsonResponse(200, 'Vacancy deleted successfully');
+}
+
+function assignCandidate()
+{
+    $auth = verifyToken();
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    $vacancyId = (int)($input['vacancy_id'] ?? 0);
+    $applicationId = isset($input['application_id']) && $input['application_id'] !== '' ? (int)$input['application_id'] : null;
+
+    if ($vacancyId <= 0) {
+        jsonResponse(400, 'Invalid vacancy ID');
+    }
+
+    $db = getDB();
+
+    // Check ownership for sub admin
+    if ($auth['role'] === 'sub_admin') {
+        $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
+        $stmt->execute([$vacancyId]);
+        $vacancy = $stmt->fetch();
+        if (!$vacancy || (int)$vacancy['company_id'] !== (int)$auth['company_id']) {
+            jsonResponse(403, 'You can only assign candidates for your company vacancies');
+        }
+    }
+
+    // Verify candidate application belongs to this vacancy if assigning
+    if ($applicationId !== null) {
+        $stmt = $db->prepare("SELECT id, status FROM applications WHERE id = ?");
+        $stmt->execute([$applicationId]);
+        $app = $stmt->fetch();
+        if (!$app) {
+            jsonResponse(404, 'Candidate application not found');
+        }
+    }
+
+    $stmt = $db->prepare("UPDATE vacancies SET hired_application_id = ? WHERE id = ?");
+    $stmt->execute([$applicationId, $vacancyId]);
+
+    jsonResponse(200, 'Candidate assigned to vacancy successfully');
 }
