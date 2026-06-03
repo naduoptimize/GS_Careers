@@ -1362,9 +1362,10 @@ function Applicants({ admin }) {
                                                     ) : (
                                                         <button
                                                             className="action-btn success"
-                                                            title="Send Interview Invite"
-                                                            style={{ background: '#ebf8ff', color: '#2b6cb0', border: '1px solid #bee3f8' }}
+                                                            title={admin.role === 'sub_admin' ? "Action restricted for sub-admin" : "Send Interview Invite"}
+                                                            style={{ background: '#ebf8ff', color: '#2b6cb0', border: '1px solid #bee3f8', opacity: admin.role === 'sub_admin' ? 0.5 : 1, cursor: admin.role === 'sub_admin' ? 'not-allowed' : 'pointer' }}
                                                             onClick={(e) => { e.stopPropagation(); setInviteTarget(app); setShowSendInviteModal(true); }}
+                                                            disabled={admin.role === 'sub_admin'}
                                                         >
                                                             📩
                                                         </button>
@@ -1372,8 +1373,10 @@ function Applicants({ admin }) {
                                                 ) : (
                                                     <button
                                                         className="action-btn success"
-                                                        title="Shortlist Candidate"
+                                                        title={admin.role === 'sub_admin' ? "Action restricted for sub-admin" : "Shortlist Candidate"}
+                                                        style={{ opacity: admin.role === 'sub_admin' ? 0.5 : 1, cursor: admin.role === 'sub_admin' ? 'not-allowed' : 'pointer' }}
                                                         onClick={(e) => { e.stopPropagation(); setShowDetail(app); setShowConfirmShortlist(true); }}
+                                                        disabled={admin.role === 'sub_admin'}
                                                     >
                                                         <FiCheckCircle size={18} />
                                                     </button>
@@ -1573,7 +1576,11 @@ function Applicants({ admin }) {
 
                         {/* Fixed Actions Footer */}
                         <div className="modal-actions-footer-p" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            {showDetail.status === 'rejected' ? (
+                            {admin.role === 'sub_admin' ? (
+                                <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
+                                    Close
+                                </button>
+                            ) : showDetail.status === 'rejected' ? (
                                 <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
                                     Close
                                 </button>

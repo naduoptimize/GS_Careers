@@ -51,11 +51,11 @@ function AdminLayout({ admin, children }) {
                 </button>
                 <div className="mobile-brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <img 
-                        src={admin.role === 'sub_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
+                        src={admin.role !== 'super_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
                         alt="George Steuart & Co" 
                         className="sidebar-logo" 
                         onError={(e) => e.target.src = "/gs-logo.png"}
-                        style={{ height: 32, width: 'auto', objectFit: 'contain', background: admin.role === 'sub_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role === 'sub_admin' && admin.company_logo ? '2px' : '0', borderRadius: '4px' }} 
+                        style={{ height: 32, width: 'auto', objectFit: 'contain', background: admin.role !== 'super_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.company_logo ? '2px' : '0', borderRadius: '4px' }} 
                     />
                     <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--crimson)' }}>Admin</span>
                 </div>
@@ -74,18 +74,18 @@ function AdminLayout({ admin, children }) {
                     <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                         <div className="sidebar-logo-wrapper">
                             <img 
-                                src={admin.role === 'sub_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
+                                src={admin.role !== 'super_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
                                 alt="George Steuart & Co" 
                                 className="sidebar-logo" 
                                 onError={(e) => e.target.src = "/gs-logo.png"}
-                                style={{ background: admin.role === 'sub_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role === 'sub_admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
+                                style={{ background: admin.role !== 'super_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
                             />
                         </div>
                         <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
-                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role === 'sub_admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
+                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role !== 'super_admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
                             <div className="sidebar-role">
                                 <span className="role-dot"></span>
-                                {admin.role === 'super_admin' ? 'Super Admin' : 'Sub Admin'}
+                                {admin.role === 'super_admin' ? 'Super Admin' : (admin.role === 'admin' ? 'Admin' : 'Sub Admin')}
                             </div>
                         </div>
                     </div>
@@ -213,7 +213,7 @@ function AdminLayout({ admin, children }) {
                         <div className="sidebar-user-info">
                             <div className="sidebar-user-name">{admin.full_name}</div>
                             <div className="sidebar-user-role">
-                                {admin.role === 'super_admin' ? 'Super Administrator' : admin.company_name || 'Sub Admin'}
+                                {admin.role === 'super_admin' ? 'Super Administrator' : `${admin.role === 'admin' ? 'Admin' : 'Sub Admin'} · ${admin.company_name || ''}`}
                             </div>
                         </div>
                     </div>

@@ -53,8 +53,8 @@ function createAdmin()
         jsonResponse(400, 'All fields are required');
     }
 
-    if ($role === 'sub_admin' && empty($companyId)) {
-        jsonResponse(400, 'Company is required for sub admin');
+    if (($role === 'admin' || $role === 'sub_admin') && empty($companyId)) {
+        jsonResponse(400, 'Company is required for ' . ($role === 'admin' ? 'admin' : 'sub admin'));
     }
 
     $db = getDB();
@@ -66,12 +66,12 @@ function createAdmin()
         jsonResponse(409, 'Username or email already exists');
     }
 
-    // Check if company already has a sub admin
-    if ($role === 'sub_admin' && $companyId) {
-        $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = 'sub_admin' AND is_active = 1");
-        $stmt->execute([$companyId]);
+    // Check if company already has an active admin or sub admin of the selected role
+    if (($role === 'admin' || $role === 'sub_admin') && $companyId) {
+        $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = ? AND is_active = 1");
+        $stmt->execute([$companyId, $role]);
         if ($stmt->fetch()) {
-            jsonResponse(409, 'This company already has an active sub admin');
+            jsonResponse(409, 'This company already has an active ' . ($role === 'admin' ? 'admin' : 'sub admin'));
         }
     }
 
@@ -99,6 +99,45 @@ function updateAdmin()
 
     $db = getDB();
 
+    // Fetch current admin profile to compare changes
+    $stmt = $db->prepare("SELECT * FROM admins WHERE id = ?");
+    $stmt->execute([$id]);
+    $currentAdmin = $stmt->fetch();
+    if (!$currentAdmin) {
+        jsonResponse(404, 'Admin not found');
+    }
+
+    $role = $input['role'] ?? $currentAdmin['role'];
+    $companyId = isset($input['company_id']) ? (!empty($input['company_id']) ? (int)$input['company_id'] : null) : ($currentAdmin['company_id'] ? (int)$currentAdmin['company_id'] : null);
+    $isActive = isset($input['is_active']) ? (int)$input['is_active'] : (int)$currentAdmin['is_active'];
+
+    // If role is super_admin, company_id must be null
+    if ($role === 'super_admin') {
+        $companyId = null;
+    }
+
+    if (($role === 'admin' || $role === 'sub_admin') && empty($companyId)) {
+        jsonResponse(400, 'Company is required for ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+    }
+
+    // Check if company already has an active administrator of the selected role
+    if (($role === 'admin' || $role === 'sub_admin') && $companyId && $isActive === 1) {
+        $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = ? AND is_active = 1 AND id != ?");
+        $stmt->execute([$companyId, $role, $id]);
+        if ($stmt->fetch()) {
+            jsonResponse(409, 'This company already has an active ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+        }
+    }
+
+    // Check email uniqueness if changed
+    if (!empty($input['email']) && $input['email'] !== $currentAdmin['email']) {
+        $stmt = $db->prepare("SELECT id FROM admins WHERE email = ? AND id != ?");
+        $stmt->execute([sanitize($input['email']), $id]);
+        if ($stmt->fetch()) {
+            jsonResponse(409, 'Email address already exists');
+        }
+    }
+
     $fields = [];
     $params = [];
 
@@ -110,13 +149,16 @@ function updateAdmin()
         $fields[] = "email = ?";
         $params[] = sanitize($input['email']);
     }
+    
+    $fields[] = "role = ?";
+    $params[] = $role;
+    
+    $fields[] = "company_id = ?";
+    $params[] = $companyId;
+
     if (isset($input['is_active'])) {
         $fields[] = "is_active = ?";
-        $params[] = (int)$input['is_active'];
-    }
-    if (!empty($input['company_id'])) {
-        $fields[] = "company_id = ?";
-        $params[] = (int)$input['company_id'];
+        $params[] = $isActive;
     }
 
     if (empty($fields)) {

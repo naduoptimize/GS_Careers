@@ -75,8 +75,8 @@ function ManageAdmins({ admin }) {
             toast.error('Please fill in all required fields');
             return;
         }
-        if (form.role === 'sub_admin' && !form.company_id) {
-            toast.error('Company is required for sub admin');
+        if ((form.role === 'sub_admin' || form.role === 'admin') && !form.company_id) {
+            toast.error('Company is required for this role');
             return;
         }
 
@@ -144,6 +144,7 @@ function ManageAdmins({ admin }) {
     const stats = {
         total: admins.length,
         super: admins.filter(a => a.role === 'super_admin').length,
+        adminRole: admins.filter(a => a.role === 'admin').length,
         sub: admins.filter(a => a.role === 'sub_admin').length,
         active: admins.filter(a => a.is_active).length,
         companies: new Set(admins.filter(a => a.company_id).map(a => a.company_id)).size
@@ -187,8 +188,8 @@ function ManageAdmins({ admin }) {
                 <div className="stat-glass-card blue">
                     <div className="s-icon"><FiUserCheck /></div>
                     <div className="s-info">
-                        <span className="s-label">Operational (Sub)</span>
-                        <span className="s-value">{stats.sub}</span>
+                        <span className="s-label">Operational (Admin / Sub)</span>
+                        <span className="s-value">{stats.adminRole} / {stats.sub}</span>
                     </div>
                     <div className="s-trend">Company Scoped</div>
                 </div>
@@ -235,6 +236,7 @@ function ManageAdmins({ admin }) {
                             >
                                 <option value="">All Authority Roles</option>
                                 <option value="super_admin">Super Admins Only</option>
+                                <option value="admin">Admins Only</option>
                                 <option value="sub_admin">Sub Admins Only</option>
                             </select>
                         </div>
@@ -294,8 +296,8 @@ function ManageAdmins({ admin }) {
                                     </td>
                                     <td data-label="Authority Level">
                                         <div className="role-cell">
-                                            <span className={`role-badge-p ${a.role === 'super_admin' ? 'role-super' : 'role-sub'}`}>
-                                                {a.role === 'super_admin' ? 'Super Admin' : 'Sub Admin'}
+                                            <span className={`role-badge-p ${a.role === 'super_admin' ? 'role-super' : (a.role === 'admin' ? 'role-admin' : 'role-sub')}`}>
+                                                {a.role === 'super_admin' ? 'Super Admin' : (a.role === 'admin' ? 'Admin' : 'Sub Admin')}
                                             </span>
                                             <div className="admin-email-p" style={{ marginTop: '4px' }}>@{a.username}</div>
                                         </div>
@@ -431,11 +433,12 @@ function ManageAdmins({ admin }) {
                                             onChange={(e) => setForm({ ...form, role: e.target.value })}
                                         >
                                             <option value="sub_admin">Sub Admin</option>
+                                            <option value="admin">Admin</option>
                                             <option value="super_admin">Super Admin</option>
                                         </select>
                                     </div>
 
-                                    {form.role === 'sub_admin' && (
+                                    {(form.role === 'sub_admin' || form.role === 'admin') && (
                                         <div className="form-group-p">
                                             <label htmlFor="company_id">Assign Company</label>
                                             <select

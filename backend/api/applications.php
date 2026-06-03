@@ -576,8 +576,8 @@ function listApplications()
             WHERE 1=1";
     $params = [];
 
-    // Sub admin restriction
-    if ($auth['role'] === 'sub_admin') {
+    // Company scoped admin restriction
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -644,6 +644,9 @@ function listApplications()
 function handleUpdateStatus()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to modify application status');
+    }
     $db = getDB();
 
     $data = json_decode(file_get_contents('php://input'), true);
@@ -672,7 +675,7 @@ function handleUpdateStatus()
         jsonResponse(404, 'Application not found');
     }
 
-    if ($auth['role'] === 'sub_admin' && $application['company_id'] != $auth['company_id']) {
+    if ($auth['role'] !== 'super_admin' && $application['company_id'] != $auth['company_id']) {
         jsonResponse(403, 'Unauthorized access to this application');
     }
 
@@ -719,6 +722,9 @@ function handleUpdateStatus()
 function handleSendInterview()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to schedule interviews');
+    }
     $db = getDB();
 
     $data = json_decode(file_get_contents('php://input'), true);
@@ -751,7 +757,7 @@ function handleSendInterview()
         jsonResponse(404, 'Application not found');
     }
 
-    if ($auth['role'] === 'sub_admin' && $application['company_id'] != $auth['company_id']) {
+    if ($auth['role'] !== 'super_admin' && $application['company_id'] != $auth['company_id']) {
         jsonResponse(403, 'Unauthorized');
     }
 
@@ -803,7 +809,7 @@ function exportApplications()
             WHERE 1=1";
     $params = [];
 
-    if ($auth['role'] === 'sub_admin') {
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1055,8 +1061,8 @@ function handleGetSuggestions()
         }
     }
 
-    // Restriction for sub_admin
-    if ($auth['role'] === 'sub_admin') {
+    // Restriction for company scoped admin
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1118,8 +1124,8 @@ function handleGetCandidateCount()
         $params[] = $companyId;
     }
 
-    // Restriction for sub_admin
-    if ($auth['role'] === 'sub_admin') {
+    // Restriction for company scoped admin
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1184,8 +1190,8 @@ function handleGetMatchingCandidates()
         $params[] = $companyId;
     }
 
-    // Restriction for sub_admin
-    if ($auth['role'] === 'sub_admin') {
+    // Restriction for company scoped admin
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1245,7 +1251,7 @@ function handleGetTalentPool()
         $countParams[] = $companyId;
     }
     
-    if ($auth['role'] === 'sub_admin') {
+    if ($auth['role'] !== 'super_admin') {
         $countSql .= " AND v.company_id = ?";
         $countParams[] = $auth['company_id'];
     }
@@ -1304,8 +1310,8 @@ function handleGetTalentPool()
         $params[] = $statusFilter;
     }
 
-    // Restriction for sub_admin
-    if ($auth['role'] === 'sub_admin') {
+    // Restriction for company scoped admin
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1326,6 +1332,9 @@ function handleGetTalentPool()
 function handleBlockCandidate()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to block candidates');
+    }
     $db = getDB();
 
     $data = json_decode(file_get_contents('php://input'), true);
@@ -1355,6 +1364,9 @@ function handleBlockCandidate()
 function handleUnblockCandidate()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to unblock candidates');
+    }
     $db = getDB();
 
     $data = json_decode(file_get_contents('php://input'), true);
@@ -1376,7 +1388,10 @@ function handleUnblockCandidate()
 
 function handleUpdateCandidateTags()
 {
-    verifyToken();
+    $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to update candidate tags');
+    }
     $db = getDB();
 
     $id = (int) ($_POST['id'] ?? 0);
@@ -1468,7 +1483,10 @@ function handleViewCV()
 
 function handleDeleteApplication()
 {
-    verifyToken();
+    $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to delete applications');
+    }
     $db = getDB();
 
     $id = (int) ($_POST['id'] ?? 0);
@@ -1486,7 +1504,10 @@ function handleDeleteApplication()
 
 function handleBulkDeleteApplications()
 {
-    verifyToken();
+    $auth = verifyToken();
+    if ($auth['role'] === 'sub_admin') {
+        jsonResponse(403, 'Sub-admins do not have permission to delete applications');
+    }
     $db = getDB();
 
     $ids = $_POST['ids'] ?? [];

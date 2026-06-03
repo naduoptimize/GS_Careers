@@ -95,8 +95,8 @@ function listAllVacancies()
             LEFT JOIN applications a_sel ON v.hired_application_id = a_sel.id";
     $params = [];
 
-    // Sub admin can only see their company's vacancies
-    if ($auth['role'] === 'sub_admin') {
+    // Company scoped admins can only see their company's vacancies
+    if ($auth['role'] !== 'super_admin') {
         $sql .= " WHERE v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -151,8 +151,8 @@ function createVacancy()
         }
     }
 
-    // Sub admin can only create for their company
-    if ($auth['role'] === 'sub_admin' && (int)$input['company_id'] !== (int)$auth['company_id']) {
+    // Company scoped admins can only create for their company
+    if ($auth['role'] !== 'super_admin' && (int)$input['company_id'] !== (int)$auth['company_id']) {
         jsonResponse(403, 'You can only create vacancies for your company');
     }
 
@@ -188,8 +188,8 @@ function updateVacancy()
 
     $db = getDB();
 
-    // Check ownership for sub admin
-    if ($auth['role'] === 'sub_admin') {
+    // Check ownership for company scoped admins
+    if ($auth['role'] !== 'super_admin') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$id]);
         $vacancy = $stmt->fetch();
@@ -230,8 +230,8 @@ function deleteVacancy()
 
     $db = getDB();
 
-    // Check ownership for sub admin
-    if ($auth['role'] === 'sub_admin') {
+    // Check ownership for company scoped admins
+    if ($auth['role'] !== 'super_admin') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$id]);
         $vacancy = $stmt->fetch();
@@ -260,8 +260,8 @@ function assignCandidate()
 
     $db = getDB();
 
-    // Check ownership for sub admin
-    if ($auth['role'] === 'sub_admin') {
+    // Check ownership for company scoped admins
+    if ($auth['role'] !== 'super_admin') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$vacancyId]);
         $vacancy = $stmt->fetch();

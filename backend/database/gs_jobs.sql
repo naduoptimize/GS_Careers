@@ -38,7 +38,7 @@ CREATE TABLE admins (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
-    role ENUM('super_admin', 'sub_admin') NOT NULL DEFAULT 'sub_admin',
+    role ENUM('super_admin', 'admin', 'sub_admin') NOT NULL DEFAULT 'sub_admin',
     company_id INT DEFAULT NULL,
     is_active TINYINT(1) DEFAULT 1,
     require_password_change TINYINT(1) DEFAULT 0,

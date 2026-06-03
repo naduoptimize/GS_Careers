@@ -21,7 +21,7 @@ function CreateVacancy({ admin }) {
     const [searchingMatches, setSearchingMatches] = useState(false);
     const [loadingMatches, setLoadingMatches] = useState(false);
     const [form, setForm] = useState({
-        company_id: admin.role === 'sub_admin' ? admin.company_id : '',
+        company_id: admin.role !== 'super_admin' ? admin.company_id : '',
         reference_number: '',
         title: '',
         designation: '',
@@ -114,8 +114,8 @@ function CreateVacancy({ admin }) {
                     });
                 }
             } else {
-                // If not editing, and company_id is pre-selected (e.g. for sub-admin)
-                const preselectedCompanyId = admin.role === 'sub_admin' ? admin.company_id : '';
+                // If not editing, and company_id is pre-selected (e.g. for company-level admin/sub-admin)
+                const preselectedCompanyId = admin.role !== 'super_admin' ? admin.company_id : '';
                 if (preselectedCompanyId) {
                     const selectedComp = fetchedCompanies.find(c => c.id == preselectedCompanyId);
                     if (selectedComp && selectedComp.location) {
@@ -231,7 +231,7 @@ function CreateVacancy({ admin }) {
                                             name="company_id"
                                             value={form.company_id}
                                             onChange={handleChange}
-                                            disabled={admin.role === 'sub_admin'}
+                                            disabled={admin.role !== 'super_admin'}
                                             className="premium-input"
                                         >
                                             <option value="">Select company</option>
