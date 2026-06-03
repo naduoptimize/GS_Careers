@@ -93,59 +93,98 @@ function ApplyPage() {
                 throw new Error("Unable to extract text content from PDF resume.");
             }
 
-            const GEMINI_API_KEY = "AIzaSyC06D6PK0tgP9_LfvANEndQIBTDx6xkn4s";
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                parts: [
+            const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+            if (!GEMINI_API_KEY) {
+                throw new Error("Gemini API key is not configured. Please define VITE_GEMINI_API_KEY in your .env file.");
+            }
+            const models = [
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro"
+            ];
+
+            let response = null;
+            let lastError = null;
+            let successfulModel = null;
+
+            for (const model of models) {
+                try {
+                    console.log(`Attempting AI resume parsing with model: ${model}`);
+                    const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                contents: [
                                     {
-                                        text: `You are an expert resume parser for George Steuart & Company Ltd. 
+                                        parts: [
+                                            {
+                                                text: `You are an expert resume parser for George Steuart & Company Ltd. 
 Parse the following candidate resume text and extract the details strictly matching the requested JSON schema.
 Ensure phone numbers are extracted correctly (usually starting with +94 or 07), first/last names are clean and correctly separated, and qualifications & experience are mapped EXACTLY to the allowed enum options.
 
 Resume Text:
 ${text}`
+                                            }
+                                        ]
                                     }
-                                ]
-                            }
-                        ],
-                        generationConfig: {
-                            responseMimeType: "application/json",
-                            responseSchema: {
-                                type: "OBJECT",
-                                properties: {
-                                    first_name: { type: "STRING" },
-                                    last_name: { type: "STRING" },
-                                    email: { type: "STRING" },
-                                    contact_number: { type: "STRING" },
-                                    qualification: { 
-                                        type: "STRING", 
-                                        enum: ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification']
-                                    },
-                                    overall_experience: { 
-                                        type: "STRING", 
-                                        enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
-                                    },
-                                    relevant_experience: { 
-                                        type: "STRING", 
-                                        enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
-                                    },
-                                    salary_expectation: { type: "STRING" }
-                                },
-                                required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience"]
-                            }
+                                ],
+                                generationConfig: {
+                                    responseMimeType: "application/json",
+                                    responseSchema: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            first_name: { type: "STRING" },
+                                            last_name: { type: "STRING" },
+                                            email: { type: "STRING" },
+                                            contact_number: { type: "STRING" },
+                                            qualification: { 
+                                                type: "STRING", 
+                                                enum: ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification']
+                                            },
+                                            overall_experience: { 
+                                                type: "STRING", 
+                                                enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
+                                            },
+                                            relevant_experience: { 
+                                                type: "STRING", 
+                                                enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
+                                            },
+                                            salary_expectation: { type: "STRING" }
+                                        },
+                                        required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience"]
+                                    }
+                                }
+                            })
                         }
-                    })
-                }
-            );
+                    );
 
-            if (!response.ok) {
-                throw new Error(`API returned status ${response.status}`);
+                    if (res.ok) {
+                        response = res;
+                        successfulModel = model;
+                        console.log(`Successfully parsed resume using model: ${model}`);
+                        break;
+                    } else {
+                        let errorMsg = `API returned status ${res.status}`;
+                        try {
+                            const errorJson = await res.json();
+                            if (errorJson?.error?.message) {
+                                errorMsg += `: ${errorJson.error.message}`;
+                            }
+                        } catch (_) {}
+                        console.warn(`Model ${model} failed: ${errorMsg}`);
+                        lastError = new Error(errorMsg);
+                    }
+                } catch (fetchErr) {
+                    console.warn(`Network/fetch error for model ${model}:`, fetchErr);
+                    lastError = fetchErr;
+                }
+            }
+
+            if (!response) {
+                throw lastError || new Error("All Gemini models failed to parse the resume.");
             }
 
             const data = await response.json();
