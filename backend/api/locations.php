@@ -40,8 +40,8 @@ function listLocations()
 function createLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage company locations');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -77,8 +77,8 @@ function createLocation()
 function updateLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage company locations');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -115,8 +115,8 @@ function updateLocation()
 function deleteLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage company locations');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);

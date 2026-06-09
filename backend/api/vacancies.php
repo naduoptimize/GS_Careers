@@ -28,6 +28,9 @@ switch ($action) {
     case 'assign_candidate':
         assignCandidate();
         break;
+    case 'next_reference_number':
+        getNextReferenceNumber();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -96,13 +99,13 @@ function listAllVacancies()
     $params = [];
 
     // Company scoped admins can only see their company's vacancies
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
         $sql .= " WHERE v.company_id = ?";
         $params[] = $auth['company_id'];
     }
 
     $companyId = $_GET['company_id'] ?? '';
-    if (!empty($companyId) && $auth['role'] === 'super_admin') {
+    if (!empty($companyId) && ($auth['role'] === 'super_admin' || $auth['role'] === 'admin')) {
         $sql .= " WHERE v.company_id = ?";
         $params[] = $companyId;
     }
@@ -142,6 +145,9 @@ function getVacancy()
 function createVacancy()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'super_admin') {
+        jsonResponse(403, 'Super Admin does not have write access');
+    }
     $input = json_decode(file_get_contents('php://input'), true);
 
     $required = ['company_id', 'title', 'designation', 'description', 'publish_date', 'expire_date'];
@@ -152,7 +158,7 @@ function createVacancy()
     }
 
     // Company scoped admins can only create for their company
-    if ($auth['role'] !== 'super_admin' && (int)$input['company_id'] !== (int)$auth['company_id']) {
+    if (($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') && (int)$input['company_id'] !== (int)$auth['company_id']) {
         jsonResponse(403, 'You can only create vacancies for your company');
     }
 
@@ -180,6 +186,9 @@ function createVacancy()
 function updateVacancy()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'super_admin') {
+        jsonResponse(403, 'Super Admin does not have write access');
+    }
     $input = json_decode(file_get_contents('php://input'), true);
     $id = (int)($input['id'] ?? 0);
 
@@ -189,7 +198,7 @@ function updateVacancy()
     $db = getDB();
 
     // Check ownership for company scoped admins
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$id]);
         $vacancy = $stmt->fetch();
@@ -222,6 +231,9 @@ function updateVacancy()
 function deleteVacancy()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'super_admin') {
+        jsonResponse(403, 'Super Admin does not have write access');
+    }
     $input = json_decode(file_get_contents('php://input'), true);
     $id = (int)($input['id'] ?? 0);
 
@@ -231,7 +243,7 @@ function deleteVacancy()
     $db = getDB();
 
     // Check ownership for company scoped admins
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$id]);
         $vacancy = $stmt->fetch();
@@ -249,6 +261,9 @@ function deleteVacancy()
 function assignCandidate()
 {
     $auth = verifyToken();
+    if ($auth['role'] === 'super_admin') {
+        jsonResponse(403, 'Super Admin does not have write access');
+    }
     $input = json_decode(file_get_contents('php://input'), true);
     
     $vacancyId = (int)($input['vacancy_id'] ?? 0);
@@ -261,7 +276,7 @@ function assignCandidate()
     $db = getDB();
 
     // Check ownership for company scoped admins
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
         $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
         $stmt->execute([$vacancyId]);
         $vacancy = $stmt->fetch();
@@ -285,3 +300,82 @@ function assignCandidate()
 
     jsonResponse(200, 'Candidate assigned to vacancy successfully');
 }
+
+function getNextReferenceNumber()
+{
+    $auth = verifyToken();
+    $db = getDB();
+    $companyId = (int)($_GET['company_id'] ?? 0);
+    
+    if ($companyId <= 0) {
+        jsonResponse(400, 'Invalid company ID');
+    }
+
+    // If company scoped, verify company matches their own
+    if (($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') && $companyId !== (int)$auth['company_id']) {
+        jsonResponse(403, 'You can only generate reference numbers for your company');
+    }
+    
+    // Get the company details
+    $stmtCompany = $db->prepare("SELECT name FROM companies WHERE id = ?");
+    $stmtCompany->execute([$companyId]);
+    $company = $stmtCompany->fetch();
+    
+    if (!$company) {
+        jsonResponse(404, 'Company not found');
+    }
+    
+    $companyName = $company['name'];
+    $prefix = getCompanyPrefix($companyName);
+    
+    $year = date('Y');
+
+    // Count how many vacancies were created/published for this company in the current year
+    $stmt = $db->prepare("SELECT COUNT(*) as total FROM vacancies WHERE company_id = ? AND YEAR(publish_date) = ?");
+    $stmt->execute([$companyId, $year]);
+    $row = $stmt->fetch();
+    $count = ($row['total'] ?? 0) + 1;
+
+    $refNumber = $prefix . "/" . $year . "/" . str_pad($count, 3, '0', STR_PAD_LEFT);
+    jsonResponse(200, 'Next reference number generated', ['reference_number' => $refNumber]);
+}
+
+function getCompanyPrefix($name)
+{
+    $nameLower = strtolower($name);
+    if (strpos($nameLower, 'health') !== false) {
+        return 'GSH';
+    } elseif (strpos($nameLower, 'engineering') !== false) {
+        return 'GSE';
+    } elseif (strpos($nameLower, 'travels') !== false) {
+        return 'GST';
+    } elseif (strpos($nameLower, 'finance') !== false) {
+        return 'GSF';
+    } elseif (strpos($nameLower, 'solutions') !== false) {
+        return 'GSS';
+    } elseif (strpos($nameLower, 'retail') !== false) {
+        return 'GSR';
+    } elseif (strpos($nameLower, 'teas') !== false) {
+        return 'ST';
+    } elseif (strpos($nameLower, 'motors') !== false) {
+        return 'SM';
+    } elseif (strpos($nameLower, 'foods') !== false) {
+        return 'SF';
+    } elseif (strpos($nameLower, 'property') !== false) {
+        return 'SP';
+    } elseif (strpos($nameLower, 'parent') !== false || strpos($nameLower, 'company ltd') !== false || strpos($nameLower, 'george steuart &') !== false) {
+        return 'GS';
+    }
+    
+    // Default fallback: extract initials
+    $words = explode(' ', preg_replace('/[^a-z0-9 ]/', '', $nameLower));
+    $initials = '';
+    foreach ($words as $word) {
+        if (!empty($word)) {
+            $initials .= $word[0];
+        }
+    }
+    return strtoupper(substr($initials, 0, 4));
+}
+
+

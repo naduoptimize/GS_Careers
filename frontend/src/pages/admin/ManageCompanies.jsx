@@ -274,7 +274,7 @@ function ManageCompanies({ admin }) {
                     <h1 className="hero-title-p">Manage Corporate Entities</h1>
                     <p className="hero-subtitle-p">George Steuart Group | Configure and govern subsidiaries and parent entities</p>
                 </div>
-                {admin.role === 'super_admin' && (
+                {(admin.role === 'admin') && (
                     <div className="hero-actions-p" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         <button className="btn-hero-p primary" onClick={openCreate}>
                             <FiPlus /> Register New Entity
@@ -356,20 +356,20 @@ function ManageCompanies({ admin }) {
                                 <th>OPERATIONAL HEADQUARTERS</th>
                                 <th>TOTAL LOCATIONS</th>
                                 <th>CORPORATE PROFILE</th>
-                                {admin.role === 'super_admin' && <th style={{ textAlign: 'center' }}>OPERATIONS</th>}
+                                {admin.role === 'admin' && <th style={{ textAlign: 'center' }}>OPERATIONS</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={admin.role === 'super_admin' ? 5 : 4} style={{ padding: '60px', textAlign: 'center' }}>
+                                    <td colSpan={admin.role === 'admin' ? 5 : 4} style={{ padding: '60px', textAlign: 'center' }}>
                                         <div className="spinner-p"></div>
                                         <p style={{ marginTop: '16px', color: 'var(--text-muted)' }}>Synchronizing strategic corporate logs...</p>
                                     </td>
                                 </tr>
                             ) : paginatedCompanies.length === 0 ? (
                                 <tr>
-                                    <td colSpan={admin.role === 'super_admin' ? 5 : 4} className="empty-cell">
+                                    <td colSpan={admin.role === 'admin' ? 5 : 4} className="empty-cell">
                                         <div className="no-results" style={{ padding: '60px', textAlign: 'center' }}>
                                             <FiHome size={48} style={{ color: 'var(--border-light)', marginBottom: '16px' }} />
                                             <p style={{ color: 'var(--text-muted)' }}>No strategic companies found matching your search term.</p>
@@ -415,7 +415,7 @@ function ManageCompanies({ admin }) {
                                             {c.description || 'No corporate description added.'}
                                         </p>
                                     </td>
-                                    {admin.role === 'super_admin' && (
+                                    {admin.role === 'admin' && (
                                         <td data-label="Operations">
                                             <div className="orchestration-actions" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                                 <button className="o-btn edit" onClick={() => openEdit(c)} title="Update Company Info">
@@ -483,20 +483,20 @@ function ManageCompanies({ admin }) {
                             <tr>
                                 <th>COMPANY ENTITY</th>
                                 <th>OPERATIONAL LOCATION</th>
-                                {admin.role === 'super_admin' && <th style={{ textAlign: 'center' }}>OPERATIONS</th>}
+                                {admin.role === 'admin' && <th style={{ textAlign: 'center' }}>OPERATIONS</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan={admin.role === 'super_admin' ? 3 : 2} style={{ padding: '60px', textAlign: 'center' }}>
+                                    <td colSpan={admin.role === 'admin' ? 3 : 2} style={{ padding: '60px', textAlign: 'center' }}>
                                         <div className="spinner-p"></div>
                                         <p style={{ marginTop: '16px', color: 'var(--text-muted)' }}>Synchronizing location registers...</p>
                                     </td>
                                 </tr>
                             ) : paginatedLocations.length === 0 ? (
                                 <tr>
-                                    <td colSpan={admin.role === 'super_admin' ? 3 : 2} className="empty-cell">
+                                    <td colSpan={admin.role === 'admin' ? 3 : 2} className="empty-cell">
                                         <div className="no-results" style={{ padding: '60px', textAlign: 'center' }}>
                                             <FiMapPin size={48} style={{ color: 'var(--border-light)', marginBottom: '16px' }} />
                                             <p style={{ color: 'var(--text-muted)' }}>{locSearchTerm ? 'No location records found matching your search term.' : 'No locations registered yet.'}</p>
@@ -540,7 +540,7 @@ function ManageCompanies({ admin }) {
                                             </div>
                                         )}
                                     </td>
-                                    {admin.role === 'super_admin' && (
+                                    {admin.role === 'admin' && (
                                         <td data-label="Operations">
                                             <div className="orchestration-actions" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
                                                 <button className="o-btn edit" onClick={() => { setEditingLocId(loc.id); setEditingLocValue(loc.location); }} title="Update Location">

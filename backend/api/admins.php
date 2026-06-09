@@ -1,6 +1,6 @@
 <?php
 // ============================================
-// Admins Management API (Super Admin Only)
+// Admins Management API (Super Admin / Admin)
 // ============================================
 require_once __DIR__ . '/../config.php';
 
@@ -28,10 +28,16 @@ switch ($action) {
 
 function listAdmins()
 {
-    $auth = requireSuperAdmin();
+    $auth = requireAdminOrSuperAdmin();
     $db = getDB();
 
-    $stmt = $db->prepare("SELECT a.id, a.username, a.email, a.full_name, a.role, a.company_id, a.is_active, a.created_at, c.name as company_name FROM admins a LEFT JOIN companies c ON a.company_id = c.id ORDER BY a.role DESC, a.created_at ASC");
+    if ($auth['role'] === 'admin') {
+        // admin can only see sub_admin1 and sub_admin2
+        $stmt = $db->prepare("SELECT a.id, a.username, a.email, a.full_name, a.role, a.company_id, a.is_active, a.created_at, c.name as company_name FROM admins a LEFT JOIN companies c ON a.company_id = c.id WHERE a.role IN ('sub_admin1', 'sub_admin2') ORDER BY a.role DESC, a.created_at ASC");
+    } else {
+        // super_admin sees all
+        $stmt = $db->prepare("SELECT a.id, a.username, a.email, a.full_name, a.role, a.company_id, a.is_active, a.created_at, c.name as company_name FROM admins a LEFT JOIN companies c ON a.company_id = c.id ORDER BY a.role DESC, a.created_at ASC");
+    }
     $stmt->execute();
     $admins = $stmt->fetchAll();
 
@@ -40,21 +46,31 @@ function listAdmins()
 
 function createAdmin()
 {
-    $auth = requireSuperAdmin();
+    $auth = requireAdminOrSuperAdmin();
     $input = json_decode(file_get_contents('php://input'), true);
 
     $username = sanitize($input['username'] ?? '');
     $email = sanitize($input['email'] ?? '');
     $fullName = sanitize($input['full_name'] ?? '');
-    $role = $input['role'] ?? 'sub_admin';
-    $companyId = !empty($input['company_id']) ? (int)$input['company_id'] : null;
+    $role = $input['role'] ?? 'sub_admin1';
+
+    // If logged in user is admin, they can only create sub_admin1 or sub_admin2
+    if ($auth['role'] === 'admin' && !in_array($role, ['sub_admin1', 'sub_admin2'])) {
+        jsonResponse(403, 'Admins can only create Sub Admin 1 and Sub Admin 2 roles');
+    }
+
+    if ($role === 'super_admin' || $role === 'admin') {
+        $companyId = null;
+    } else {
+        $companyId = !empty($input['company_id']) ? (int)$input['company_id'] : null;
+    }
 
     if (empty($username) || empty($email) || empty($fullName)) {
         jsonResponse(400, 'All fields are required');
     }
 
-    if (($role === 'admin' || $role === 'sub_admin') && empty($companyId)) {
-        jsonResponse(400, 'Company is required for ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+    if (($role === 'sub_admin1' || $role === 'sub_admin2') && empty($companyId)) {
+        jsonResponse(400, 'Company is required for ' . ($role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'));
     }
 
     $db = getDB();
@@ -66,12 +82,12 @@ function createAdmin()
         jsonResponse(409, 'Username or email already exists');
     }
 
-    // Check if company already has an active admin or sub admin of the selected role
-    if (($role === 'admin' || $role === 'sub_admin') && $companyId) {
+    // Check if company already has an active sub admin of the selected role
+    if (($role === 'sub_admin1' || $role === 'sub_admin2') && $companyId) {
         $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = ? AND is_active = 1");
         $stmt->execute([$companyId, $role]);
         if ($stmt->fetch()) {
-            jsonResponse(409, 'This company already has an active ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+            jsonResponse(409, 'This company already has an active ' . ($role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'));
         }
     }
 
@@ -90,7 +106,7 @@ function createAdmin()
 
 function updateAdmin()
 {
-    $auth = requireSuperAdmin();
+    $auth = requireAdminOrSuperAdmin();
     $input = json_decode(file_get_contents('php://input'), true);
     $id = (int)($input['id'] ?? 0);
 
@@ -107,25 +123,36 @@ function updateAdmin()
         jsonResponse(404, 'Admin not found');
     }
 
-    $role = $input['role'] ?? $currentAdmin['role'];
-    $companyId = isset($input['company_id']) ? (!empty($input['company_id']) ? (int)$input['company_id'] : null) : ($currentAdmin['company_id'] ? (int)$currentAdmin['company_id'] : null);
-    $isActive = isset($input['is_active']) ? (int)$input['is_active'] : (int)$currentAdmin['is_active'];
-
-    // If role is super_admin, company_id must be null
-    if ($role === 'super_admin') {
-        $companyId = null;
+    // If logged in user is admin, they can only manage sub_admin1 and sub_admin2 roles
+    if ($auth['role'] === 'admin') {
+        if ($currentAdmin['role'] !== 'sub_admin1' && $currentAdmin['role'] !== 'sub_admin2') {
+            jsonResponse(403, 'Unauthorized to update this admin level');
+        }
+        if (isset($input['role']) && !in_array($input['role'], ['sub_admin1', 'sub_admin2'])) {
+            jsonResponse(403, 'Admins can only assign Sub Admin 1 or Sub Admin 2 roles');
+        }
     }
 
-    if (($role === 'admin' || $role === 'sub_admin') && empty($companyId)) {
-        jsonResponse(400, 'Company is required for ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+    $role = $input['role'] ?? $currentAdmin['role'];
+    
+    if ($role === 'super_admin' || $role === 'admin') {
+        $companyId = null;
+    } else {
+        $companyId = isset($input['company_id']) ? (!empty($input['company_id']) ? (int)$input['company_id'] : null) : ($currentAdmin['company_id'] ? (int)$currentAdmin['company_id'] : null);
+    }
+    
+    $isActive = isset($input['is_active']) ? (int)$input['is_active'] : (int)$currentAdmin['is_active'];
+
+    if (($role === 'sub_admin1' || $role === 'sub_admin2') && empty($companyId)) {
+        jsonResponse(400, 'Company is required for ' . ($role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'));
     }
 
     // Check if company already has an active administrator of the selected role
-    if (($role === 'admin' || $role === 'sub_admin') && $companyId && $isActive === 1) {
+    if (($role === 'sub_admin1' || $role === 'sub_admin2') && $companyId && $isActive === 1) {
         $stmt = $db->prepare("SELECT id FROM admins WHERE company_id = ? AND role = ? AND is_active = 1 AND id != ?");
         $stmt->execute([$companyId, $role, $id]);
         if ($stmt->fetch()) {
-            jsonResponse(409, 'This company already has an active ' . ($role === 'admin' ? 'admin' : 'sub admin'));
+            jsonResponse(409, 'This company already has an active ' . ($role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'));
         }
     }
 
@@ -175,7 +202,7 @@ function updateAdmin()
 
 function deleteAdmin()
 {
-    $auth = requireSuperAdmin();
+    $auth = requireAdminOrSuperAdmin();
     $input = json_decode(file_get_contents('php://input'), true);
     $id = (int)($input['id'] ?? 0);
 
@@ -188,6 +215,21 @@ function deleteAdmin()
     }
 
     $db = getDB();
+    
+    // Fetch target admin role
+    $stmt = $db->prepare("SELECT role FROM admins WHERE id = ?");
+    $stmt->execute([$id]);
+    $target = $stmt->fetch();
+    if (!$target) {
+        jsonResponse(404, 'Admin not found');
+    }
+
+    // If caller is admin, target must be sub_admin1 or sub_admin2
+    if ($auth['role'] === 'admin' && !in_array($target['role'], ['sub_admin1', 'sub_admin2'])) {
+        jsonResponse(403, 'Unauthorized to delete this admin level');
+    }
+
+    // super_admin cannot be deleted here
     $stmt = $db->prepare("DELETE FROM admins WHERE id = ? AND role != 'super_admin'");
     $stmt->execute([$id]);
 
@@ -200,7 +242,7 @@ function deleteAdmin()
 
 function resetPassword()
 {
-    $auth = requireSuperAdmin();
+    $auth = requireAdminOrSuperAdmin();
     $input = json_decode(file_get_contents('php://input'), true);
     $id = (int)($input['id'] ?? 0);
 
@@ -220,6 +262,11 @@ function resetPassword()
 
     if ($admin['id'] === (int)$auth['admin_id']) {
         jsonResponse(400, 'Cannot reset your own password here. Use profile settings.');
+    }
+
+    // If caller is admin, target must be sub_admin1 or sub_admin2
+    if ($auth['role'] === 'admin' && !in_array($admin['role'], ['sub_admin1', 'sub_admin2'])) {
+        jsonResponse(403, 'Unauthorized to reset password for this admin level');
     }
 
     // Generate a secure random password

@@ -6,7 +6,7 @@ import {
     FiBriefcase, FiUsers, FiCheckCircle, FiClock,
     FiPlus, FiArrowRight, FiFileText, FiTrendingUp,
     FiTarget, FiActivity, FiLayers, FiZap, FiCalendar,
-    FiBarChart2, FiStar, FiAward
+    FiBarChart2, FiStar, FiAward, FiUserPlus
 } from "react-icons/fi";
 import { formatDate, daysLeft } from "../../utils/constants";
 
@@ -82,9 +82,11 @@ function Dashboard({ admin }) {
                     <p className="hero-subtitle-p">George Steuart Recruitment Orchestration Console · Established 1835</p>
                 </div>
                 <div className="hero-actions-p">
-                    <button className="btn-hero-p primary" onClick={() => navigate("/admin/vacancies/create")}>
-                        <FiPlus /> New Vacancy
-                    </button>
+                    {admin.role !== 'super_admin' && (
+                        <button className="btn-hero-p primary" onClick={() => navigate("/admin/vacancies/create")}>
+                            <FiPlus /> New Vacancy
+                        </button>
+                    )}
                     <button className="btn-hero-p secondary" onClick={() => navigate("/admin/applicants")}>
                         <FiUsers /> Review Pipeline
                     </button>
@@ -274,10 +276,17 @@ function Dashboard({ admin }) {
                                 <div className="shortcut-icon gold"><FiFileText /></div>
                                 <span>Posts</span>
                             </div>
-                            <div className="shortcut-tile" onClick={() => navigate("/admin/vacancies/create")}>
-                                <div className="shortcut-icon green"><FiPlus /></div>
-                                <span>Post Job</span>
-                            </div>
+                            {admin.role === 'super_admin' ? (
+                                <div className="shortcut-tile" onClick={() => navigate("/admin/admins")}>
+                                    <div className="shortcut-icon green"><FiUserPlus /></div>
+                                    <span>Admins</span>
+                                </div>
+                            ) : (
+                                <div className="shortcut-tile" onClick={() => navigate("/admin/vacancies/create")}>
+                                    <div className="shortcut-icon green"><FiPlus /></div>
+                                    <span>Post Job</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

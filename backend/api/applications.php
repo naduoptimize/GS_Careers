@@ -577,7 +577,7 @@ function listApplications()
     $params = [];
 
     // Company scoped admin restriction
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -587,7 +587,7 @@ function listApplications()
         $params[] = $vacancyId;
     }
 
-    if (!empty($companyId) && $auth['role'] === 'super_admin') {
+    if (!empty($companyId) && ($auth['role'] === 'super_admin' || $auth['role'] === 'admin')) {
         $sql .= " AND v.company_id = ?";
         $params[] = $companyId;
     }
@@ -644,8 +644,8 @@ function listApplications()
 function handleUpdateStatus()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to modify application status');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to modify application status');
     }
     $db = getDB();
 
@@ -675,7 +675,7 @@ function handleUpdateStatus()
         jsonResponse(404, 'Application not found');
     }
 
-    if ($auth['role'] !== 'super_admin' && $application['company_id'] != $auth['company_id']) {
+    if ($auth['role'] !== 'admin' && $application['company_id'] != $auth['company_id']) {
         jsonResponse(403, 'Unauthorized access to this application');
     }
 
@@ -722,8 +722,8 @@ function handleUpdateStatus()
 function handleSendInterview()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to schedule interviews');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to schedule interviews');
     }
     $db = getDB();
 
@@ -757,7 +757,7 @@ function handleSendInterview()
         jsonResponse(404, 'Application not found');
     }
 
-    if ($auth['role'] !== 'super_admin' && $application['company_id'] != $auth['company_id']) {
+    if ($auth['role'] !== 'admin' && $application['company_id'] != $auth['company_id']) {
         jsonResponse(403, 'Unauthorized');
     }
 
@@ -809,7 +809,7 @@ function exportApplications()
             WHERE 1=1";
     $params = [];
 
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -819,7 +819,7 @@ function exportApplications()
         $params[] = $vacancyId;
     }
 
-    if (!empty($companyId) && $auth['role'] === 'super_admin') {
+    if (!empty($companyId) && ($auth['role'] === 'super_admin' || $auth['role'] === 'admin')) {
         $sql .= " AND v.company_id = ?";
         $params[] = $companyId;
     }
@@ -901,7 +901,7 @@ function getStats()
 
     $interval = "INTERVAL 1 YEAR";
 
-    if ($auth['role'] === 'super_admin') {
+    if ($auth['role'] === 'super_admin' || $auth['role'] === 'admin') {
         $totalVacancies = $db->query("SELECT COUNT(*) FROM vacancies")->fetchColumn();
         $activeVacancies = $db->query("SELECT COUNT(*) FROM vacancies WHERE is_active = 1 AND expire_date >= CURDATE()")->fetchColumn();
         $totalApplications = $db->query("SELECT COUNT(*) FROM applications")->fetchColumn();
@@ -952,7 +952,7 @@ function getStats()
 
     // Recent Applications Feature for Dashboard
     $recentApps = [];
-    if ($auth['role'] === 'super_admin') {
+    if ($auth['role'] === 'super_admin' || $auth['role'] === 'admin') {
         $recentApps = $db->query("SELECT a.first_name, a.last_name, a.applied_at, v.title as vacancy_title 
                                  FROM applications a 
                                  JOIN vacancies v ON a.vacancy_id = v.id 
@@ -971,7 +971,7 @@ function getStats()
     $upcomingInterviews = [];
     $today = date('Y-m-d');
 
-    if ($auth['role'] === 'super_admin') {
+    if ($auth['role'] === 'super_admin' || $auth['role'] === 'admin') {
         $upcomingInterviews = $db->query("SELECT a.id, a.first_name, a.last_name, a.interview_date, a.interview_time, a.interview_type, v.title as vacancy_title 
                                  FROM applications a 
                                  JOIN vacancies v ON a.vacancy_id = v.id 
@@ -1246,12 +1246,12 @@ function handleGetTalentPool()
                    AND a.applied_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)";
     
     $countParams = [];
-    if ($companyId > 0) {
+    if ($companyId > 0 && ($auth['role'] === 'super_admin' || $auth['role'] === 'admin')) {
         $countSql .= " AND v.company_id = ?";
         $countParams[] = $companyId;
     }
     
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
         $countSql .= " AND v.company_id = ?";
         $countParams[] = $auth['company_id'];
     }
@@ -1279,7 +1279,7 @@ function handleGetTalentPool()
         $params[] = $searchParam;
     }
 
-    if ($companyId > 0) {
+    if ($companyId > 0 && ($auth['role'] === 'super_admin' || $auth['role'] === 'admin')) {
         $sql .= " AND v.company_id = ?";
         $params[] = $companyId;
     }
@@ -1311,7 +1311,7 @@ function handleGetTalentPool()
     }
 
     // Restriction for company scoped admin
-    if ($auth['role'] !== 'super_admin') {
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
         $sql .= " AND v.company_id = ?";
         $params[] = $auth['company_id'];
     }
@@ -1332,8 +1332,8 @@ function handleGetTalentPool()
 function handleBlockCandidate()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to block candidates');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to block candidates');
     }
     $db = getDB();
 
@@ -1346,11 +1346,13 @@ function handleBlockCandidate()
     $email = sanitize($data['email'] ?? '');
     $blockReason = sanitize($data['block_reason'] ?? '');
 
-    if (empty($email)) {
-        jsonResponse(400, 'Email is required');
-    }
-    if (empty($blockReason)) {
-        jsonResponse(400, 'Block reason is required');
+    if ($auth['role'] !== 'admin') {
+        // Must have at least one application in their company with this email
+        $stmt = $db->prepare("SELECT a.id FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.email = ? AND v.company_id = ?");
+        $stmt->execute([$email, $auth['company_id']]);
+        if (!$stmt->fetch()) {
+            jsonResponse(403, 'Unauthorized to block candidate not associated with your company');
+        }
     }
 
     // Block ALL applications from this email
@@ -1364,8 +1366,8 @@ function handleBlockCandidate()
 function handleUnblockCandidate()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to unblock candidates');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to unblock candidates');
     }
     $db = getDB();
 
@@ -1380,6 +1382,15 @@ function handleUnblockCandidate()
         jsonResponse(400, 'Email is required');
     }
 
+    if ($auth['role'] !== 'admin') {
+        // Must have at least one application in their company with this email
+        $stmt = $db->prepare("SELECT a.id FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.email = ? AND v.company_id = ?");
+        $stmt->execute([$email, $auth['company_id']]);
+        if (!$stmt->fetch()) {
+            jsonResponse(403, 'Unauthorized to unblock candidate not associated with your company');
+        }
+    }
+
     $stmt = $db->prepare("UPDATE applications SET is_blocked = 0, block_reason = NULL WHERE email = ?");
     $stmt->execute([$email]);
 
@@ -1389,8 +1400,8 @@ function handleUnblockCandidate()
 function handleUpdateCandidateTags()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to update candidate tags');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to update candidate tags');
     }
     $db = getDB();
 
@@ -1399,6 +1410,15 @@ function handleUpdateCandidateTags()
 
     if ($id <= 0) {
         jsonResponse(400, 'Invalid application ID');
+    }
+
+    if ($auth['role'] !== 'admin') {
+        $stmt = $db->prepare("SELECT v.company_id FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
+        $stmt->execute([$id]);
+        $app = $stmt->fetch();
+        if (!$app || $app['company_id'] != $auth['company_id']) {
+            jsonResponse(403, 'Unauthorized access to this application');
+        }
     }
 
     $sql = "UPDATE applications SET tags = ? WHERE id = ?";
@@ -1484,14 +1504,23 @@ function handleViewCV()
 function handleDeleteApplication()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to delete applications');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to delete applications');
     }
     $db = getDB();
 
     $id = (int) ($_POST['id'] ?? 0);
     if ($id <= 0) {
         jsonResponse(400, 'Invalid application ID');
+    }
+
+    if ($auth['role'] !== 'admin') {
+        $stmt = $db->prepare("SELECT v.company_id FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
+        $stmt->execute([$id]);
+        $app = $stmt->fetch();
+        if (!$app || $app['company_id'] != $auth['company_id']) {
+            jsonResponse(403, 'Unauthorized access to this application');
+        }
     }
 
     // Optional: Delete CV file if needed, but keeping it for now for record safety.
@@ -1505,14 +1534,26 @@ function handleDeleteApplication()
 function handleBulkDeleteApplications()
 {
     $auth = verifyToken();
-    if ($auth['role'] === 'sub_admin') {
-        jsonResponse(403, 'Sub-admins do not have permission to delete applications');
+    if (in_array($auth['role'], ['super_admin', 'sub_admin2', 'sub_admin'])) {
+        jsonResponse(403, 'Your role does not have permission to delete applications');
     }
     $db = getDB();
 
     $ids = $_POST['ids'] ?? [];
     if (!is_array($ids) || empty($ids)) {
         jsonResponse(400, 'Invalid or empty IDs');
+    }
+
+    if ($auth['role'] !== 'admin') {
+        // check each ID to see if it belongs to their company
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $db->prepare("SELECT COUNT(*) FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id IN ($placeholders) AND v.company_id = ?");
+        $params = array_merge($ids, [$auth['company_id']]);
+        $stmt->execute($params);
+        $count = $stmt->fetchColumn();
+        if ((int)$count !== count($ids)) {
+            jsonResponse(403, 'Unauthorized access to one or more applications');
+        }
     }
 
     $placeholders = implode(',', array_fill(0, count($ids), '?'));

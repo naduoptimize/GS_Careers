@@ -162,6 +162,15 @@ function requireSuperAdmin()
     return $auth;
 }
 
+function requireAdminOrSuperAdmin()
+{
+    $auth = verifyToken();
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
+        jsonResponse(403, 'Admin or Super admin access required');
+    }
+    return $auth;
+}
+
 // Create upload directory if not exists
 if (!is_dir(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);

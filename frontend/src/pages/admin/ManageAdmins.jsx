@@ -19,7 +19,7 @@ function ManageAdmins({ admin }) {
     const [confirmReset, setConfirmReset] = useState(null);
     const [tempPassword, setTempPassword] = useState(null);
     const [form, setForm] = useState({
-        username: '', email: '', full_name: '', role: 'sub_admin', company_id: '', is_active: 1
+        username: '', email: '', full_name: '', role: 'sub_admin1', company_id: '', is_active: 1
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
@@ -47,7 +47,7 @@ function ManageAdmins({ admin }) {
     };
 
     const resetForm = () => {
-        setForm({ username: '', email: '', full_name: '', role: 'sub_admin', company_id: '', is_active: 1 });
+        setForm({ username: '', email: '', full_name: '', role: 'sub_admin1', company_id: '', is_active: 1 });
         setEditingId(null);
     };
 
@@ -75,7 +75,7 @@ function ManageAdmins({ admin }) {
             toast.error('Please fill in all required fields');
             return;
         }
-        if ((form.role === 'sub_admin' || form.role === 'admin') && !form.company_id) {
+        if ((form.role === 'sub_admin1' || form.role === 'sub_admin2') && !form.company_id) {
             toast.error('Company is required for this role');
             return;
         }
@@ -145,7 +145,7 @@ function ManageAdmins({ admin }) {
         total: admins.length,
         super: admins.filter(a => a.role === 'super_admin').length,
         adminRole: admins.filter(a => a.role === 'admin').length,
-        sub: admins.filter(a => a.role === 'sub_admin').length,
+        sub: admins.filter(a => ['sub_admin1', 'sub_admin2', 'sub_admin'].includes(a.role)).length,
         active: admins.filter(a => a.is_active).length,
         companies: new Set(admins.filter(a => a.company_id).map(a => a.company_id)).size
     };
@@ -159,11 +159,13 @@ function ManageAdmins({ admin }) {
                     <h1 className="hero-title-p">Access Management</h1>
                     <p className="hero-subtitle-p">George Steuart Recruitment Orchestration | Identity & Access Control</p>
                 </div>
-                <div className="hero-actions-p">
-                    <button className="btn-hero-p primary" onClick={openCreate}>
-                        <FiPlus /> Establish New Admin
-                    </button>
-                </div>
+                {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                    <div className="hero-actions-p">
+                        <button className="btn-hero-p primary" onClick={openCreate}>
+                            <FiPlus /> Establish New Admin
+                        </button>
+                    </div>
+                )}
                 <div className="hero-bg-accent"></div>
             </div>
 
@@ -235,9 +237,14 @@ function ManageAdmins({ admin }) {
                                 className="select-lg"
                             >
                                 <option value="">All Authority Roles</option>
-                                <option value="super_admin">Super Admins Only</option>
-                                <option value="admin">Admins Only</option>
-                                <option value="sub_admin">Sub Admins Only</option>
+                                {admin.role === 'super_admin' && (
+                                    <>
+                                        <option value="super_admin">Super Admins Only</option>
+                                        <option value="admin">Global Admins Only</option>
+                                    </>
+                                )}
+                                <option value="sub_admin1">Sub Admins 1 Only</option>
+                                <option value="sub_admin2">Sub Admins 2 Only</option>
                             </select>
                         </div>
                     </div>
@@ -297,7 +304,7 @@ function ManageAdmins({ admin }) {
                                     <td data-label="Authority Level">
                                         <div className="role-cell">
                                             <span className={`role-badge-p ${a.role === 'super_admin' ? 'role-super' : (a.role === 'admin' ? 'role-admin' : 'role-sub')}`}>
-                                                {a.role === 'super_admin' ? 'Super Admin' : (a.role === 'admin' ? 'Admin' : 'Sub Admin')}
+                                                {a.role === 'super_admin' ? 'Super Admin' : (a.role === 'admin' ? 'Global Admin' : (a.role === 'sub_admin1' ? 'Sub Admin 1' : (a.role === 'sub_admin2' ? 'Sub Admin 2' : 'Sub Admin')))}
                                             </span>
                                             <div className="admin-email-p" style={{ marginTop: '4px' }}>@{a.username}</div>
                                         </div>
@@ -322,7 +329,10 @@ function ManageAdmins({ admin }) {
                                     </td>
                                     <td data-label="Operations">
                                         <div className="orchestration-actions" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                                            {a.role !== 'super_admin' ? (
+                                            {/* super_admin rows are always locked; admin rows are locked for non-super_admin viewers */}
+                                            {(a.role === 'super_admin' || (a.role === 'admin' && admin.role !== 'super_admin')) ? (
+                                                <div className="protected-label" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '6px' }}><FiShield /> CORE AUTHORITY</div>
+                                            ) : (
                                                 <>
                                                     <button className="o-btn edit" onClick={() => openEdit(a)} title="Update Credentials">
                                                         <FiEdit2 />
@@ -334,8 +344,6 @@ function ManageAdmins({ admin }) {
                                                         <FiTrash2 />
                                                     </button>
                                                 </>
-                                            ) : (
-                                                <div className="protected-label" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '6px' }}><FiShield /> CORE AUTHORITY</div>
                                             )}
                                         </div>
                                     </td>
@@ -432,13 +440,18 @@ function ManageAdmins({ admin }) {
                                             value={form.role} 
                                             onChange={(e) => setForm({ ...form, role: e.target.value })}
                                         >
-                                            <option value="sub_admin">Sub Admin</option>
-                                            <option value="admin">Admin</option>
-                                            <option value="super_admin">Super Admin</option>
+                                            {admin.role === 'super_admin' && (
+                                                <>
+                                                    <option value="super_admin">Super Admin</option>
+                                                    <option value="admin">Global Admin</option>
+                                                </>
+                                            )}
+                                            <option value="sub_admin1">Sub Admin 1</option>
+                                            <option value="sub_admin2">Sub Admin 2</option>
                                         </select>
                                     </div>
 
-                                    {(form.role === 'sub_admin' || form.role === 'admin') && (
+                                    {(form.role === 'sub_admin1' || form.role === 'sub_admin2') && (
                                         <div className="form-group-p">
                                             <label htmlFor="company_id">Assign Company</label>
                                             <select

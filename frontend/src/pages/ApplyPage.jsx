@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     FiArrowLeft, FiMapPin, FiBriefcase, FiCalendar, FiUpload,
     FiCheck, FiMenu, FiX, FiUser, FiMail, FiPhone, FiBookOpen,
-    FiDollarSign, FiClock, FiFileText, FiFacebook, FiLinkedin,
+    FiClock, FiFileText, FiFacebook, FiLinkedin,
     FiGlobe, FiHash, FiChevronRight, FiAlertCircle
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
@@ -99,9 +99,10 @@ function ApplyPage() {
             }
             const models = [
                 "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro"
+                "gemini-flash-latest",
+                "gemini-2.5-pro",
+                "gemini-pro-latest",
+                "gemini-2.0-flash"
             ];
 
             let response = null;
@@ -500,7 +501,7 @@ ${text}`
                                         </div>
                                         <div className="apb-field">
                                             <label>Salary Expectation (LKR) <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiDollarSign className="apb-ico" />
+                                            <div className="apb-iw"><span className="apb-ico" style={{ fontSize: '0.75rem', fontWeight: 800, userSelect: 'none' }}>LKR</span>
                                                 <input
                                                     type="text"
                                                     name="salary_expectation"

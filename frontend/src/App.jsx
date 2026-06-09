@@ -89,7 +89,7 @@ function App() {
                                 <Route path="/vacancies/edit/:id" element={<CreateVacancy admin={admin} />} />
                                 <Route path="/applicants" element={<Applicants admin={admin} />} />
                                 <Route path="/talent-pool" element={<TalentPool admin={admin} />} />
-                                {admin.role === 'super_admin' && (
+                                {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                     <>
                                         <Route path="/vacancies/reports" element={<CompanyReports admin={admin} />} />
                                         <Route path="/companies" element={<ManageCompanies admin={admin} />} />

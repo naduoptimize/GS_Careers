@@ -203,9 +203,11 @@ function ManageVacancies({ admin }) {
                     <h1 className="serif-title-p">Manage Vacancies</h1>
                     <p className="hero-subline">Track and publish job opportunities across George Steuart & Company establishments.</p>
                 </div>
-                <button className="btn-establish-p" onClick={() => navigate('/admin/vacancies/create')}>
-                    <FiPlus /> <span>Establish New Vacancy</span>
-                </button>
+                {admin.role !== 'super_admin' && (
+                    <button className="btn-establish-p" onClick={() => navigate('/admin/vacancies/create')}>
+                        <FiPlus /> <span>Establish New Vacancy</span>
+                    </button>
+                )}
             </div>
 
             {/* STATS MOSAIC */}
@@ -267,7 +269,7 @@ function ManageVacancies({ admin }) {
                 </div>
 
                 <div className="toolbar-filters-row">
-                    {admin.role === 'super_admin' && (
+                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div className="filter-group">
                             <label>Establishment</label>
                             <div className="select-orchestrator">
@@ -407,15 +409,19 @@ function ManageVacancies({ admin }) {
                                                     <button className="o-btn view" onClick={() => setViewDetail(v)} title="View Job Description">
                                                         <FiEye />
                                                     </button>
-                                                    <button className="o-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit Configuration">
-                                                        <FiEdit2 />
-                                                    </button>
+                                                    {admin.role !== 'super_admin' && (
+                                                        <button className="o-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit Configuration">
+                                                            <FiEdit2 />
+                                                        </button>
+                                                    )}
                                                     <button className="o-btn applicants" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Pipeline">
                                                         <FiArrowRight />
                                                     </button>
-                                                    <button className="o-btn delete" onClick={() => setConfirmDelete(v.id)} title="Decommission">
-                                                        <FiTrash2 />
-                                                    </button>
+                                                    {admin.role !== 'super_admin' && (
+                                                        <button className="o-btn delete" onClick={() => setConfirmDelete(v.id)} title="Decommission">
+                                                            <FiTrash2 />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -537,9 +543,11 @@ function ManageVacancies({ admin }) {
                                                 )}
                                             </div>
                                         </div>
-                                        <button className="vd-emp-btn change" onClick={handleOpenAssignModal}>
-                                            Change Employee
-                                        </button>
+                                        {admin.role !== 'super_admin' && (
+                                            <button className="vd-emp-btn change" onClick={handleOpenAssignModal}>
+                                                Change Employee
+                                            </button>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="vd-employee-card empty">
@@ -547,9 +555,11 @@ function ManageVacancies({ admin }) {
                                             <div className="vd-emp-name-empty">No Employee Assigned Yet</div>
                                             <p className="vd-emp-subline">Select a shortlisted candidate to assign to this vacancy.</p>
                                         </div>
-                                        <button className="vd-emp-btn assign" onClick={handleOpenAssignModal}>
-                                            Select Employee
-                                        </button>
+                                        {admin.role !== 'super_admin' && (
+                                            <button className="vd-emp-btn assign" onClick={handleOpenAssignModal}>
+                                                Select Employee
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -607,9 +617,11 @@ function ManageVacancies({ admin }) {
                             <button className="vd-btn primary" onClick={() => { setViewDetail(null); navigate(`/admin/applicants?vacancy_id=${viewDetail.id}`); }}>
                                 <FiUsers size={14} /> View Applicants
                             </button>
-                            <button className="vd-btn gold" onClick={() => { setViewDetail(null); navigate(`/admin/vacancies/edit/${viewDetail.id}`); }}>
-                                <FiEdit2 size={14} /> Edit Vacancy
-                            </button>
+                            {admin.role !== 'super_admin' && (
+                                <button className="vd-btn gold" onClick={() => { setViewDetail(null); navigate(`/admin/vacancies/edit/${viewDetail.id}`); }}>
+                                    <FiEdit2 size={14} /> Edit Vacancy
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

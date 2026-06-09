@@ -18,6 +18,17 @@ function AdminLayout({ admin, children }) {
         navigate('/admin/login');
     };
 
+    const getRoleDisplayName = (role) => {
+        const mapping = {
+            super_admin: 'Super Admin',
+            admin: 'Global Admin',
+            sub_admin1: 'Sub Admin 1',
+            sub_admin2: 'Sub Admin 2',
+            sub_admin: 'Sub Admin 2'
+        };
+        return mapping[role] || 'Sub Admin';
+    };
+
     const initials = (admin.full_name || 'Admin')
         .split(' ')
         .filter(Boolean)
@@ -33,7 +44,7 @@ function AdminLayout({ admin, children }) {
         { to: '/admin/talent-pool', icon: <FiTarget />, label: 'Talent Pool', badge: null },
     ];
 
-    if (admin.role === 'super_admin') {
+    if (admin.role === 'super_admin' || admin.role === 'admin') {
         navItems.push({ to: '/admin/admins', icon: <FiUserPlus />, label: 'Manage Admins', badge: null });
     }
 
@@ -51,11 +62,11 @@ function AdminLayout({ admin, children }) {
                 </button>
                 <div className="mobile-brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <img 
-                        src={admin.role !== 'super_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
+                        src={admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
                         alt="George Steuart & Co" 
                         className="sidebar-logo" 
                         onError={(e) => e.target.src = "/gs-logo.png"}
-                        style={{ height: 32, width: 'auto', objectFit: 'contain', background: admin.role !== 'super_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.company_logo ? '2px' : '0', borderRadius: '4px' }} 
+                        style={{ height: 32, width: 'auto', objectFit: 'contain', background: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '2px' : '0', borderRadius: '4px' }} 
                     />
                     <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--crimson)' }}>Admin</span>
                 </div>
@@ -74,18 +85,18 @@ function AdminLayout({ admin, children }) {
                     <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                         <div className="sidebar-logo-wrapper">
                             <img 
-                                src={admin.role !== 'super_admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
+                                src={admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
                                 alt="George Steuart & Co" 
                                 className="sidebar-logo" 
                                 onError={(e) => e.target.src = "/gs-logo.png"}
-                                style={{ background: admin.role !== 'super_admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
+                                style={{ background: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
                             />
                         </div>
                         <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
-                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role !== 'super_admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
+                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
                             <div className="sidebar-role">
                                 <span className="role-dot"></span>
-                                {admin.role === 'super_admin' ? 'Super Admin' : (admin.role === 'admin' ? 'Admin' : 'Sub Admin')}
+                                {getRoleDisplayName(admin.role)}
                             </div>
                         </div>
                     </div>
@@ -160,7 +171,7 @@ function AdminLayout({ admin, children }) {
                                                   <span className="sidebar-sublink-bullet"></span>
                                                   <span>Add Vacancies</span>
                                               </NavLink>
-                                              {admin.role === 'super_admin' && (
+                                              {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                                   <>
                                                       <NavLink
                                                           to="/admin/vacancies/reports"
@@ -213,7 +224,7 @@ function AdminLayout({ admin, children }) {
                         <div className="sidebar-user-info">
                             <div className="sidebar-user-name">{admin.full_name}</div>
                             <div className="sidebar-user-role">
-                                {admin.role === 'super_admin' ? 'Super Administrator' : `${admin.role === 'admin' ? 'Admin' : 'Sub Admin'} · ${admin.company_name || ''}`}
+                                {admin.role === 'super_admin' ? 'Super Admin' : (admin.role === 'admin' ? 'Global Admin' : `${getRoleDisplayName(admin.role)} · ${admin.company_name || ''}`)}
                             </div>
                         </div>
                     </div>

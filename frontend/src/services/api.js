@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE = "http://localhost/gs-Job/backend/api";
+export const API_BASE = "http://localhost/GS_Careers/backend/api";
 
 const api = axios.create({
     baseURL: API_BASE,
@@ -56,6 +56,8 @@ export const createVacancy = (data) => api.post('/vacancies.php?action=create', 
 export const updateVacancy = (data) => api.post('/vacancies.php?action=update', data);
 export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', data);
 export const assignVacancyCandidate = (data) => api.post('/vacancies.php?action=assign_candidate', data);
+export const getNextReferenceNumber = (companyId) => api.get(`/vacancies.php?action=next_reference_number&company_id=${companyId}`);
+
 
 // Applications
 export const applyForJob = (formData) => api.post('/applications.php?action=apply', formData, {

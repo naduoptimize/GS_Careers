@@ -630,7 +630,7 @@ function Applicants({ admin }) {
                         </div>
                     </div>
 
-                    {admin.role === 'super_admin' && (
+                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div className="filter-group">
                             <label htmlFor="company_filter" className="filter-label">Establishment</label>
                             <div className="select-orchestrator select-lg">
@@ -1222,7 +1222,7 @@ function Applicants({ admin }) {
                             </div>
                         )}
                     </div>
-                    {selectedIds.length > 0 && (
+                    {selectedIds.length > 0 && !['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) && (
                         <button
                             className="btn btn-danger-minimal"
                             onClick={() => setShowDeleteModal(true)}
@@ -1362,10 +1362,10 @@ function Applicants({ admin }) {
                                                     ) : (
                                                         <button
                                                             className="action-btn success"
-                                                            title={admin.role === 'sub_admin' ? "Action restricted for sub-admin" : "Send Interview Invite"}
-                                                            style={{ background: '#ebf8ff', color: '#2b6cb0', border: '1px solid #bee3f8', opacity: admin.role === 'sub_admin' ? 0.5 : 1, cursor: admin.role === 'sub_admin' ? 'not-allowed' : 'pointer' }}
+                                                            title={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? "Action restricted" : "Send Interview Invite"}
+                                                            style={{ background: '#ebf8ff', color: '#2b6cb0', border: '1px solid #bee3f8', opacity: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 0.5 : 1, cursor: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 'not-allowed' : 'pointer' }}
                                                             onClick={(e) => { e.stopPropagation(); setInviteTarget(app); setShowSendInviteModal(true); }}
-                                                            disabled={admin.role === 'sub_admin'}
+                                                            disabled={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role)}
                                                         >
                                                             📩
                                                         </button>
@@ -1373,10 +1373,10 @@ function Applicants({ admin }) {
                                                 ) : (
                                                     <button
                                                         className="action-btn success"
-                                                        title={admin.role === 'sub_admin' ? "Action restricted for sub-admin" : "Shortlist Candidate"}
-                                                        style={{ opacity: admin.role === 'sub_admin' ? 0.5 : 1, cursor: admin.role === 'sub_admin' ? 'not-allowed' : 'pointer' }}
+                                                        title={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? "Action restricted" : "Shortlist Candidate"}
+                                                        style={{ opacity: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 0.5 : 1, cursor: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 'not-allowed' : 'pointer' }}
                                                         onClick={(e) => { e.stopPropagation(); setShowDetail(app); setShowConfirmShortlist(true); }}
-                                                        disabled={admin.role === 'sub_admin'}
+                                                        disabled={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role)}
                                                     >
                                                         <FiCheckCircle size={18} />
                                                     </button>
@@ -1576,7 +1576,7 @@ function Applicants({ admin }) {
 
                         {/* Fixed Actions Footer */}
                         <div className="modal-actions-footer-p" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            {admin.role === 'sub_admin' ? (
+                            {['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? (
                                 <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
                                     Close
                                 </button>

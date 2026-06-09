@@ -57,8 +57,8 @@ function listCompanies()
 function createCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage companies');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage companies');
     }
 
     $name = sanitize($_POST['name'] ?? '');
@@ -111,8 +111,8 @@ function createCompany()
 function updateCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage companies');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage companies');
     }
 
     $id = (int)($_POST['id'] ?? 0);
@@ -181,8 +181,8 @@ function updateCompany()
 function deleteCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'super_admin') {
-        jsonResponse(403, 'Super admin access required to manage companies');
+    if ($auth['role'] !== 'admin') {
+        jsonResponse(403, 'Global admin access required to manage companies');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);

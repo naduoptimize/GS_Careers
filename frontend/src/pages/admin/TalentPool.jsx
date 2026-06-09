@@ -63,6 +63,7 @@ const DocxViewer = ({ url }) => {
 };
 
 function TalentPool({ admin }) {
+    const isReadOnly = ['super_admin', 'sub_admin', 'sub_admin2'].includes(admin.role);
     const [candidates, setCandidates] = useState([]);
     const [companies, setCompanies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -319,7 +320,7 @@ function TalentPool({ admin }) {
                 </div>
 
                 <div className="toolbar-filters-row">
-                    {admin.role === 'super_admin' && (
+                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div className="filter-group">
                             <label>Business Unit</label>
                             <div className="select-orchestrator">
@@ -491,25 +492,27 @@ function TalentPool({ admin }) {
                                 </td>
                                 <td>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                        <button 
-                                            className="action-btn-p danger"
-                                            style={{ 
-                                                background: 'rgba(239, 68, 68, 0.1)', 
-                                                color: '#ef4444', 
-                                                border: 'none',
-                                                padding: '8px',
-                                                borderRadius: '8px',
-                                                display: 'flex',
-                                                cursor: 'pointer'
-                                            }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedCandidateForDelete(cand);
-                                            }}
-                                            title="Remove from Pool"
-                                        >
-                                            <FiTrash2 size={16} />
-                                        </button>
+                                        {!isReadOnly && (
+                                            <button 
+                                                className="action-btn-p danger"
+                                                style={{ 
+                                                    background: 'rgba(239, 68, 68, 0.1)', 
+                                                    color: '#ef4444', 
+                                                    border: 'none',
+                                                    padding: '8px',
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    cursor: 'pointer'
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedCandidateForDelete(cand);
+                                                }}
+                                                title="Remove from Pool"
+                                            >
+                                                <FiTrash2 size={16} />
+                                            </button>
+                                        )}
                                         <button 
                                             className="page-btn"
                                             style={{ padding: '6px 12px', minWidth: 'auto' }}
@@ -623,27 +626,29 @@ function TalentPool({ admin }) {
                                             {showDetail.tags ? showDetail.tags.split(',').map((t, i) => (
                                                 <span key={i} style={{ background: '#c8a951', color: '#fff', fontSize: '0.7rem', padding: '4px 10px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
                                                     {t.trim()}
-                                                    <FiX onClick={() => removeTag(t.trim())} style={{ cursor: 'pointer' }} />
+                                                    {!isReadOnly && <FiX onClick={() => removeTag(t.trim())} style={{ cursor: 'pointer' }} />}
                                                 </span>
                                             )) : <span style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#94a3b8' }}>No tags yet.</span>}
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Add skill..." 
-                                                value={newTag}
-                                                onChange={(e) => setNewTag(e.target.value)}
-                                                onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                                                style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none' }}
-                                            />
-                                            <button 
-                                                onClick={handleAddTag} 
-                                                disabled={isUpdatingTags}
-                                                style={{ background: '#1a1a2e', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}
-                                            >
-                                                <FiPlus />
-                                            </button>
-                                        </div>
+                                        {!isReadOnly && (
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Add skill..." 
+                                                    value={newTag}
+                                                    onChange={(e) => setNewTag(e.target.value)}
+                                                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                                                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none' }}
+                                                />
+                                                <button 
+                                                    onClick={handleAddTag} 
+                                                    disabled={isUpdatingTags}
+                                                    style={{ background: '#1a1a2e', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}
+                                                >
+                                                    <FiPlus />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -694,24 +699,28 @@ function TalentPool({ admin }) {
                                         <div style={{ background: '#fef2f2', padding: '10px 16px', borderRadius: 12, border: '1px solid #fecaca', flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>
                                             <FiSlash size={14} /> Blocked: {showDetail.block_reason}
                                         </div>
-                                        <button
-                                            className="btn btn-gold"
-                                            style={{ background: '#10b981', color: '#fff' }}
-                                            onClick={() => handleUnblockCandidate(showDetail)}
-                                            disabled={unblocking}
-                                        >
-                                            <FiShield /> {unblocking ? 'Unblocking...' : 'Unblock Candidate'}
-                                        </button>
+                                        {!isReadOnly && (
+                                            <button
+                                                className="btn btn-gold"
+                                                style={{ background: '#10b981', color: '#fff' }}
+                                                onClick={() => handleUnblockCandidate(showDetail)}
+                                                disabled={unblocking}
+                                            >
+                                                <FiShield /> {unblocking ? 'Unblocking...' : 'Unblock Candidate'}
+                                            </button>
+                                        )}
                                     </>
                                 ) : (
                                     <>
                                         <button className="btn btn-outline" onClick={() => setShowDetail(null)}>Close Window</button>
-                                        <button
-                                            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '10px 18px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
-                                            onClick={() => { setShowBlockModal(showDetail); }}
-                                        >
-                                            <FiSlash size={14} /> Block Candidate
-                                        </button>
+                                        {!isReadOnly && (
+                                            <button
+                                                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '10px 18px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
+                                                onClick={() => { setShowBlockModal(showDetail); }}
+                                            >
+                                                <FiSlash size={14} /> Block Candidate
+                                            </button>
+                                        )}
                                         <a
                                             href={`mailto:${showDetail.email}?subject=Career Opportunity: George Steuart`}
                                             className="btn btn-gold"

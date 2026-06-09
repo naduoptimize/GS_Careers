@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createVacancy, updateVacancy, getVacancy, getCompanies, getCandidateCount, getMatchingCandidates, API_BASE } from '../../services/api';
+import { createVacancy, updateVacancy, getVacancy, getCompanies, getCandidateCount, getMatchingCandidates, getNextReferenceNumber, API_BASE } from '../../services/api';
 import { EMPLOYMENT_TYPES, OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIONS } from '../../utils/constants';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
@@ -21,7 +21,7 @@ function CreateVacancy({ admin }) {
     const [searchingMatches, setSearchingMatches] = useState(false);
     const [loadingMatches, setLoadingMatches] = useState(false);
     const [form, setForm] = useState({
-        company_id: admin.role !== 'super_admin' ? admin.company_id : '',
+        company_id: (admin.role !== 'super_admin' && admin.role !== 'admin') ? admin.company_id : '',
         reference_number: '',
         title: '',
         designation: '',
@@ -83,6 +83,22 @@ function CreateVacancy({ admin }) {
         }
     };
 
+    const fetchRefNumber = async (companyId) => {
+        if (!companyId) return;
+        try {
+            const refRes = await getNextReferenceNumber(companyId);
+            const generatedRef = refRes.data?.data?.reference_number;
+            if (generatedRef) {
+                setForm(prev => ({
+                    ...prev,
+                    reference_number: generatedRef
+                }));
+            }
+        } catch (err) {
+            console.error('Failed to auto-generate reference number:', err);
+        }
+    };
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -115,16 +131,31 @@ function CreateVacancy({ admin }) {
                 }
             } else {
                 // If not editing, and company_id is pre-selected (e.g. for company-level admin/sub-admin)
-                const preselectedCompanyId = admin.role !== 'super_admin' ? admin.company_id : '';
+                const preselectedCompanyId = (admin.role !== 'super_admin' && admin.role !== 'admin') ? admin.company_id : '';
+                let updatedLocation = '';
                 if (preselectedCompanyId) {
                     const selectedComp = fetchedCompanies.find(c => c.id == preselectedCompanyId);
                     if (selectedComp && selectedComp.location) {
-                        setForm(prev => ({
-                            ...prev,
-                            location: selectedComp.location
-                        }));
+                        updatedLocation = selectedComp.location;
                     }
                 }
+                
+                // Fetch next reference number
+                let generatedRef = '';
+                if (preselectedCompanyId) {
+                    try {
+                        const refRes = await getNextReferenceNumber(preselectedCompanyId);
+                        generatedRef = refRes.data?.data?.reference_number || '';
+                    } catch (err) {
+                        console.error('Failed to auto-generate reference number:', err);
+                    }
+                }
+
+                setForm(prev => ({
+                    ...prev,
+                    location: updatedLocation || prev.location,
+                    reference_number: generatedRef || prev.reference_number
+                }));
             }
         } catch (err) {
             console.error(err);
@@ -144,6 +175,11 @@ function CreateVacancy({ admin }) {
                 company_id: value,
                 location: selectedComp && selectedComp.location ? selectedComp.location : ''
             }));
+            if (value) {
+                fetchRefNumber(value);
+            } else {
+                setForm(prev => ({ ...prev, reference_number: '' }));
+            }
         } else {
             setForm(prev => ({ ...prev, [name]: value }));
         }
@@ -210,7 +246,8 @@ function CreateVacancy({ admin }) {
             </div>
 
             <form onSubmit={handleSubmit} className="premium-form-layout">
-                <div className="form-sections-container">
+                <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
+                    <div className="form-sections-container">
                     {/* Section 1: Basic Information */}
                     <section className="form-section-card">
                         <div className="section-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
@@ -231,7 +268,7 @@ function CreateVacancy({ admin }) {
                                             name="company_id"
                                             value={form.company_id}
                                             onChange={handleChange}
-                                            disabled={admin.role !== 'super_admin'}
+                                            disabled={admin.role !== 'admin'}
                                             className="premium-input"
                                         >
                                             <option value="">Select company</option>
@@ -473,6 +510,7 @@ function CreateVacancy({ admin }) {
                         </div>
                     </section>
                 </div>
+                </fieldset>
 
                 {/* Sidebar / Info Column */}
                 <div className="form-sidebar-container">
@@ -520,25 +558,27 @@ function CreateVacancy({ admin }) {
                             <hr style={{ margin: '20px 0' }} />
 
                             <div className="form-actions-p" style={{ gap: '10px' }}>
-                                <button
-                                    type="submit"
-                                    className="btn btn-gold full-width"
-                                    disabled={loading}
-                                    style={{ padding: '12px 20px', fontSize: '0.9rem' }}
-                                >
-                                    {loading ? (
-                                        <div className="spinner-small"></div>
-                                    ) : (
-                                        <><FiSave /> {isEditing ? 'Update Vacancy' : 'Create Vacancy'}</>
-                                    )}
-                                </button>
+                                {admin.role !== 'super_admin' && (
+                                    <button
+                                        type="submit"
+                                        className="btn btn-gold full-width"
+                                        disabled={loading}
+                                        style={{ padding: '12px 20px', fontSize: '0.9rem' }}
+                                    >
+                                        {loading ? (
+                                            <div className="spinner-small"></div>
+                                        ) : (
+                                            <><FiSave /> {isEditing ? 'Update Vacancy' : 'Create Vacancy'}</>
+                                        )}
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     className="btn btn-outline full-width"
                                     onClick={() => navigate('/admin/vacancies')}
                                     style={{ padding: '12px 20px', fontSize: '0.9rem' }}
                                 >
-                                    Cancel
+                                    {admin.role === 'super_admin' ? 'Back to Vacancies' : 'Cancel'}
                                 </button>
                             </div>
                         </div>
