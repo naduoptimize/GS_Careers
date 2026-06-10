@@ -23,6 +23,7 @@ import CompanyReports from './pages/admin/CompanyReports';
 import ChangePasswordPage from './pages/admin/ChangePasswordPage';
 import ForgotPasswordPage from './pages/admin/ForgotPasswordPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
+import VacancyApprovals from './pages/admin/VacancyApprovals';
 
 function ProtectedRoute({ children }) {
     const [auth, setAuth] = useState(null);
@@ -89,6 +90,7 @@ function App() {
                                 <Route path="/vacancies/edit/:id" element={<CreateVacancy admin={admin} />} />
                                 <Route path="/applicants" element={<Applicants admin={admin} />} />
                                 <Route path="/talent-pool" element={<TalentPool admin={admin} />} />
+                                <Route path="/approvals" element={<VacancyApprovals admin={admin} />} />
                                 {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                     <>
                                         <Route path="/vacancies/reports" element={<CompanyReports admin={admin} />} />

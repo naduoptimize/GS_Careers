@@ -175,3 +175,40 @@ function requireAdminOrSuperAdmin()
 if (!is_dir(UPLOAD_DIR)) {
     mkdir(UPLOAD_DIR, 0755, true);
 }
+
+// ---- EMAIL UTILITY ----
+function sendEmail($to, $toName, $subject, $body)
+{
+    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED) return true;
+
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+    try {
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host       = SMTP_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = SMTP_USER;
+        $mail->Password   = SMTP_PASS;
+        $mail->SMTPSecure = SMTP_SECURE;
+        $mail->Port       = SMTP_PORT;
+
+        // Recipients
+        $mail->setFrom(SMTP_USER, SMTP_FROM_NAME);
+        $mail->addAddress($to, $toName);
+        $mail->addReplyTo(SMTP_REPLY_TO, 'Support');
+
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+        $mail->AltBody = strip_tags(str_replace('<br>', "\n", $body));
+
+        $mail->send();
+        return true;
+    } catch (\Exception $e) {
+        error_log("Mail Error: " . $mail->ErrorInfo);
+        return false;
+    }
+}
+

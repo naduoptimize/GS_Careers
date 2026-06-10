@@ -97,49 +97,49 @@ function Dashboard({ admin }) {
 
             {/* ── ANIMATED STAT CARDS ── */}
             <div className="stats-mosaic-grid admin-grid-4">
-                <div className="stat-glass-card gold" style={{ animationDelay: '0.1s' }}>
-                    <div className="s-icon"><FiBriefcase /></div>
-                    <div className="s-info">
-                        <span className="s-label">Total Listings</span>
-                        <span className="s-value">{totalVac}</span>
+                <div className="db-stat-card gold" style={{ animationDelay: '0.1s' }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Total Listings</span>
+                        <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
-                    <div className="s-progress-bar">
-                        <div className="s-progress-fill gold-fill" style={{ width: '100%' }}></div>
+                    <span className="db-s-value">{totalVac}</span>
+                    <div className="db-s-progress-bar">
+                        <div className="db-s-progress-fill gold-fill" style={{ width: '100%' }}></div>
                     </div>
-                    <div className="s-trend"><FiTrendingUp /> Global Overview</div>
+                    <div className="db-s-trend"><FiTrendingUp /> Global Overview</div>
                 </div>
-                <div className="stat-glass-card green" style={{ animationDelay: '0.2s' }}>
-                    <div className="s-icon"><FiCheckCircle /></div>
-                    <div className="s-info">
-                        <span className="s-label">Live Channels</span>
-                        <span className="s-value">{activeVac}</span>
+                <div className="db-stat-card green" style={{ animationDelay: '0.2s' }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Live Channels</span>
+                        <div className="db-s-icon"><FiCheckCircle /></div>
                     </div>
-                    <div className="s-progress-bar">
-                        <div className="s-progress-fill green-fill" style={{ width: `${conversionRate}%` }}></div>
+                    <span className="db-s-value">{activeVac}</span>
+                    <div className="db-s-progress-bar">
+                        <div className="db-s-progress-fill green-fill" style={{ width: `${conversionRate}%` }}></div>
                     </div>
-                    <div className="s-trend positive"><FiBarChart2 /> {conversionRate}% Active Rate</div>
+                    <div className="db-s-trend positive"><FiBarChart2 /> {conversionRate}% Active Rate</div>
                 </div>
-                <div className="stat-glass-card blue" style={{ animationDelay: '0.3s' }}>
-                    <div className="s-icon"><FiUsers /></div>
-                    <div className="s-info">
-                        <span className="s-label">Engagement</span>
-                        <span className="s-value">{totalApps}</span>
+                <div className="db-stat-card blue" style={{ animationDelay: '0.3s' }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Engagement</span>
+                        <div className="db-s-icon"><FiUsers /></div>
                     </div>
-                    <div className="s-progress-bar">
-                        <div className="s-progress-fill blue-fill" style={{ width: '75%' }}></div>
+                    <span className="db-s-value">{totalApps}</span>
+                    <div className="db-s-progress-bar">
+                        <div className="db-s-progress-fill blue-fill" style={{ width: '75%' }}></div>
                     </div>
-                    <div className="s-trend">Total Submissions</div>
+                    <div className="db-s-trend">Total Submissions</div>
                 </div>
-                <div className="stat-glass-card purple" style={{ animationDelay: '0.4s' }}>
-                    <div className="s-icon"><FiTarget /></div>
-                    <div className="s-info">
-                        <span className="s-label">Talent Reserve</span>
-                        <span className="s-value">{talentPool}</span>
+                <div className="db-stat-card purple" style={{ animationDelay: '0.4s' }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Talent Reserve</span>
+                        <div className="db-s-icon"><FiTarget /></div>
                     </div>
-                    <div className="s-progress-bar">
-                        <div className="s-progress-fill purple-fill" style={{ width: '60%' }}></div>
+                    <span className="db-s-value">{talentPool}</span>
+                    <div className="db-s-progress-bar">
+                        <div className="db-s-progress-fill purple-fill" style={{ width: '60%' }}></div>
                     </div>
-                    <div className="s-trend">Future Insights</div>
+                    <div className="db-s-trend">Future Insights</div>
                 </div>
             </div>
 
@@ -441,18 +441,19 @@ function Dashboard({ admin }) {
                 /* STAT MOSAIC */
                 .stats-mosaic-grid { display: grid; gap: 20px; margin-bottom: 24px; }
 
-                .stat-glass-card {
+                .db-stat-card {
                     background: #fff;
-                    padding: 22px;
+                    padding: 24px;
                     border-radius: 20px;
                     border: 1px solid rgba(0,0,0,0.05);
-                    position: relative;
                     transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
                     display: flex;
                     flex-direction: column;
-                    gap: 14px;
+                    gap: 16px;
                     animation: slideUpFade 0.5s both;
                     box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+                    position: relative;
+                    overflow: hidden;
                 }
 
                 @keyframes slideUpFade {
@@ -460,40 +461,83 @@ function Dashboard({ admin }) {
                     to { opacity: 1; transform: translateY(0); }
                 }
 
-                .stat-glass-card:hover {
+                .db-stat-card:hover {
                     transform: translateY(-6px);
                     box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-                    border-color: rgba(200,169,81,0.2);
+                    border-color: rgba(200,169,81,0.25);
                 }
 
-                .stat-glass-card .s-icon {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 12px;
+                /* Subtle glowing top border for card hover accent */
+                .db-stat-card::after {
+                    content: '';
+                    position: absolute;
+                    top: 0; left: 0; right: 0;
+                    height: 4px;
+                    transition: all 0.3s;
+                    opacity: 0.85;
+                }
+                .db-stat-card.gold::after { background: #C8A951; }
+                .db-stat-card.green::after { background: #10b981; }
+                .db-stat-card.blue::after { background: #3b82f6; }
+                .db-stat-card.purple::after { background: #8b5cf6; }
+
+                .db-s-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+
+                .db-s-label {
+                    font-size: 0.72rem;
+                    font-weight: 800;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+
+                .db-s-icon {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 1.2rem;
+                    font-size: 1.15rem;
+                    transition: all 0.3s ease;
                 }
 
-                .stat-glass-card.gold .s-icon { background: rgba(200, 169, 81, 0.12); color: #C8A951; }
-                .stat-glass-card.green .s-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-                .stat-glass-card.blue .s-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
-                .stat-glass-card.purple .s-icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+                .db-stat-card.gold .db-s-icon { background: rgba(200, 169, 81, 0.1); color: #C8A951; }
+                .db-stat-card.green .db-s-icon { background: rgba(16, 185, 129, 0.08); color: #10b981; }
+                .db-stat-card.blue .db-s-icon { background: rgba(59, 130, 246, 0.08); color: #3b82f6; }
+                .db-stat-card.purple .db-s-icon { background: rgba(139, 92, 246, 0.08); color: #8b5cf6; }
 
-                .s-info { display: flex; flex-direction: column; }
-                .s-label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-                .s-value { font-size: 2rem; font-weight: 800; color: #1e293b; margin-top: 2px; line-height: 1; font-variant-numeric: tabular-nums; }
-                .s-trend { font-size: 0.7rem; font-weight: 700; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
-                .s-trend.positive { color: #10b981; }
+                .db-s-value {
+                    font-size: 2.25rem;
+                    font-weight: 800;
+                    color: #1e293b;
+                    line-height: 1.1;
+                    font-variant-numeric: tabular-nums;
+                    margin-top: 4px;
+                }
 
-                .s-progress-bar {
-                    height: 3px;
+                .db-s-trend {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: #94a3b8;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .db-s-trend.positive { color: #10b981; }
+
+                .db-s-progress-bar {
+                    height: 4px;
                     background: #f1f5f9;
                     border-radius: 100px;
                     overflow: hidden;
+                    margin-top: 2px;
                 }
-                .s-progress-fill {
+                .db-s-progress-fill {
                     height: 100%;
                     border-radius: 100px;
                     transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);

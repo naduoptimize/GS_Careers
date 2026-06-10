@@ -18,6 +18,7 @@ function CreateVacancy({ admin }) {
     const [matchCount, setMatchCount] = useState(0);
     const [matchingCandidates, setMatchingCandidates] = useState([]);
     const [showMatchModal, setShowMatchModal] = useState(false);
+    const [approvalSubmitModal, setApprovalSubmitModal] = useState(null);
     const [searchingMatches, setSearchingMatches] = useState(false);
     const [loadingMatches, setLoadingMatches] = useState(false);
     const [form, setForm] = useState({
@@ -185,9 +186,7 @@ function CreateVacancy({ admin }) {
         }
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
+    const handleSave = async (submitForApproval) => {
         // Basic validation
         if (!form.company_id || !form.title || !form.designation || !form.description || !form.publish_date || !form.expire_date) {
             toast.error('Please fill in all required fields');
@@ -196,14 +195,26 @@ function CreateVacancy({ admin }) {
 
         try {
             setLoading(true);
+            const payload = { ...form, submit_for_approval: submitForApproval };
+            let newId = id;
             if (isEditing) {
-                await updateVacancy({ ...form, id });
-                toast.success('Vacancy updated successfully');
+                await updateVacancy({ ...payload, id });
+                toast.success(submitForApproval ? 'Vacancy submitted for approval' : 'Vacancy draft updated');
             } else {
-                await createVacancy(form);
-                toast.success('Vacancy created successfully');
+                const res = await createVacancy(payload);
+                newId = res.data?.data?.id;
+                toast.success(submitForApproval ? 'Vacancy created and submitted for approval' : 'Vacancy draft saved');
             }
-            navigate('/admin/vacancies');
+
+            if (submitForApproval && admin.role === 'sub_admin2' && newId) {
+                setApprovalSubmitModal({
+                    id: newId,
+                    title: form.title,
+                    reference_number: form.reference_number
+                });
+            } else {
+                navigate('/admin/vacancies');
+            }
         } catch (err) {
             toast.error(err.response?.data?.message || 'Operation failed');
         } finally {
@@ -245,7 +256,7 @@ function CreateVacancy({ admin }) {
                 )}
             </div>
 
-            <form onSubmit={handleSubmit} className="premium-form-layout">
+            <form onSubmit={(e) => e.preventDefault()} className="premium-form-layout">
                 <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
                     <div className="form-sections-container">
                     {/* Section 1: Basic Information */}
@@ -557,20 +568,32 @@ function CreateVacancy({ admin }) {
 
                             <hr style={{ margin: '20px 0' }} />
 
-                            <div className="form-actions-p" style={{ gap: '10px' }}>
+                            <div className="form-actions-p" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {admin.role !== 'super_admin' && (
-                                    <button
-                                        type="submit"
-                                        className="btn btn-gold full-width"
-                                        disabled={loading}
-                                        style={{ padding: '12px 20px', fontSize: '0.9rem' }}
-                                    >
-                                        {loading ? (
-                                            <div className="spinner-small"></div>
-                                        ) : (
-                                            <><FiSave /> {isEditing ? 'Update Vacancy' : 'Create Vacancy'}</>
-                                        )}
-                                    </button>
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="btn btn-gold full-width"
+                                            disabled={loading}
+                                            onClick={() => handleSave(true)}
+                                            style={{ padding: '12px 20px', fontSize: '0.9rem' }}
+                                        >
+                                            {loading ? (
+                                                <div className="spinner-small"></div>
+                                            ) : (
+                                                <><FiCheckCircle /> Submit for Approval</>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline full-width"
+                                            disabled={loading}
+                                            onClick={() => handleSave(false)}
+                                            style={{ padding: '12px 20px', fontSize: '0.9rem', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                                        >
+                                            <FiSave /> Save Requisition Draft
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     type="button"
@@ -666,6 +689,91 @@ function CreateVacancy({ admin }) {
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {approvalSubmitModal && (
+                <div className="modal-overlay-p" style={{ zIndex: 1100 }}>
+                    <div className="match-modal-p success-modal" style={{ maxWidth: '450px', textAlign: 'center', padding: '36px' }}>
+                        <div className="success-visual animate-bounce-in" style={{
+                            width: '76px',
+                            height: '76px',
+                            background: 'rgba(22, 163, 74, 0.08)',
+                            color: '#16a34a',
+                            borderRadius: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '2.5rem',
+                            margin: '0 auto 24px',
+                            border: '1px solid rgba(22, 163, 74, 0.15)'
+                        }}>
+                            <FiCheckCircle />
+                        </div>
+                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px' }}>
+                            Requisition Submitted
+                        </h2>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
+                            Your requisition for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been created.
+                        </p>
+                        
+                        {/* Approval Target Box */}
+                        <div style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '16px',
+                            padding: '18px',
+                            marginBottom: '28px',
+                            textAlign: 'left'
+                        }}>
+                            <h4 style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FiUser /> Approval Routing
+                            </h4>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    background: '#d97706',
+                                    flexShrink: 0
+                                }} className="dot pulse"></div>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
+                                        Awaiting Action: Sub Admin 1
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+                                        Email notification sent to evaluation reviewers.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button 
+                                type="button" 
+                                className="btn btn-gold" 
+                                style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                                onClick={() => {
+                                    const targetId = approvalSubmitModal.id;
+                                    setApprovalSubmitModal(null);
+                                    navigate(`/admin/approvals?highlight=${targetId}`);
+                                }}
+                            >
+                                Track in Approval Pipeline
+                            </button>
+                            <button 
+                                type="button" 
+                                className="btn btn-outline" 
+                                style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                onClick={() => {
+                                    setApprovalSubmitModal(null);
+                                    navigate('/admin/vacancies');
+                                }}
+                            >
+                                Go to Vacancy List
+                            </button>
                         </div>
                     </div>
                 </div>

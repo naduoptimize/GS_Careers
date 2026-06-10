@@ -1032,7 +1032,7 @@ function TalentPool({ admin }) {
                     flex: 1;
                 }
 
-                .s-icon {
+                .search-orchestrator .s-icon {
                     position: absolute;
                     left: 18px;
                     top: 50%;

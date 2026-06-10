@@ -585,7 +585,6 @@ function Applicants({ admin }) {
                 <div className="toolbar-search-row">
                     <div className="search-orchestrator">
                         <FiSearch className="s-icon" />
-                        <label htmlFor="applicant_search" className="sr-only">Search Applicants</label>
                         <input
                             id="applicant_search"
                             name="applicant_search"
@@ -2041,19 +2040,20 @@ function Applicants({ admin }) {
                 .console-toolbar-p {
                     display: flex;
                     flex-direction: column;
-                    gap: 18px;
+                    gap: 20px;
                     margin-bottom: 24px;
                     background: #fff;
-                    padding: 24px;
+                    padding: 24px 28px;
                     border-radius: 20px;
                     border: 1px solid #eef2f6;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+                    border-left: 4px solid var(--crimson);
+                    box-shadow: 0 4px 24px rgba(0,0,0,0.03);
                 }
 
                 .toolbar-search-row {
                     display: flex;
                     align-items: center;
-                    gap: 16px;
+                    gap: 14px;
                 }
 
                 .search-orchestrator {
@@ -2061,15 +2061,27 @@ function Applicants({ admin }) {
                     flex: 1;
                 }
 
-                .s-icon {
+                .search-orchestrator .s-icon {
                     position: absolute;
                     left: 20px;
                     top: 50%;
                     transform: translateY(-50%);
                     color: #94a3b8;
-                    font-size: 1.1rem;
+                    font-size: 1.15rem;
                     pointer-events: none;
                     z-index: 2;
+                }
+
+                .sr-only {
+                    position: absolute;
+                    width: 1px;
+                    height: 1px;
+                    padding: 0;
+                    margin: -1px;
+                    overflow: hidden;
+                    clip: rect(0, 0, 0, 0);
+                    white-space: nowrap;
+                    border: 0;
                 }
 
                 .search-orchestrator input {
@@ -2157,9 +2169,9 @@ function Applicants({ admin }) {
 
                 .select-orchestrator select {
                     width: 100%;
-                    padding: 12px 36px 12px 40px;
+                    padding: 11px 36px 11px 40px;
                     border-radius: 10px;
-                    border: 1.5px solid #edf2f7;
+                    border: 1.5px solid #e8edf4;
                     background: #f8fafc;
                     font-size: 0.85rem;
                     font-weight: 700;
@@ -2175,17 +2187,20 @@ function Applicants({ admin }) {
                     box-sizing: border-box;
                     white-space: nowrap;
                     text-overflow: ellipsis;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
                 }
 
                 .select-orchestrator select:focus {
                     outline: none;
                     border-color: var(--crimson);
                     background-color: #fff;
-                    box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.05);
+                    box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.06), 0 2px 6px rgba(0,0,0,0.04);
                 }
 
                 .select-orchestrator select:hover {
-                    border-color: #cbd5e1;
+                    border-color: #c0cdd8;
+                    background-color: #fff;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.05);
                 }
 
                 .f-icon {

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, FiMenu, FiX, FiTarget, FiChevronRight, FiSettings } from 'react-icons/fi';
-import { API_BASE } from '../../services/api';
+import { FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, FiCheckCircle } from 'react-icons/fi';
+import { API_BASE, getPendingApprovals } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -11,6 +11,33 @@ function AdminLayout({ admin, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [vacanciesExpanded, setVacanciesExpanded] = useState(location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies'));
+    const [pendingCount, setPendingCount] = useState(0);
+
+    useEffect(() => {
+        const fetchPendingCount = async () => {
+            try {
+                const res = await getPendingApprovals();
+                const list = res.data.data || [];
+                let count = 0;
+                if (admin.role === 'sub_admin1') {
+                    count = list.filter(v => v.approval_status === 'pending_subadmin1').length;
+                } else if (admin.role === 'super_admin' || admin.role === 'admin') {
+                    count = list.filter(v => v.approval_status === 'pending_global').length;
+                }
+                setPendingCount(count);
+            } catch (err) {
+                console.error('Failed to fetch pending approvals count:', err);
+            }
+        };
+
+        if (admin && admin.role !== 'sub_admin2') {
+            fetchPendingCount();
+            
+            // Sync count every 30 seconds for live indicators
+            const interval = setInterval(fetchPendingCount, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [admin]);
 
     const handleLogout = () => {
         localStorage.removeItem('gs_admin_token');
@@ -40,6 +67,7 @@ function AdminLayout({ admin, children }) {
     const navItems = [
         { to: '/admin', icon: <FiGrid />, label: 'Dashboard', end: true, badge: null },
         { to: '/admin/vacancies', icon: <FiBriefcase />, label: 'Vacancies', badge: null },
+        { to: '/admin/approvals', icon: <FiCheckCircle />, label: 'Approvals', badge: pendingCount > 0 ? pendingCount : null },
         { to: '/admin/applicants', icon: <FiUsers />, label: 'Applicants', badge: null },
         { to: '/admin/talent-pool', icon: <FiTarget />, label: 'Talent Pool', badge: null },
     ];

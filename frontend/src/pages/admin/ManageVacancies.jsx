@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllVacancies, deleteVacancy, getCompanies, getStats, API_BASE, getApplications, assignVacancyCandidate } from '../../services/api';
+import { getAllVacancies, deleteVacancy, updateVacancy, getCompanies, getStats, API_BASE, getApplications, assignVacancyCandidate } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 import { formatDate, daysLeft } from '../../utils/constants';
@@ -53,6 +53,204 @@ const renderFormattedText = (text) => {
     }
 
     return result;
+};
+
+const renderApprovalTimeline = (v) => {
+    if (!v) return null;
+
+    const steps = [];
+
+    // Step 1: Requisition Initiated
+    steps.push({
+        label: 'Requisition Initiated',
+        status: 'completed',
+        icon: 'FiPlus',
+        color: '#16a34a',
+        detail: `Created by ${v.creator_name || 'System'}`,
+        time: v.created_at ? formatDate(v.created_at) : formatDate(v.publish_date)
+    });
+
+    // Step 2: Sub Admin 1 Approval
+    const requiresSub1 = v.creator_role === 'sub_admin2' || (!v.creator_role && (v.sub1_approved_by || v.approval_status === 'pending_subadmin1' || (v.approval_status === 'rejected' && v.rejected_by_name && !v.sub1_approved_by && !v.global_approved_by)));
+    
+    if (requiresSub1) {
+        let stepStatus = 'pending';
+        let detail = 'Pending review by Sub Admin 1';
+        let time = '';
+        let color = '#94a3b8';
+
+        if (v.sub1_approved_by) {
+            stepStatus = 'completed';
+            detail = `Approved by ${v.sub1_approved_by_name}`;
+            time = formatDate(v.sub1_approved_at);
+            color = '#16a34a';
+        } else if (v.approval_status === 'pending_subadmin1') {
+            stepStatus = 'active';
+            detail = 'Awaiting review by Sub Admin 1';
+            color = '#d97706';
+        } else if (v.approval_status === 'rejected' && v.rejected_by_name && !v.global_approved_by_name) {
+            stepStatus = 'rejected';
+            detail = `Rejected by ${v.rejected_by_name}`;
+            time = formatDate(v.rejected_at);
+            color = '#dc2626';
+        } else if (v.approval_status === 'draft') {
+            stepStatus = 'pending';
+            detail = 'Awaiting submission';
+            color = '#94a3b8';
+        }
+
+        steps.push({
+            label: 'Sub Admin 1 Approval',
+            status: stepStatus,
+            icon: 'FiCheckCircle',
+            color: color,
+            detail: detail,
+            time: time
+        });
+    } else {
+        steps.push({
+            label: 'Sub Admin 1 Approval',
+            status: 'skipped',
+            icon: 'FiCheckCircle',
+            color: '#64748b',
+            detail: 'Bypassed (Direct submission by ' + (v.creator_role === 'sub_admin1' ? 'Sub Admin 1' : 'Admin') + ')',
+            time: ''
+        });
+    }
+
+    // Step 3: Global Admin Approval
+    let step3Status = 'pending';
+    let step3Detail = 'Awaiting previous step';
+    let step3Time = '';
+    let step3Color = '#94a3b8';
+
+    const isSub1Done = !requiresSub1 || v.sub1_approved_by;
+    
+    if (v.global_approved_by) {
+        step3Status = 'completed';
+        step3Detail = `Approved by ${v.global_approved_by_name}`;
+        step3Time = formatDate(v.global_approved_at);
+        step3Color = '#16a34a';
+    } else if (v.approval_status === 'pending_global') {
+        step3Status = 'active';
+        step3Detail = 'Awaiting review by Global Admin';
+        step3Color = '#2563eb';
+    } else if (v.approval_status === 'rejected' && v.rejected_by_name && (v.global_approved_by_name || !requiresSub1 || v.sub1_approved_by_name)) {
+        step3Status = 'rejected';
+        step3Detail = `Rejected by ${v.rejected_by_name}`;
+        step3Time = formatDate(v.rejected_at);
+        step3Color = '#dc2626';
+    } else if (isSub1Done && v.approval_status !== 'draft') {
+        step3Status = 'pending';
+        step3Detail = 'Pending review by Global Admin';
+    }
+
+    steps.push({
+        label: 'Global Admin Approval',
+        status: step3Status,
+        icon: 'FiCheckCircle',
+        color: step3Color,
+        detail: step3Detail,
+        time: step3Time
+    });
+
+    // Step 4: Publication
+    let step4Status = 'pending';
+    let step4Detail = 'Awaiting final approval';
+    let step4Color = '#94a3b8';
+    
+    if (v.approval_status === 'approved') {
+        const isLive = v.is_active && daysLeft(v.expire_date) > 0;
+        step4Status = 'completed';
+        step4Detail = isLive ? 'Vacancy is LIVE and publishable' : 'Vacancy posting has ended';
+        step4Color = isLive ? '#16a34a' : '#64748b';
+    }
+
+    steps.push({
+        label: 'Vacancy Activation',
+        status: step4Status,
+        icon: 'FiBriefcase',
+        color: step4Color,
+        detail: step4Detail,
+        time: v.approval_status === 'approved' && v.global_approved_at ? formatDate(v.global_approved_at) : ''
+    });
+
+    return (
+        <div className="approval-stepper-timeline" style={{ marginTop: '24px', marginBottom: '24px', padding: '20px', background: 'rgba(255,255,255,0.4)', borderRadius: '16px', border: '1px solid rgba(226, 232, 240, 0.8)' }}>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                <FiClock /> Requisition Approval Timeline
+            </h4>
+            <div className="stepper-track" style={{ display: 'flex', flexDirection: 'column', gap: '0px', position: 'relative' }}>
+                {steps.map((step, idx) => {
+                    const isLast = idx === steps.length - 1;
+                    return (
+                        <div key={idx} className={`stepper-item ${step.status}`} style={{ display: 'flex', gap: '16px', position: 'relative', paddingBottom: isLast ? '0' : '20px' }}>
+                            {!isLast && (
+                                <div className="stepper-line" style={{
+                                    position: 'absolute',
+                                    left: '14px',
+                                    top: '28px',
+                                    bottom: '0',
+                                    width: '2px',
+                                    background: step.status === 'completed' ? '#16a34a' : '#cbd5e1',
+                                    zIndex: 1
+                                }}></div>
+                            )}
+                            
+                            <div className="stepper-node" style={{
+                                width: '30px',
+                                height: '30px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: step.status === 'completed' ? 'rgba(22, 163, 74, 0.1)' : 
+                                            step.status === 'active' ? 'rgba(37, 99, 235, 0.1)' :
+                                            step.status === 'rejected' ? 'rgba(220, 38, 38, 0.1)' :
+                                            step.status === 'skipped' ? 'rgba(100, 116, 139, 0.1)' : '#f1f5f9',
+                                border: `2px solid ${
+                                    step.status === 'completed' ? '#16a34a' :
+                                    step.status === 'active' ? '#2563eb' :
+                                    step.status === 'rejected' ? '#dc2626' :
+                                    step.status === 'skipped' ? '#64748b' : '#cbd5e1'
+                                }`,
+                                color: step.status === 'completed' ? '#16a34a' :
+                                       step.status === 'active' ? '#2563eb' :
+                                       step.status === 'rejected' ? '#dc2626' :
+                                       step.status === 'skipped' ? '#64748b' : '#64748b',
+                                zIndex: 2,
+                                flexShrink: 0,
+                                fontSize: '0.85rem',
+                                fontWeight: 'bold'
+                            }}>
+                                {idx + 1}
+                            </div>
+                            
+                            <div className="stepper-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '4px' }}>
+                                <span className="stepper-label" style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    color: step.status === 'active' ? '#1e293b' : 'var(--text-secondary)'
+                                }}>
+                                    {step.label}
+                                    {step.status === 'skipped' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#64748b', padding: '1px 6px', background: '#e2e8f0', borderRadius: '4px' }}>Skipped</span>}
+                                    {step.status === 'active' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#b45309', padding: '1px 6px', background: '#fef3c7', borderRadius: '4px' }}>Awaiting Action</span>}
+                                </span>
+                                <span className="stepper-detail" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                    {step.detail}
+                                </span>
+                                {step.time && (
+                                    <span className="stepper-time" style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                        <FiCalendar size={10} /> {step.time}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 };
 
 function ManageVacancies({ admin }) {
@@ -170,6 +368,23 @@ function ManageVacancies({ admin }) {
             loadData();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Delete failed');
+        }
+    };
+
+    const handleQuickSubmit = async (vacancy) => {
+        try {
+            setLoading(true);
+            await updateVacancy({
+                ...vacancy,
+                submit_for_approval: true
+            });
+            toast.success('Vacancy submitted for approval successfully!');
+            await loadData();
+        } catch (err) {
+            console.error(err);
+            toast.error(err.response?.data?.message || 'Failed to submit vacancy for approval');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -399,13 +614,44 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className={`status-orb-p ${active ? 'live' : 'expired'}`}>
-                                                    <span className="orb"></span>
-                                                    <span className="orb-text">{active ? 'Live' : 'Ended'}</span>
-                                                </div>
+                                                {v.approval_status === 'draft' && (
+                                                    <div className="status-orb-p warning" title="Draft Requisition">
+                                                        <span className="orb" style={{ background: '#64748b', boxShadow: '0 0 8px rgba(100,116,139,0.5)' }}></span>
+                                                        <span className="orb-text" style={{ color: '#64748b' }}>Draft</span>
+                                                    </div>
+                                                )}
+                                                {v.approval_status === 'pending_subadmin1' && (
+                                                    <div className="status-orb-p warning" title="Pending Sub Admin 1 Approval">
+                                                        <span className="orb" style={{ background: '#d97706', boxShadow: '0 0 8px rgba(217,119,6,0.5)' }}></span>
+                                                        <span className="orb-text" style={{ color: '#d97706' }}>Pending Sub 1</span>
+                                                    </div>
+                                                )}
+                                                {v.approval_status === 'pending_global' && (
+                                                    <div className="status-orb-p info" title="Pending Global Admin Approval">
+                                                        <span className="orb" style={{ background: '#2563eb', boxShadow: '0 0 8px rgba(37,99,235,0.5)' }}></span>
+                                                        <span className="orb-text" style={{ color: '#2563eb' }}>Pending Global</span>
+                                                    </div>
+                                                )}
+                                                {v.approval_status === 'rejected' && (
+                                                    <div className="status-orb-p expired" title={`Rejected: ${v.rejection_reason || 'No reason provided'}`}>
+                                                        <span className="orb" style={{ background: '#dc2626', boxShadow: '0 0 8px rgba(220,38,38,0.5)' }}></span>
+                                                        <span className="orb-text" style={{ color: '#dc2626' }}>Rejected</span>
+                                                    </div>
+                                                )}
+                                                {v.approval_status === 'approved' && (
+                                                    <div className={`status-orb-p ${active ? 'live' : 'expired'}`}>
+                                                        <span className="orb"></span>
+                                                        <span className="orb-text">{active ? 'Live' : 'Ended'}</span>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td>
                                                 <div className="orchestration-actions">
+                                                    {admin.role !== 'super_admin' && (v.approval_status === 'draft' || v.approval_status === 'rejected') && (
+                                                        <button className="o-btn submit-approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval" style={{ color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }}>
+                                                            <FiCheckCircle />
+                                                        </button>
+                                                    )}
                                                     <button className="o-btn view" onClick={() => setViewDetail(v)} title="View Job Description">
                                                         <FiEye />
                                                     </button>
@@ -483,8 +729,30 @@ function ManageVacancies({ admin }) {
 
                             <div className="vd-header-top">
                                 <div className="vd-status-badge">
-                                    <span className={`vd-status-dot ${viewDetail.is_active && daysLeft(viewDetail.expire_date) > 0 ? 'live' : 'ended'}`}></span>
-                                    {viewDetail.is_active && daysLeft(viewDetail.expire_date) > 0 ? 'LIVE POSTING' : 'ENDED'}
+                                    {viewDetail.approval_status === 'pending_subadmin1' && (
+                                        <>
+                                            <span className="vd-status-dot" style={{ background: '#d97706', boxShadow: '0 0 8px rgba(217,119,6,0.5)' }}></span>
+                                            <span style={{ color: '#d97706' }}>PENDING SUB 1</span>
+                                        </>
+                                    )}
+                                    {viewDetail.approval_status === 'pending_global' && (
+                                        <>
+                                            <span className="vd-status-dot" style={{ background: '#2563eb', boxShadow: '0 0 8px rgba(37,99,235,0.5)' }}></span>
+                                            <span style={{ color: '#2563eb' }}>PENDING GLOBAL</span>
+                                        </>
+                                    )}
+                                    {viewDetail.approval_status === 'rejected' && (
+                                        <>
+                                            <span className="vd-status-dot" style={{ background: '#dc2626', boxShadow: '0 0 8px rgba(220,38,38,0.5)' }}></span>
+                                            <span style={{ color: '#dc2626' }}>REJECTED</span>
+                                        </>
+                                    )}
+                                    {viewDetail.approval_status === 'approved' && (
+                                        <>
+                                            <span className={`vd-status-dot ${viewDetail.is_active && daysLeft(viewDetail.expire_date) > 0 ? 'live' : 'ended'}`}></span>
+                                            {viewDetail.is_active && daysLeft(viewDetail.expire_date) > 0 ? 'LIVE POSTING' : 'ENDED'}
+                                        </>
+                                    )}
                                 </div>
                                 <button className="vd-close-btn" onClick={() => setViewDetail(null)} title="Close">
                                     <FiX />
@@ -523,6 +791,15 @@ function ManageVacancies({ admin }) {
 
                         {/* ── MODAL BODY ── */}
                         <div className="vd-body">
+                            {viewDetail.approval_status === 'rejected' && (
+                                <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
+                                    <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: 0, fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason provided'}</p>
+                                </div>
+                            )}
+
+                            {/* Approval Timeline */}
+                            {renderApprovalTimeline(viewDetail)}
 
                             {/* Selected Employee Section */}
                             <div className="vd-selected-employee-section">
@@ -1271,7 +1548,7 @@ function ManageVacancies({ admin }) {
                     flex: 1;
                 }
 
-                .s-icon {
+                .search-orchestrator .s-icon {
                     position: absolute;
                     left: 18px;
                     top: 50%;
