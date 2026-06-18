@@ -133,13 +133,52 @@ const renderApprovalTimeline = (v) => {
     });
 
     return (
-        <div className="approval-stepper-timeline" style={{ marginTop: '24px', marginBottom: '24px', padding: '20px', background: 'rgba(255,255,255,0.4)', borderRadius: '16px', border: '1px solid rgba(226, 232, 240, 0.8)' }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
-                <FiClock /> Requisition Approval Timeline
+        <div className="approval-stepper-timeline" style={{
+            marginTop: '24px',
+            marginBottom: '24px',
+            padding: '24px',
+            background: '#f8fafc',
+            borderRadius: '16px',
+            border: '1.5px solid #e2e8f0',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
+        }}>
+            <h4 style={{
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                color: '#0f172a',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                borderBottom: '1.5px solid #e2e8f0',
+                paddingBottom: '10px'
+            }}>
+                <FiClock size={16} style={{ color: '#0f172a' }} /> Requisition Approval Timeline
             </h4>
             <div className="stepper-track" style={{ display: 'flex', flexDirection: 'column', gap: '0px', position: 'relative' }}>
                 {steps.map((step, idx) => {
                     const isLast = idx === steps.length - 1;
+                    
+                    // Determine custom icon or number inside step node
+                    let stepIcon = idx + 1;
+                    if (step.status === 'completed') stepIcon = <FiCheck size={16} />;
+                    else if (step.status === 'active') stepIcon = <FiClock size={16} />;
+                    else if (step.status === 'rejected') stepIcon = <FiX size={16} />;
+
+                    // Enhanced Node Colors for high-contrast and visual appeal
+                    const nodeBg = step.status === 'completed' ? '#22c55e' :
+                                   step.status === 'active' ? '#3b82f6' :
+                                   step.status === 'rejected' ? '#ef4444' :
+                                   step.status === 'skipped' ? '#f8fafc' : '#f1f5f9';
+                    const nodeBorder = step.status === 'completed' ? '#22c55e' :
+                                       step.status === 'active' ? '#3b82f6' :
+                                       step.status === 'rejected' ? '#ef4444' :
+                                       step.status === 'skipped' ? '#94a3b8' : '#cbd5e1';
+                    const nodeColor = (step.status === 'completed' || step.status === 'active' || step.status === 'rejected') ? '#ffffff' :
+                                      step.status === 'skipped' ? '#94a3b8' : '#475569';
+
                     return (
                         <div key={idx} className={`stepper-item ${step.status}`} style={{ display: 'flex', gap: '16px', position: 'relative', paddingBottom: isLast ? '0' : '20px' }}>
                             {!isLast && (
@@ -149,7 +188,7 @@ const renderApprovalTimeline = (v) => {
                                     top: '28px',
                                     bottom: '0',
                                     width: '2px',
-                                    background: step.status === 'completed' ? '#16a34a' : '#cbd5e1',
+                                    background: step.status === 'completed' ? '#22c55e' : '#cbd5e1',
                                     zIndex: 1
                                 }}></div>
                             )}
@@ -161,44 +200,36 @@ const renderApprovalTimeline = (v) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: step.status === 'completed' ? 'rgba(22, 163, 74, 0.1)' : 
-                                            step.status === 'active' ? 'rgba(37, 99, 235, 0.1)' :
-                                            step.status === 'rejected' ? 'rgba(220, 38, 38, 0.1)' :
-                                            step.status === 'skipped' ? 'rgba(100, 116, 139, 0.1)' : '#f1f5f9',
-                                border: `2px solid ${
-                                    step.status === 'completed' ? '#16a34a' :
-                                    step.status === 'active' ? '#2563eb' :
-                                    step.status === 'rejected' ? '#dc2626' :
-                                    step.status === 'skipped' ? '#64748b' : '#cbd5e1'
-                                }`,
-                                color: step.status === 'completed' ? '#16a34a' :
-                                       step.status === 'active' ? '#2563eb' :
-                                       step.status === 'rejected' ? '#dc2626' :
-                                       step.status === 'skipped' ? '#64748b' : '#64748b',
+                                background: nodeBg,
+                                border: `2px solid ${nodeBorder}`,
+                                color: nodeColor,
                                 zIndex: 2,
                                 flexShrink: 0,
                                 fontSize: '0.85rem',
                                 fontWeight: 'bold'
                             }}>
-                                {idx + 1}
+                                {stepIcon}
                             </div>
                             
                             <div className="stepper-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '4px' }}>
                                 <span className="stepper-label" style={{
                                     fontSize: '0.85rem',
                                     fontWeight: 700,
-                                    color: step.status === 'active' ? '#1e293b' : 'var(--text-secondary)'
+                                    color: (step.status === 'active' || step.status === 'completed') ? '#0f172a' : '#475569',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}>
                                     {step.label}
-                                    {step.status === 'skipped' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#64748b', padding: '1px 6px', background: '#e2e8f0', borderRadius: '4px' }}>Skipped</span>}
-                                    {step.status === 'active' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#b45309', padding: '1px 6px', background: '#fef3c7', borderRadius: '4px' }}>Awaiting Action</span>}
+                                    {step.status === 'skipped' && <span style={{ fontSize: '0.7rem', color: '#64748b', padding: '2px 8px', background: '#e2e8f0', borderRadius: '4px', fontWeight: 600 }}>Skipped</span>}
+                                    {step.status === 'active' && <span style={{ fontSize: '0.7rem', color: '#b45309', padding: '2px 8px', background: '#fef3c7', borderRadius: '4px', fontWeight: 600 }}>Awaiting Action</span>}
                                 </span>
-                                <span className="stepper-detail" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                <span className="stepper-detail" style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: '2px' }}>
                                     {step.detail}
                                 </span>
                                 {step.time && (
-                                    <span className="stepper-time" style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                        <FiCalendar size={10} /> {step.time}
+                                    <span className="stepper-time" style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontWeight: 500 }}>
+                                        <FiCalendar size={12} /> {step.time}
                                     </span>
                                 )}
                             </div>
@@ -221,6 +252,7 @@ function VacancyApprovals({ admin }) {
     const [statusFilter, setStatusFilter] = useState('');
     const [companyFilter, setCompanyFilter] = useState('');
     const [viewDetail, setViewDetail] = useState(null);
+    const [modalTab, setModalTab] = useState('details'); // 'details', 'history'
     const [showRejectModal, setShowRejectModal] = useState(null); // stores vacancy object being rejected
     const [rejectionReason, setRejectionReason] = useState('');
     const [submittingReject, setSubmittingReject] = useState(false);
@@ -230,6 +262,7 @@ function VacancyApprovals({ admin }) {
 
     const [auditLogs, setAuditLogs] = useState([]);
     const [loadingLogs, setLoadingLogs] = useState(false);
+    const [actionSuccessModal, setActionSuccessModal] = useState(null);
 
     useEffect(() => {
         loadData();
@@ -289,9 +322,19 @@ function VacancyApprovals({ admin }) {
     };
 
     const handleApprove = async (id) => {
+        const vacancy = vacancies.find(v => v.id === id) || viewDetail || {};
         try {
             setSubmittingApprove(true);
             await approveVacancy({ id });
+            
+            setActionSuccessModal({
+                type: admin.role === 'sub_admin1' ? 'sub1_approved' : 'global_approved',
+                title: vacancy.title,
+                reference_number: vacancy.reference_number,
+                company_name: vacancy.company_name,
+                id: id
+            });
+
             toast.success('Vacancy approved successfully!');
             setViewDetail(null);
             loadData();
@@ -309,9 +352,21 @@ function VacancyApprovals({ admin }) {
             return;
         }
 
+        const vacancy = showRejectModal || {};
         try {
             setSubmittingReject(true);
-            await rejectVacancy({ id: showRejectModal.id, rejection_reason: rejectionReason });
+            await rejectVacancy({ id: vacancy.id, rejection_reason: rejectionReason });
+            
+            setActionSuccessModal({
+                type: 'rejected',
+                title: vacancy.title,
+                reference_number: vacancy.reference_number,
+                company_name: vacancy.company_name,
+                rejection_reason: rejectionReason,
+                role: admin.role,
+                id: vacancy.id
+            });
+
             toast.success('Vacancy rejected successfully');
             setShowRejectModal(null);
             setRejectionReason('');
@@ -330,7 +385,7 @@ function VacancyApprovals({ admin }) {
             return v.approval_status === 'pending_subadmin1';
         }
         if (admin.role === 'super_admin' || admin.role === 'admin') {
-            return v.approval_status === 'pending_global' || v.approval_status === 'pending_subadmin1';
+            return v.approval_status === 'pending_global';
         }
         return false; // sub_admin2 has no actions
     };
@@ -667,7 +722,7 @@ function VacancyApprovals({ admin }) {
                                         </div>
 
                                         <div className="card-actions-row">
-                                             <button className="btn-action view" onClick={() => setViewDetail(v)}>
+                                             <button className="btn-action view" onClick={() => { setViewDetail(v); setModalTab('details'); }}>
                                                  <FiEye /> Review Details
                                              </button>
                                              {v.approval_status === 'rejected' && admin.role !== 'super_admin' && (
@@ -765,125 +820,197 @@ function VacancyApprovals({ admin }) {
                             </div>
                         </div>
 
+                        {/* Modal Tab Switcher */}
+                        <div className="vd-tabs-header">
+                            <button 
+                                className={`vd-tab-btn ${modalTab === 'details' ? 'active' : ''}`}
+                                onClick={() => setModalTab('details')}
+                            >
+                                <FiInfo /> Requisition Details
+                            </button>
+                            <button 
+                                className={`vd-tab-btn ${modalTab === 'history' ? 'active' : ''}`}
+                                onClick={() => setModalTab('history')}
+                            >
+                                <FiActivity /> Timeline & Audit Trail
+                            </button>
+                        </div>
+
                         <div className="vd-body">
-                            {viewDetail.approval_status === 'rejected' && (
-                                <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
-                                    <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: '4px 0 0', fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason specified'}</p>
-                                </div>
-                            )}
-
-                            {/* Approval Timeline */}
-                            {renderApprovalTimeline(viewDetail)}
-
-                            {/* Audit History Log */}
-                            <div className="vd-section" style={{ marginTop: '24px' }}>
-                                <h3 className="vd-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                    <FiActivity /> Requisition History Audit Trail
-                                </h3>
-                                <div className="vd-section-body-enhanced" style={{ padding: '20px', background: 'rgba(248, 250, 252, 0.6)' }}>
-                                    {loadingLogs ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                            <div className="spinner-small" style={{ borderTopColor: 'var(--text-muted)' }}></div>
-                                            Retrieving log entries...
-                                        </div>
-                                    ) : auditLogs.length === 0 ? (
-                                        <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            {auditLogs.map((log) => {
-                                                const actionLabels = {
-                                                    initiated: 'Draft Initiated',
-                                                    submitted: 'Requisition Submitted',
-                                                    edited: 'Details Revised',
-                                                    sub1_approved: 'Approved by Tier-1 Reviewer',
-                                                    global_approved: 'Authorized by Global Admin',
-                                                    rejected: 'Requisition Rejected'
-                                                };
-                                                const actionColors = {
-                                                    initiated: '#64748b',
-                                                    submitted: '#d97706',
-                                                    edited: '#6b21a8',
-                                                    sub1_approved: '#16a34a',
-                                                    global_approved: '#16a34a',
-                                                    rejected: '#dc2626'
-                                                };
-                                                return (
-                                                    <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                                <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b' }}>
-                                                                    {actionLabels[log.action] || log.action.toUpperCase()}
-                                                                </strong>
-                                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                                    {log.created_at}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
-                                                                By: <strong>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
-                                                            </div>
-                                                            {log.old_status && log.new_status && (
-                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-                                                                    Transition: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.old_status}</code> &rarr; <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.new_status}</code>
-                                                                </div>
-                                                            )}
-                                                            {log.reason && (
-                                                                <div style={{
-                                                                    marginTop: '8px',
-                                                                    padding: '8px 12px',
-                                                                    background: '#fff',
-                                                                    borderLeft: '3px solid #dc2626',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '0.8rem',
-                                                                    fontStyle: 'italic',
-                                                                    color: '#dc2626',
-                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                                                                }}>
-                                                                    "{log.reason}"
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                            {modalTab === 'details' ? (
+                                <>
+                                    {viewDetail.approval_status === 'rejected' && (
+                                        <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
+                                            <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: '4px 0 0', fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason specified'}</p>
                                         </div>
                                     )}
-                                </div>
-                            </div>
 
-                            <div className="vd-meta-grid">
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Designation</span>
-                                    <p className="vd-meta-value">{viewDetail.designation}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Min. Experience</span>
-                                    <p className="vd-meta-value">{viewDetail.min_experience}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Publish Date</span>
-                                    <p className="vd-meta-value"><FiCalendar /> {viewDetail.publish_date}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Expire Date</span>
-                                    <p className="vd-meta-value"><FiClock /> {viewDetail.expire_date}</p>
-                                </div>
-                            </div>
-
-                            <div className="vd-section">
-                                <h3 className="vd-section-title"><FiInfo /> Description</h3>
-                                <div className="vd-section-body-enhanced">
-                                    {renderFormattedText(viewDetail.description)}
-                                </div>
-                            </div>
-
-                            {viewDetail.requirements && (
-                                <div className="vd-section">
-                                    <h3 className="vd-section-title gold"><FiCheckCircle /> Requirements</h3>
-                                    <div className="vd-section-body-enhanced green">
-                                        {renderFormattedText(viewDetail.requirements)}
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">General Information</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Position / Job Title</span>
+                                                <div className="vd-form-value">{viewDetail.title}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Reference Number</span>
+                                                <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Establishment Entity</span>
+                                                <div className="vd-form-value">{viewDetail.company_name}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Designation Class</span>
+                                                <div className="vd-form-value">{viewDetail.designation || 'N/A'}</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">Operational Details</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Employment Classification</span>
+                                                <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Work Location</span>
+                                                <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Experience Tier Required</span>
+                                                <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Active Listing Period</span>
+                                                <div className="vd-form-value">
+                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {viewDetail.publish_date}</span>
+                                                    <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
+                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {viewDetail.expire_date}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">Position Specification Sheets</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field full-width" style={{ marginBottom: '16px' }}>
+                                                <span className="vd-form-label">Roles & Responsibilities (Job Description)</span>
+                                                <div className="vd-form-value-textarea">
+                                                    {renderFormattedText(viewDetail.description)}
+                                                </div>
+                                            </div>
+                                            {viewDetail.requirements && (
+                                                <div className="vd-form-field full-width">
+                                                    <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
+                                                    <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
+                                                        {renderFormattedText(viewDetail.requirements)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Approval Timeline */}
+                                    {renderApprovalTimeline(viewDetail)}
+
+                                    {/* Audit History Log */}
+                                    <div className="vd-section" style={{ marginTop: '24px' }}>
+                                        <h3 className="vd-section-title" style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            color: '#0f172a',
+                                            fontSize: '0.95rem',
+                                            fontWeight: 800,
+                                            borderBottom: '1.5px solid #e2e8f0',
+                                            paddingBottom: '10px',
+                                            marginBottom: '16px'
+                                        }}>
+                                            <FiActivity size={16} /> Requisition History Audit Trail
+                                        </h3>
+                                        <div className="vd-section-body-enhanced" style={{
+                                            padding: '24px',
+                                            background: '#f8fafc',
+                                            borderRadius: '16px',
+                                            border: '1.5px solid #e2e8f0',
+                                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
+                                        }}>
+                                            {loadingLogs ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 500 }}>
+                                                    <div className="spinner-small" style={{ borderTopColor: '#475569' }}></div>
+                                                    Retrieving log entries...
+                                                </div>
+                                            ) : auditLogs.length === 0 ? (
+                                                <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                    {auditLogs.map((log) => {
+                                                        const actionLabels = {
+                                                            initiated: 'Draft Initiated',
+                                                            submitted: 'Requisition Submitted',
+                                                            edited: 'Details Revised',
+                                                            sub1_approved: 'Approved by Tier-1 Reviewer',
+                                                            global_approved: 'Authorized by Global Admin',
+                                                            rejected: 'Requisition Rejected'
+                                                        };
+                                                        const actionColors = {
+                                                            initiated: '#64748b',
+                                                            submitted: '#d97706',
+                                                            edited: '#6b21a8',
+                                                            sub1_approved: '#16a34a',
+                                                            global_approved: '#16a34a',
+                                                            rejected: '#dc2626'
+                                                        };
+                                                        return (
+                                                            <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                                        <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b', fontWeight: 700 }}>
+                                                                            {actionLabels[log.action] || log.action.toUpperCase()}
+                                                                        </strong>
+                                                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                                                                            {log.created_at}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
+                                                                        By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                                    </div>
+                                                                    {log.old_status && log.new_status && (
+                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                                                                            Transition: <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.old_status}</code> &rarr; <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.new_status}</code>
+                                                                        </div>
+                                                                    )}
+                                                                    {log.reason && (
+                                                                        <div style={{
+                                                                            marginTop: '8px',
+                                                                            padding: '10px 14px',
+                                                                            background: '#fff3f2',
+                                                                            borderLeft: '4px solid #dc2626',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.8rem',
+                                                                            fontStyle: 'italic',
+                                                                            color: '#dc2626',
+                                                                            fontWeight: 500,
+                                                                            boxShadow: '0 1px 3px rgba(220,38,38,0.05)'
+                                                                        }}>
+                                                                            "{log.reason}"
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
                             )}
                         </div>
 
@@ -948,6 +1075,174 @@ function VacancyApprovals({ admin }) {
                     </div>
                 </div>
             )}
+
+            {/* ACTION SUCCESS PIPELINE ROUTING DIALOG */}
+            {actionSuccessModal && (
+                <div className="modal-overlay-p" style={{ zIndex: 1200 }}>
+                    <div className="match-modal-p success-modal animated-zoom" style={{ maxWidth: '450px', textAlign: 'center', padding: '36px', background: '#fff' }}>
+                        {actionSuccessModal.type === 'rejected' ? (
+                            <div className="success-visual animate-bounce-in" style={{
+                                width: '76px',
+                                height: '76px',
+                                background: 'rgba(220, 38, 38, 0.08)',
+                                color: '#dc2626',
+                                borderRadius: '22px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '2.5rem',
+                                margin: '0 auto 24px',
+                                border: '1px solid rgba(220, 38, 38, 0.15)'
+                            }}>
+                                <FiXCircle />
+                            </div>
+                        ) : (
+                            <div className="success-visual animate-bounce-in" style={{
+                                width: '76px',
+                                height: '76px',
+                                background: 'rgba(22, 163, 74, 0.08)',
+                                color: '#16a34a',
+                                borderRadius: '22px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '2.5rem',
+                                margin: '0 auto 24px',
+                                border: '1px solid rgba(22, 163, 74, 0.15)'
+                            }}>
+                                <FiCheckCircle />
+                            </div>
+                        )}
+                        
+                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px', fontWeight: 800 }}>
+                            {actionSuccessModal.type === 'sub1_approved' && 'Requisition Approved'}
+                            {actionSuccessModal.type === 'global_approved' && 'Vacancy Published'}
+                            {actionSuccessModal.type === 'rejected' && 'Requisition Rejected'}
+                        </h2>
+                        
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
+                            {actionSuccessModal.type === 'sub1_approved' && (
+                                <>You have approved the requisition for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`}. It has been forwarded for Global approval.</>
+                            )}
+                            {actionSuccessModal.type === 'global_approved' && (
+                                <>The vacancy for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been successfully approved and published to the careers portal.</>
+                            )}
+                            {actionSuccessModal.type === 'rejected' && (
+                                <>The requisition for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been rejected.</>
+                            )}
+                        </p>
+                        
+                        {/* Approval Target / Info Box */}
+                        <div style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '16px',
+                            padding: '18px',
+                            marginBottom: '28px',
+                            textAlign: 'left'
+                        }}>
+                            <h4 style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <FiUser /> 
+                                {actionSuccessModal.type === 'rejected' ? 'Rejection Status' : 
+                                 actionSuccessModal.type === 'global_approved' ? 'Vacancy Posting' : 'Approval Routing'}
+                            </h4>
+                            
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <div style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    background: actionSuccessModal.type === 'rejected' ? '#ef4444' :
+                                                actionSuccessModal.type === 'global_approved' ? '#16a34a' : '#d97706',
+                                    flexShrink: 0,
+                                    marginTop: '4px'
+                                }} className="dot pulse"></div>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
+                                        {actionSuccessModal.type === 'sub1_approved' && 'Awaiting Action: Global Admin'}
+                                        {actionSuccessModal.type === 'global_approved' && 'Status: LIVE & Publishable'}
+                                        {actionSuccessModal.type === 'rejected' && `Rejected by: ${actionSuccessModal.role === 'sub_admin1' ? 'Sub Admin 1' : 'Global Admin'}`}
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
+                                        {actionSuccessModal.type === 'sub1_approved' && 'Email notification sent to global approval reviewers.'}
+                                        {actionSuccessModal.type === 'global_approved' && 'Notification email sent to the requisition creator.'}
+                                        {actionSuccessModal.type === 'rejected' && `Reason: "${actionSuccessModal.rejection_reason}"`}
+                                    </p>
+                                    {actionSuccessModal.type === 'rejected' && (
+                                        <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            Email notification sent to creator{actionSuccessModal.role !== 'sub_admin1' ? ' and Sub Admin 1.' : '.'}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button 
+                                type="button" 
+                                className="btn btn-gold" 
+                                style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                                onClick={() => {
+                                    const targetId = actionSuccessModal.id;
+                                    setActionSuccessModal(null);
+                                    navigate(`/admin/approvals?highlight=${targetId}`);
+                                }}
+                            >
+                                Track in Approval Pipeline
+                            </button>
+                            <button 
+                                type="button" 
+                                className="btn btn-outline" 
+                                style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                onClick={() => {
+                                    setActionSuccessModal(null);
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style jsx="true">{`
+                .modal-overlay-p {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1200;
+                    padding: 20px;
+                }
+
+                .match-modal-p.success-modal {
+                    background: #fff;
+                    width: 100%;
+                    max-width: 450px;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+                    animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+
+                @keyframes zoomIn {
+                    from { transform: scale(0.9); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+
+                .dot { width: 6px; height: 6px; border-radius: 50%; }
+                .dot.pulse { background: #d97706; animation: pulse 2s infinite; }
+
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+                }
+            `}</style>
         </div>
     );
 }

@@ -5,7 +5,7 @@ import {
     FiCheck, FiMenu, FiX, FiUser, FiMail, FiPhone, FiBookOpen,
     FiClock, FiFileText, FiFacebook, FiLinkedin,
     FiGlobe, FiHash, FiChevronRight, FiAlertCircle, FiTag, FiZap, FiCheckCircle,
-    FiChevronDown, FiChevronUp
+    FiChevronDown, FiChevronUp, FiEdit2
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { getVacancy, applyForJob, API_BASE } from '../services/api';
@@ -60,6 +60,43 @@ const isRobustMatch = (skill, requirement) => {
     return false;
 };
 
+const checkSkillInCvText = (skillName, cvText) => {
+    if (!skillName || !cvText) return false;
+    const s = skillName.toLowerCase().trim();
+    const cv = cvText.toLowerCase();
+    
+    if (!s) return false;
+    
+    // Synonym mapping to check if any synonyms match in the CV text
+    const synonyms = [
+        ["gcp", "google cloud", "google cloud platform"],
+        ["aws", "amazon web services"],
+        ["azure", "microsoft azure"],
+        ["ci/cd", "cicd", "continuous integration", "continuous deployment"],
+        ["js", "javascript"],
+        ["ts", "typescript"],
+        ["kubernetes", "k8s"]
+    ];
+
+    // Find if the current skill is part of a synonym group
+    const matchGroup = synonyms.find(group => group.some(term => s === term || term.includes(s) || s.includes(term)));
+    const searchTerms = matchGroup ? matchGroup : [s];
+
+    return searchTerms.some(term => {
+        const hasSpecial = /[^a-zA-Z0-9\s]/.test(term);
+        if (hasSpecial) {
+            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Custom boundary search: not preceded or followed by alphanumeric chars
+            const regex = new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'i');
+            return regex.test(cv);
+        } else {
+            const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+            return regex.test(cv);
+        }
+    });
+};
+
 const normalizeSkills = (skills) => {
     if (!Array.isArray(skills)) return [];
     const seen = new Set();
@@ -109,6 +146,10 @@ function ApplyPage() {
     const [userSkills, setUserSkills] = useState([]); // candidate general skills (editable/manual)
     const [skillsMetadata, setSkillsMetadata] = useState([]); // structured skills metadata with experience/context/category
     const [aiAnalysis, setAiAnalysis] = useState(null); // full recruiter analysis payload
+    const [rawCvText, setRawCvText] = useState('');
+    const [editingSkillName, setEditingSkillName] = useState(null);
+    const [editingSkillValue, setEditingSkillValue] = useState('');
+    const [newSkillName, setNewSkillName] = useState('');
     const [skillsPanelExpanded, setSkillsPanelExpanded] = useState(false);
     const [reviewSkillsExpanded, setReviewSkillsExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState('Relevant Skills');
@@ -176,6 +217,7 @@ function ApplyPage() {
             if (!text || text.trim().length === 0) {
                 throw new Error("Unable to extract text content from PDF resume.");
             }
+            setRawCvText(text);
 
             const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
             if (!GEMINI_API_KEY) {
@@ -558,12 +600,101 @@ Analyze the candidate and return the output matching the requested JSON schema.`
         setSkillsMetadata([]);
         setMatchedSkills([]);
         setUserSkills([]);
+        setRawCvText('');
+        setEditingSkillName(null);
+        setEditingSkillValue('');
+        setNewSkillName('');
 
         if (file.type === 'application/pdf') {
             await parseResumeWithAI(file);
         } else {
             toast.info('AI auto-fill is optimized for PDF resumes. Forms can still be filled manually.');
         }
+    };
+
+    const handleSaveSkill = (originalName, newName) => {
+        const trimmed = newName.trim();
+        if (!trimmed) {
+            toast.error("Skill name cannot be empty");
+            return;
+        }
+        const exists = skillsMetadata.some(item => item.skill.toLowerCase() === trimmed.toLowerCase() && item.skill.toLowerCase() !== originalName.toLowerCase());
+        if (exists) {
+            toast.error("This skill already exists");
+            return;
+        }
+
+        const isMatched = checkSkillInCvText(trimmed, rawCvText);
+
+        setSkillsMetadata(prev => prev.map(item => {
+            if (item.skill.toLowerCase() === originalName.toLowerCase()) {
+                return {
+                    ...item,
+                    skill: trimmed,
+                    context: isMatched 
+                        ? (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Verified in CV.` : item.context)
+                        : (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Not matched in CV.` : item.context),
+                    is_mandatory: requiredSkillsList.some(rs => isRobustMatch(trimmed, rs))
+                };
+            }
+            return item;
+        }));
+
+        setUserSkills(prev => prev.map(s => s.toLowerCase() === originalName.toLowerCase() ? trimmed : s));
+
+        const isMandatory = requiredSkillsList.some(rs => isRobustMatch(trimmed, rs));
+        if (isMandatory) {
+            setMatchedSkills(prev => {
+                const clean = prev.filter(s => s.toLowerCase() !== originalName.toLowerCase());
+                if (!clean.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+                    clean.push(trimmed);
+                }
+                return clean;
+            });
+        } else {
+            setMatchedSkills(prev => prev.filter(s => s.toLowerCase() !== originalName.toLowerCase()));
+        }
+
+        setEditingSkillName(null);
+        setEditingSkillValue('');
+        toast.success(`Skill renamed to "${trimmed}"`);
+    };
+
+    const handleAddSkill = (e) => {
+        if (e) e.preventDefault();
+        const trimmed = newSkillName.trim();
+        if (!trimmed) {
+            toast.error("Skill name cannot be empty");
+            return;
+        }
+        const exists = skillsMetadata.some(item => item.skill.toLowerCase() === trimmed.toLowerCase());
+        if (exists) {
+            toast.error("This skill already exists");
+            return;
+        }
+
+        const isMandatory = requiredSkillsList.some(rs => isRobustMatch(trimmed, rs));
+        const isMatched = checkSkillInCvText(trimmed, rawCvText);
+
+        const newSkillObj = {
+            skill: trimmed,
+            experience: "1-2 Years",
+            context: isMatched ? `Manually added: verified in CV.` : `Manually added: not found in CV.`,
+            category: activeTab || 'Relevant Skills',
+            evidence_source: isMatched ? 'Project' : 'Skills Section Only',
+            evidence_strength: isMatched ? 'Moderate Evidence' : 'Mentioned Only',
+            experience_level: 'Intermediate',
+            is_mandatory: isMandatory
+        };
+
+        setSkillsMetadata(prev => [...prev, newSkillObj]);
+        setUserSkills(prev => [...prev, trimmed]);
+        if (isMandatory) {
+            setMatchedSkills(prev => [...prev, trimmed]);
+        }
+
+        setNewSkillName('');
+        toast.success(`Skill "${trimmed}" added!`);
     };
 
     const handleReview = (e) => {
@@ -696,6 +827,83 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     border-radius: 4px;
                     font-weight: 700;
                     display: inline-block;
+                }
+                .skill-match-status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 0.68rem;
+                    font-weight: 700;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    line-height: 1;
+                }
+                .skill-match-status-badge.matched {
+                    background-color: #e6fcf5;
+                    color: #0ca678;
+                    border: 1px solid #c3fae8;
+                }
+                .skill-match-status-badge.unmatched {
+                    background-color: #fff5f5;
+                    color: #fa5252;
+                    border: 1px solid #ffe3e3;
+                }
+                .skill-edit-btn-trigger {
+                    background: none;
+                    border: none;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    padding: 4px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    transition: all 0.2s ease;
+                }
+                .skill-edit-btn-trigger:hover {
+                    color: var(--gold-accent, #c8a951);
+                    background-color: #f1f5f9;
+                }
+                .skill-metadata-card {
+                    position: relative;
+                    transition: all 0.2s ease;
+                }
+                .skill-metadata-card.editing-card {
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+                }
+                .add-skill-card {
+                    border: 1px dashed #cbd5e1;
+                    border-radius: 12px;
+                    background-color: #f8fafc;
+                    transition: all 0.2s ease;
+                }
+                .add-skill-card:hover {
+                    border-color: var(--gold-accent, #c8a951);
+                    background-color: #fff;
+                }
+                .btn-primary-small {
+                    background-color: var(--crimson, #8b1a2b);
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                }
+                .btn-primary-small:hover {
+                    background-color: #721422;
+                }
+                .btn-secondary-small {
+                    background-color: #e2e8f0;
+                    color: #475569;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                }
+                .btn-secondary-small:hover {
+                    background-color: #cbd5e1;
                 }
             `}</style>
 
@@ -1067,52 +1275,164 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                             {(() => {
                                                                 const activeSkills = skillsMetadata.filter(item => item.category === activeTab);
 
-                                                                if (activeSkills.length === 0) {
-                                                                    return (
-                                                                        <div className="no-skills-extracted" style={{ padding: '30px 10px', textAlign: 'center', color: '#94a3b8' }}>
-                                                                            <p>No skills identified under {activeTab} in your CV.</p>
-                                                                        </div>
-                                                                    );
-                                                                }
-
                                                                 return (
                                                                     <div className="category-block animate-fade-in" style={{ border: 'none', background: 'transparent', padding: 0 }}>
+                                                                        {activeSkills.length === 0 && (
+                                                                            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
+                                                                                No skills identified under {activeTab} in your CV. You can manually add some below.
+                                                                            </p>
+                                                                        )}
                                                                         <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
-                                                                            {activeSkills.map((item, idx) => (
-                                                                                <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
-                                                                                    <div className="skill-card-top">
-                                                                                        <span className="skill-card-name">
-                                                                                            {item.skill}
-                                                                                        </span>
-                                                                                        <div className="skill-card-actions">
-                                                                                            <button 
-                                                                                                type="button" 
-                                                                                                className="skill-delete-btn"
-                                                                                                onClick={() => {
-                                                                                                    setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                    setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                    if (item.is_mandatory) {
-                                                                                                        setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                    }
-                                                                                                }}
-                                                                                                title="Remove Skill"
-                                                                                            >
-                                                                                                <FiX size={12} />
-                                                                                            </button>
+                                                                            {activeSkills.map((item, idx) => {
+                                                                                const isEditing = editingSkillName === item.skill;
+                                                                                const isMatched = checkSkillInCvText(item.skill, rawCvText);
+                                                                                
+                                                                                if (isEditing) {
+                                                                                    const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
+                                                                                    return (
+                                                                                        <div key={idx} className={`skill-metadata-card editing-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`} style={{ border: '2px solid var(--gold-accent, #c8a951)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold-accent)' }}>Edit Skill Name</label>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                    <input 
+                                                                                                        type="text" 
+                                                                                                        value={editingSkillValue} 
+                                                                                                        onChange={(e) => setEditingSkillValue(e.target.value)} 
+                                                                                                        className="apb-input" 
+                                                                                                        style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
+                                                                                                        autoFocus
+                                                                                                        onKeyDown={(e) => {
+                                                                                                            if (e.key === 'Enter') {
+                                                                                                                handleSaveSkill(item.skill, editingSkillValue);
+                                                                                                            } else if (e.key === 'Escape') {
+                                                                                                                setEditingSkillName(null);
+                                                                                                                setEditingSkillValue('');
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    />
+                                                                                                    {rawCvText && (
+                                                                                                        <span className={`skill-match-status-badge ${currentMatch ? 'matched' : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                            {currentMatch ? '✓ Ok' : '⚠ Unmatched'}
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+                                                                                                <button 
+                                                                                                    type="button" 
+                                                                                                    className="btn-secondary-small"
+                                                                                                    onClick={() => {
+                                                                                                        setEditingSkillName(null);
+                                                                                                        setEditingSkillValue('');
+                                                                                                    }}
+                                                                                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
+                                                                                                >
+                                                                                                    <FiX size={12} /> Cancel
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    type="button" 
+                                                                                                    className="btn-primary-small"
+                                                                                                    onClick={() => handleSaveSkill(item.skill, editingSkillValue)}
+                                                                                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
+                                                                                                >
+                                                                                                    <FiCheck size={12} /> Save
+                                                                                                </button>
+                                                                                            </div>
                                                                                         </div>
+                                                                                    );
+                                                                                }
+
+                                                                                return (
+                                                                                    <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
+                                                                                        <div className="skill-card-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
+                                                                                                <span className="skill-card-name" style={{ fontWeight: 'bold' }}>
+                                                                                                    {item.skill}
+                                                                                                </span>
+                                                                                                {rawCvText && (
+                                                                                                    <span className={`skill-match-status-badge ${isMatched ? 'matched' : 'unmatched'}`}>
+                                                                                                        {isMatched ? '✓ Ok' : '⚠ Not matched for CV'}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                <button 
+                                                                                                    type="button" 
+                                                                                                    className="skill-edit-btn-trigger"
+                                                                                                    onClick={() => {
+                                                                                                        setEditingSkillName(item.skill);
+                                                                                                        setEditingSkillValue(item.skill);
+                                                                                                    }}
+                                                                                                    title="Edit Skill"
+                                                                                                >
+                                                                                                    <FiEdit2 size={12} />
+                                                                                                </button>
+                                                                                                <button 
+                                                                                                    type="button" 
+                                                                                                    className="skill-delete-btn"
+                                                                                                    onClick={() => {
+                                                                                                        setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                        setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                        if (item.is_mandatory) {
+                                                                                                            setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                        }
+                                                                                                    }}
+                                                                                                    title="Remove Skill"
+                                                                                                >
+                                                                                                    <FiX size={12} />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                        {item.evidence_source && (
+                                                                                            <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
+                                                                                                <span className="skill-source-badge">
+                                                                                                    via {item.evidence_source}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        <p className="skill-card-context">
+                                                                                            {item.context}
+                                                                                        </p>
                                                                                     </div>
-                                                                                    {item.evidence_source && (
-                                                                                        <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '0px 0 4px 0' }}>
-                                                                                            <span className="skill-source-badge">
-                                                                                                via {item.evidence_source}
+                                                                                );
+                                                                            })}
+
+                                                                            {/* Add Skill card */}
+                                                                            <div className="skill-metadata-card add-skill-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                                                                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                        ✨ Add New Skill to {activeTab.replace(' Skills', '')}
+                                                                                    </span>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <input 
+                                                                                            type="text" 
+                                                                                            placeholder="e.g. Docker, Python" 
+                                                                                            value={newSkillName} 
+                                                                                            onChange={(e) => setNewSkillName(e.target.value)} 
+                                                                                            className="apb-input" 
+                                                                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
+                                                                                            onKeyDown={(e) => {
+                                                                                                if (e.key === 'Enter') {
+                                                                                                    handleAddSkill();
+                                                                                                }
+                                                                                            }}
+                                                                                        />
+                                                                                        {newSkillName.trim() && rawCvText && (
+                                                                                            <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? 'matched' : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                {checkSkillInCvText(newSkillName, rawCvText) ? '✓ Ok' : '⚠ Unmatched'}
                                                                                             </span>
-                                                                                        </div>
-                                                                                    )}
-                                                                                    <p className="skill-card-context">
-                                                                                        {item.context}
-                                                                                    </p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <button 
+                                                                                        type="button" 
+                                                                                        className="btn-primary-small" 
+                                                                                        onClick={() => handleAddSkill()}
+                                                                                        style={{ padding: '4px 12px', fontSize: '0.78rem', alignSelf: 'flex-end', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                                                                    >
+                                                                                        + Add Skill
+                                                                                    </button>
                                                                                 </div>
-                                                                            ))}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -1318,9 +1638,16 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                 {activeSkills.map((item, idx) => (
                                                                     <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                                                                            <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                                                                {item.skill}
-                                                                            </span>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                                                    {item.skill}
+                                                                                </span>
+                                                                                {rawCvText && (
+                                                                                    <span className={`skill-match-status-badge ${checkSkillInCvText(item.skill, rawCvText) ? 'matched' : 'unmatched'}`}>
+                                                                                        {checkSkillInCvText(item.skill, rawCvText) ? '✓ Ok' : '⚠ Not matched for CV'}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             {item.evidence_source && (
                                                                                 <span className="skill-source-badge">
                                                                                     via {item.evidence_source}

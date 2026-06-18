@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
-    FiEye, FiMapPin, FiX, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity
+    FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 
@@ -176,13 +176,52 @@ const renderApprovalTimeline = (v) => {
     });
 
     return (
-        <div className="approval-stepper-timeline" style={{ marginTop: '24px', marginBottom: '24px', padding: '20px', background: 'rgba(255,255,255,0.4)', borderRadius: '16px', border: '1px solid rgba(226, 232, 240, 0.8)' }}>
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
-                <FiClock /> Requisition Approval Timeline
+        <div className="approval-stepper-timeline" style={{
+            marginTop: '24px',
+            marginBottom: '24px',
+            padding: '24px',
+            background: '#f8fafc',
+            borderRadius: '16px',
+            border: '1.5px solid #e2e8f0',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
+        }}>
+            <h4 style={{
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                color: '#0f172a',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                borderBottom: '1.5px solid #e2e8f0',
+                paddingBottom: '10px'
+            }}>
+                <FiClock size={16} style={{ color: '#0f172a' }} /> Requisition Approval Timeline
             </h4>
             <div className="stepper-track" style={{ display: 'flex', flexDirection: 'column', gap: '0px', position: 'relative' }}>
                 {steps.map((step, idx) => {
                     const isLast = idx === steps.length - 1;
+                    
+                    // Determine custom icon or number inside step node
+                    let stepIcon = idx + 1;
+                    if (step.status === 'completed') stepIcon = <FiCheck size={16} />;
+                    else if (step.status === 'active') stepIcon = <FiClock size={16} />;
+                    else if (step.status === 'rejected') stepIcon = <FiX size={16} />;
+
+                    // Enhanced Node Colors for high-contrast and visual appeal
+                    const nodeBg = step.status === 'completed' ? '#22c55e' :
+                                   step.status === 'active' ? '#3b82f6' :
+                                   step.status === 'rejected' ? '#ef4444' :
+                                   step.status === 'skipped' ? '#f8fafc' : '#f1f5f9';
+                    const nodeBorder = step.status === 'completed' ? '#22c55e' :
+                                       step.status === 'active' ? '#3b82f6' :
+                                       step.status === 'rejected' ? '#ef4444' :
+                                       step.status === 'skipped' ? '#94a3b8' : '#cbd5e1';
+                    const nodeColor = (step.status === 'completed' || step.status === 'active' || step.status === 'rejected') ? '#ffffff' :
+                                      step.status === 'skipped' ? '#94a3b8' : '#475569';
+
                     return (
                         <div key={idx} className={`stepper-item ${step.status}`} style={{ display: 'flex', gap: '16px', position: 'relative', paddingBottom: isLast ? '0' : '20px' }}>
                             {!isLast && (
@@ -192,7 +231,7 @@ const renderApprovalTimeline = (v) => {
                                     top: '28px',
                                     bottom: '0',
                                     width: '2px',
-                                    background: step.status === 'completed' ? '#16a34a' : '#cbd5e1',
+                                    background: step.status === 'completed' ? '#22c55e' : '#cbd5e1',
                                     zIndex: 1
                                 }}></div>
                             )}
@@ -204,44 +243,36 @@ const renderApprovalTimeline = (v) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: step.status === 'completed' ? 'rgba(22, 163, 74, 0.1)' : 
-                                            step.status === 'active' ? 'rgba(37, 99, 235, 0.1)' :
-                                            step.status === 'rejected' ? 'rgba(220, 38, 38, 0.1)' :
-                                            step.status === 'skipped' ? 'rgba(100, 116, 139, 0.1)' : '#f1f5f9',
-                                border: `2px solid ${
-                                    step.status === 'completed' ? '#16a34a' :
-                                    step.status === 'active' ? '#2563eb' :
-                                    step.status === 'rejected' ? '#dc2626' :
-                                    step.status === 'skipped' ? '#64748b' : '#cbd5e1'
-                                }`,
-                                color: step.status === 'completed' ? '#16a34a' :
-                                       step.status === 'active' ? '#2563eb' :
-                                       step.status === 'rejected' ? '#dc2626' :
-                                       step.status === 'skipped' ? '#64748b' : '#64748b',
+                                background: nodeBg,
+                                border: `2px solid ${nodeBorder}`,
+                                color: nodeColor,
                                 zIndex: 2,
                                 flexShrink: 0,
                                 fontSize: '0.85rem',
                                 fontWeight: 'bold'
                             }}>
-                                {idx + 1}
+                                {stepIcon}
                             </div>
                             
                             <div className="stepper-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingTop: '4px' }}>
                                 <span className="stepper-label" style={{
                                     fontSize: '0.85rem',
                                     fontWeight: 700,
-                                    color: step.status === 'active' ? '#1e293b' : 'var(--text-secondary)'
+                                    color: (step.status === 'active' || step.status === 'completed') ? '#0f172a' : '#475569',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
                                 }}>
                                     {step.label}
-                                    {step.status === 'skipped' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#64748b', padding: '1px 6px', background: '#e2e8f0', borderRadius: '4px' }}>Skipped</span>}
-                                    {step.status === 'active' && <span style={{ marginLeft: '8px', fontSize: '0.7rem', color: '#b45309', padding: '1px 6px', background: '#fef3c7', borderRadius: '4px' }}>Awaiting Action</span>}
+                                    {step.status === 'skipped' && <span style={{ fontSize: '0.7rem', color: '#64748b', padding: '2px 8px', background: '#e2e8f0', borderRadius: '4px', fontWeight: 600 }}>Skipped</span>}
+                                    {step.status === 'active' && <span style={{ fontSize: '0.7rem', color: '#b45309', padding: '2px 8px', background: '#fef3c7', borderRadius: '4px', fontWeight: 600 }}>Awaiting Action</span>}
                                 </span>
-                                <span className="stepper-detail" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                <span className="stepper-detail" style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: '2px' }}>
                                     {step.detail}
                                 </span>
                                 {step.time && (
-                                    <span className="stepper-time" style={{ fontSize: '0.7rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                        <FiCalendar size={10} /> {step.time}
+                                    <span className="stepper-time" style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontWeight: 500 }}>
+                                        <FiCalendar size={12} /> {step.time}
                                     </span>
                                 )}
                             </div>
@@ -263,6 +294,7 @@ function ManageVacancies({ admin }) {
     const [companyFilter, setCompanyFilter] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [viewDetail, setViewDetail] = useState(null);
+    const [modalTab, setModalTab] = useState('details'); // 'details', 'history'
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
@@ -723,7 +755,7 @@ function ManageVacancies({ admin }) {
                                                             <FiCheckCircle />
                                                         </button>
                                                     )}
-                                                    <button className="o-btn view" onClick={() => setViewDetail(v)} title="View Job Description">
+                                                    <button className="o-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Job Description">
                                                         <FiEye />
                                                     </button>
                                                     {admin.role !== 'super_admin' && (
@@ -860,177 +892,242 @@ function ManageVacancies({ admin }) {
                             </div>
                         </div>
 
+                        {/* Modal Tab Switcher */}
+                        <div className="vd-tabs-header">
+                            <button 
+                                className={`vd-tab-btn ${modalTab === 'details' ? 'active' : ''}`}
+                                onClick={() => setModalTab('details')}
+                            >
+                                <FiInfo /> Requisition Details
+                            </button>
+                            <button 
+                                className={`vd-tab-btn ${modalTab === 'history' ? 'active' : ''}`}
+                                onClick={() => setModalTab('history')}
+                            >
+                                <FiActivity /> Timeline & Audit Trail
+                            </button>
+                        </div>
+
                         {/* ── MODAL BODY ── */}
                         <div className="vd-body">
-                            {viewDetail.approval_status === 'rejected' && (
-                                <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
-                                    <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: 0, fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason provided'}</p>
-                                </div>
-                            )}
-
-                            {/* Approval Timeline */}
-                            {renderApprovalTimeline(viewDetail)}
-
-                            {/* Audit History Log */}
-                            <div className="vd-section" style={{ marginTop: '24px' }}>
-                                <h3 className="vd-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                    <FiActivity /> Requisition History Audit Trail
-                                </h3>
-                                <div className="vd-section-body-enhanced" style={{ padding: '20px', background: 'rgba(248, 250, 252, 0.6)' }}>
-                                    {loadingLogs ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                                            <div className="spinner-small" style={{ borderTopColor: 'var(--text-muted)' }}></div>
-                                            Retrieving log entries...
-                                        </div>
-                                    ) : auditLogs.length === 0 ? (
-                                        <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            {auditLogs.map((log) => {
-                                                const actionLabels = {
-                                                    initiated: 'Draft Initiated',
-                                                    submitted: 'Requisition Submitted',
-                                                    edited: 'Details Revised',
-                                                    sub1_approved: 'Approved by Tier-1 Reviewer',
-                                                    global_approved: 'Authorized by Global Admin',
-                                                    rejected: 'Requisition Rejected'
-                                                };
-                                                const actionColors = {
-                                                    initiated: '#64748b',
-                                                    submitted: '#d97706',
-                                                    edited: '#6b21a8',
-                                                    sub1_approved: '#16a34a',
-                                                    global_approved: '#16a34a',
-                                                    rejected: '#dc2626'
-                                                };
-                                                return (
-                                                    <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                                                                <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b' }}>
-                                                                    {actionLabels[log.action] || log.action.toUpperCase()}
-                                                                </strong>
-                                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                                                    {log.created_at}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
-                                                                By: <strong>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
-                                                            </div>
-                                                            {log.old_status && log.new_status && (
-                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-                                                                    Transition: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.old_status}</code> &rarr; <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.new_status}</code>
-                                                                </div>
-                                                            )}
-                                                            {log.reason && (
-                                                                <div style={{
-                                                                    marginTop: '8px',
-                                                                    padding: '8px 12px',
-                                                                    background: '#fff',
-                                                                    borderLeft: '3px solid #dc2626',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '0.8rem',
-                                                                    fontStyle: 'italic',
-                                                                    color: '#dc2626',
-                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-                                                                }}>
-                                                                    "{log.reason}"
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                            {modalTab === 'details' ? (
+                                <>
+                                    {viewDetail.approval_status === 'rejected' && (
+                                        <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
+                                            <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: 0, fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason provided'}</p>
                                         </div>
                                     )}
-                                </div>
-                            </div>
 
-                            {/* Selected Employee Section */}
-                            <div className="vd-selected-employee-section">
-                                {viewDetail.selected_first_name ? (
-                                    <div className="vd-employee-card active">
-                                        <div className="vd-employee-info">
-                                            <div className="vd-employee-badge">SELECTED EMPLOYEE</div>
-                                            <div className="vd-emp-name">
-                                                {viewDetail.selected_first_name} {viewDetail.selected_last_name}
-                                            </div>
-                                            <div className="vd-emp-meta">
-                                                <span>{viewDetail.selected_email}</span>
-                                                {viewDetail.selected_contact_number && (
-                                                    <>
-                                                        <span className="vd-divider">|</span>
-                                                        <span>{viewDetail.selected_contact_number}</span>
-                                                    </>
+                                    {/* Selected Employee Section */}
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">Assigned Placement</h3>
+                                        {viewDetail.selected_first_name ? (
+                                            <div className="vd-form-grid">
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Selected Employee</span>
+                                                    <div className="vd-form-value">{viewDetail.selected_first_name} {viewDetail.selected_last_name}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Email Address</span>
+                                                    <div className="vd-form-value">{viewDetail.selected_email}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Contact Number</span>
+                                                    <div className="vd-form-value">{viewDetail.selected_contact_number || 'N/A'}</div>
+                                                </div>
+                                                {admin.role !== 'super_admin' && (
+                                                    <div className="vd-form-field" style={{ justifyContent: 'center' }}>
+                                                        <button className="vd-emp-btn change" onClick={handleOpenAssignModal} style={{ width: 'fit-content', height: 'fit-content', marginTop: '6px' }}>
+                                                            Change Employee
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-                                        {admin.role !== 'super_admin' && (
-                                            <button className="vd-emp-btn change" onClick={handleOpenAssignModal}>
-                                                Change Employee
-                                            </button>
+                                        ) : (
+                                            <div className="vd-form-grid">
+                                                <div className="vd-form-field" style={{ gridColumn: 'span 2' }}>
+                                                    <div className="vd-form-value" style={{ background: '#f8fafc', borderStyle: 'dashed', justifyContent: 'space-between', padding: '16px 20px', height: 'auto', minHeight: '52px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                                                            <span style={{ fontWeight: 800, color: '#64748b', fontSize: '0.85rem' }}>No Employee Assigned Yet</span>
+                                                            <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 500 }}>Select a shortlisted candidate to assign to this vacancy.</span>
+                                                        </div>
+                                                        {admin.role !== 'super_admin' && (
+                                                            <button className="vd-emp-btn assign" onClick={handleOpenAssignModal} style={{ height: 'fit-content' }}>
+                                                                Select Employee
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
-                                ) : (
-                                    <div className="vd-employee-card empty">
-                                        <div className="vd-employee-info">
-                                            <div className="vd-emp-name-empty">No Employee Assigned Yet</div>
-                                            <p className="vd-emp-subline">Select a shortlisted candidate to assign to this vacancy.</p>
+
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">General Information</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Position / Job Title</span>
+                                                <div className="vd-form-value">{viewDetail.title}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Reference Number</span>
+                                                <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Establishment Entity</span>
+                                                <div className="vd-form-value">{viewDetail.company_name}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Designation Class</span>
+                                                <div className="vd-form-value">{viewDetail.designation || 'N/A'}</div>
+                                            </div>
                                         </div>
-                                        {admin.role !== 'super_admin' && (
-                                            <button className="vd-emp-btn assign" onClick={handleOpenAssignModal}>
-                                                Select Employee
-                                            </button>
-                                        )}
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Meta grid */}
-                            <div className="vd-meta-grid">
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Designation</span>
-                                    <p className="vd-meta-value">{viewDetail.designation}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Min. Experience</span>
-                                    <p className="vd-meta-value">{viewDetail.min_experience || 'Not specified'}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Published</span>
-                                    <p className="vd-meta-value"><FiCalendar size={13} /> {formatDate(viewDetail.publish_date)}</p>
-                                </div>
-                                <div className="vd-meta-item">
-                                    <span className="vd-meta-label">Expires</span>
-                                    <p className={`vd-meta-value ${daysLeft(viewDetail.expire_date) <= 7 ? 'urgent' : ''}`}>
-                                        <FiClock size={13} /> {formatDate(viewDetail.expire_date)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Job Description */}
-                            <div className="vd-section">
-                                <h3 className="vd-section-title">
-                                    <FiInfo /> Job Description
-                                </h3>
-                                <div className="vd-section-body-enhanced">
-                                    {viewDetail.description
-                                        ? renderFormattedText(viewDetail.description)
-                                        : <em className="vd-empty-note">No description provided.</em>}
-                                </div>
-                            </div>
-
-                            {/* Requirements */}
-                            {viewDetail.requirements && (
-                                <div className="vd-section">
-                                    <h3 className="vd-section-title gold">
-                                        <FiCheckCircle /> Requirements &amp; Qualifications
-                                    </h3>
-                                    <div className="vd-section-body-enhanced green">
-                                        {renderFormattedText(viewDetail.requirements)}
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">Operational Details</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Employment Classification</span>
+                                                <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Work Location</span>
+                                                <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Experience Tier Required</span>
+                                                <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                            </div>
+                                            <div className="vd-form-field">
+                                                <span className="vd-form-label">Active Listing Period</span>
+                                                <div className="vd-form-value">
+                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {formatDate(viewDetail.publish_date)}</span>
+                                                    <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
+                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {formatDate(viewDetail.expire_date)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+
+                                    <div className="vd-form-section">
+                                        <h3 className="vd-form-section-title">Position Specification Sheets</h3>
+                                        <div className="vd-form-grid">
+                                            <div className="vd-form-field full-width" style={{ marginBottom: '16px' }}>
+                                                <span className="vd-form-label">Roles & Responsibilities (Job Description)</span>
+                                                <div className="vd-form-value-textarea">
+                                                    {viewDetail.description ? renderFormattedText(viewDetail.description) : <em className="vd-empty-note">No description provided.</em>}
+                                                </div>
+                                            </div>
+                                            {viewDetail.requirements && (
+                                                <div className="vd-form-field full-width">
+                                                    <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
+                                                    <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
+                                                        {renderFormattedText(viewDetail.requirements)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Approval Timeline */}
+                                    {renderApprovalTimeline(viewDetail)}
+
+                                    {/* Audit History Log */}
+                                    <div className="vd-section" style={{ marginTop: '24px' }}>
+                                        <h3 className="vd-section-title" style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            color: '#0f172a',
+                                            fontSize: '0.95rem',
+                                            fontWeight: 800,
+                                            borderBottom: '1.5px solid #e2e8f0',
+                                            paddingBottom: '10px',
+                                            marginBottom: '16px'
+                                        }}>
+                                            <FiActivity size={16} /> Requisition History Audit Trail
+                                        </h3>
+                                        <div className="vd-section-body-enhanced" style={{
+                                            padding: '24px',
+                                            background: '#f8fafc',
+                                            borderRadius: '16px',
+                                            border: '1.5px solid #e2e8f0',
+                                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
+                                        }}>
+                                            {loadingLogs ? (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 500 }}>
+                                                    <div className="spinner-small" style={{ borderTopColor: '#475569' }}></div>
+                                                    Retrieving log entries...
+                                                </div>
+                                            ) : auditLogs.length === 0 ? (
+                                                <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                    {auditLogs.map((log) => {
+                                                        const actionLabels = {
+                                                            initiated: 'Draft Initiated',
+                                                            submitted: 'Requisition Submitted',
+                                                            edited: 'Details Revised',
+                                                            sub1_approved: 'Approved by Tier-1 Reviewer',
+                                                            global_approved: 'Authorized by Global Admin',
+                                                            rejected: 'Requisition Rejected'
+                                                        };
+                                                        const actionColors = {
+                                                            initiated: '#64748b',
+                                                            submitted: '#d97706',
+                                                            edited: '#6b21a8',
+                                                            sub1_approved: '#16a34a',
+                                                            global_approved: '#16a34a',
+                                                            rejected: '#dc2626'
+                                                        };
+                                                        return (
+                                                            <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                                        <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b', fontWeight: 700 }}>
+                                                                            {actionLabels[log.action] || log.action.toUpperCase()}
+                                                                        </strong>
+                                                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                                                                            {log.created_at}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
+                                                                        By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                                    </div>
+                                                                    {log.old_status && log.new_status && (
+                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                                                                            Transition: <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.old_status}</code> &rarr; <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.new_status}</code>
+                                                                        </div>
+                                                                    )}
+                                                                    {log.reason && (
+                                                                        <div style={{
+                                                                            marginTop: '8px',
+                                                                            padding: '10px 14px',
+                                                                            background: '#fff3f2',
+                                                                            borderLeft: '4px solid #dc2626',
+                                                                            borderRadius: '6px',
+                                                                            fontSize: '0.8rem',
+                                                                            fontStyle: 'italic',
+                                                                            color: '#dc2626',
+                                                                            fontWeight: 500,
+                                                                            boxShadow: '0 1px 3px rgba(220,38,38,0.05)'
+                                                                        }}>
+                                                                            "{log.reason}"
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
                             )}
                         </div>
 
@@ -1175,66 +1272,148 @@ function ManageVacancies({ admin }) {
             )}
 
             <style jsx="true">{`
-                .vd-selected-employee-section {
-                    margin-bottom: 28px;
-                    animation: fadeIn 0.4s ease-out;
-                }
-                .vd-employee-card {
+                /* Details Modal Tab Navigation */
+                .vd-tabs-header {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 18px 24px;
-                    border-radius: 20px;
                     background: #f8fafc;
-                    border: 1.5px dashed #cbd5e1;
-                    gap: 16px;
-                    flex-wrap: wrap;
-                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                    border-bottom: 1px solid #e2e8f0;
+                    padding: 0 24px;
+                    gap: 4px;
+                    flex-shrink: 0;
                 }
-                .vd-employee-card.active {
-                    background: rgba(16, 185, 129, 0.03);
-                    border: 1.5px solid rgba(16, 185, 129, 0.2);
-                    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
-                }
-                .vd-employee-badge {
-                    background: rgba(16, 185, 129, 0.1);
-                    color: #10b981;
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    padding: 4px 10px;
-                    border-radius: 100px;
-                    letter-spacing: 1px;
-                    width: fit-content;
-                    margin-bottom: 8px;
-                }
-                .vd-employee-info {
-                    flex: 1;
-                }
-                .vd-emp-name {
-                    font-size: 1.15rem;
-                    font-weight: 800;
-                    color: #1e293b;
-                    margin-bottom: 4px;
-                }
-                .vd-emp-meta {
-                    display: flex;
-                    gap: 12px;
-                    font-size: 0.85rem;
+
+                .vd-tab-btn {
+                    padding: 10px 16px;
+                    background: none;
+                    border: none;
+                    border-bottom: 3px solid transparent;
+                    font-size: 0.82rem;
+                    font-weight: 700;
                     color: #64748b;
+                    cursor: pointer;
+                    display: flex;
                     align-items: center;
-                    flex-wrap: wrap;
+                    gap: 6px;
+                    transition: all 0.2s ease;
+                    font-family: var(--font-body);
                 }
-                .vd-emp-name-empty {
-                    font-size: 1.05rem;
-                    font-weight: 800;
-                    color: #475569;
-                    margin-bottom: 4px;
+
+                .vd-tab-btn:hover {
+                    color: var(--crimson);
                 }
-                .vd-emp-subline {
+
+                .vd-tab-btn.active {
+                    color: var(--crimson);
+                    border-bottom-color: var(--crimson);
+                    background: #fff;
+                }
+
+                @media (max-width: 768px) {
+                    .vd-tabs-header {
+                        padding: 0 20px;
+                    }
+                    .vd-tab-btn {
+                        padding: 12px 14px;
+                        font-size: 0.8rem;
+                    }
+                }
+
+                .vd-form-section {
+                    margin-bottom: 16px;
+                    background: #fff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 16px 20px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.01);
+                }
+
+                .vd-form-section-title {
+                    font-family: var(--font-heading);
                     font-size: 0.85rem;
-                    color: #94a3b8;
-                    margin: 0;
+                    font-weight: 800;
+                    color: var(--text-primary);
+                    margin: 0 0 12px 0;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    border-bottom: 1.5px solid #f1f5f9;
+                    padding-bottom: 6px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
                 }
+
+                .vd-form-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 12px;
+                }
+
+                @media (max-width: 600px) {
+                    .vd-form-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+
+                .vd-form-field {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .vd-form-field.full-width {
+                    grid-column: span 2;
+                }
+
+                @media (max-width: 600px) {
+                    .vd-form-field.full-width {
+                        grid-column: span 1;
+                    }
+                }
+
+                .vd-form-label {
+                    font-size: 0.6rem;
+                    font-weight: 800;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 1.2px;
+                    padding-left: 2px;
+                }
+
+                .vd-form-value {
+                    padding: 8px 12px;
+                    background: #f8fafc;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    color: #334155;
+                    min-height: 34px;
+                    display: flex;
+                    align-items: center;
+                    transition: all 0.2s;
+                }
+
+                .vd-form-value:hover {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                }
+
+                .vd-form-value-textarea {
+                    padding: 12px 16px;
+                    background: #f8fafc;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 10px;
+                    font-size: 0.82rem;
+                    color: #475569;
+                    line-height: 1.6;
+                    transition: all 0.2s;
+                    text-align: left;
+                }
+
+                .vd-form-value-textarea:hover {
+                    border-color: #cbd5e1;
+                }
+
                 .vd-emp-btn {
                     border: none;
                     padding: 10px 20px;
@@ -1958,7 +2137,7 @@ function ManageVacancies({ admin }) {
                 /* HEADER */
                 .vd-header {
                     background: linear-gradient(135deg, #1a0208 0%, #2a050b 45%, #3d0813 100%);
-                    padding: 28px 32px 24px;
+                    padding: 14px 24px 12px;
                     position: relative;
                     overflow: hidden;
                     flex-shrink: 0;
@@ -1978,7 +2157,7 @@ function ManageVacancies({ admin }) {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 14px;
+                    margin-bottom: 8px;
                     position: relative;
                     z-index: 2;
                 }
@@ -2026,12 +2205,12 @@ function ManageVacancies({ admin }) {
 
                 .vd-title {
                     font-family: var(--font-heading);
-                    font-size: 1.9rem;
+                    font-size: 1.3rem;
                     font-weight: 800;
                     color: #fff;
-                    margin: 0 0 12px 0;
-                    letter-spacing: -0.5px;
-                    line-height: 1.15;
+                    margin: 0 0 6px 0;
+                    letter-spacing: -0.3px;
+                    line-height: 1.2;
                     position: relative;
                     z-index: 2;
                 }
@@ -2039,26 +2218,26 @@ function ManageVacancies({ admin }) {
                 .vd-company-row {
                     display: flex;
                     align-items: center;
-                    gap: 10px;
-                    margin-bottom: 20px;
+                    gap: 8px;
+                    margin-bottom: 8px;
                     position: relative;
                     z-index: 2;
                 }
 
                 .vd-company-logo {
-                    width: 36px;
-                    height: 36px;
+                    width: 26px;
+                    height: 26px;
                     object-fit: contain;
-                    border-radius: 8px;
+                    border-radius: 6px;
                     background: #fff;
                     border: 2px solid rgba(255,255,255,0.2);
-                    padding: 3px;
+                    padding: 2px;
                     flex-shrink: 0;
                 }
 
                 .vd-company-name {
                     color: rgba(255,255,255,0.7);
-                    font-size: 0.88rem;
+                    font-size: 0.8rem;
                     font-weight: 600;
                 }
 
@@ -2095,7 +2274,7 @@ function ManageVacancies({ admin }) {
                 .vd-body {
                     flex: 1;
                     overflow-y: auto;
-                    padding: 28px 32px;
+                    padding: 16px 24px;
                     scrollbar-width: thin;
                     scrollbar-color: rgba(0,0,0,0.1) transparent;
                 }

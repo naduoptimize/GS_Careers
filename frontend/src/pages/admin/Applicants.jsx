@@ -300,7 +300,7 @@ function Applicants({ admin }) {
         sortBy: 'highExperience' // newest, oldest, highExperience, lowExperience
     });
 
-    const [showJobDetails, setShowJobDetails] = useState(true);
+    const [showJobDetails, setShowJobDetails] = useState(false);
     const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
     const selVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id)) || {};
 

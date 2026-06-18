@@ -231,7 +231,7 @@ function CreateVacancy({ admin }) {
                 toast.success(submitForApproval ? 'Vacancy created and submitted for approval' : 'Vacancy draft saved');
             }
 
-            if (submitForApproval && admin.role === 'sub_admin2' && newId) {
+            if (submitForApproval && (admin.role === 'sub_admin2' || admin.role === 'sub_admin1' || admin.role === 'admin') && newId) {
                 setApprovalSubmitModal({
                     id: newId,
                     title: form.title,
@@ -744,6 +744,8 @@ function CreateVacancy({ admin }) {
                                         >
                                             {loading ? (
                                                 <div className="spinner-small"></div>
+                                            ) : admin.role === 'admin' ? (
+                                                <><FiCheckCircle /> Publish Vacancy</>
                                             ) : (
                                                 <><FiCheckCircle /> Submit for Approval</>
                                             )}
@@ -876,11 +878,15 @@ function CreateVacancy({ admin }) {
                         }}>
                             <FiCheckCircle />
                         </div>
-                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px' }}>
-                            Requisition Submitted
+                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px', fontWeight: 800 }}>
+                            {admin.role === 'admin' ? 'Vacancy Published' : 'Requisition Submitted'}
                         </h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
-                            Your requisition for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been created.
+                            {admin.role === 'admin' ? (
+                                <>Your vacancy for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been successfully published.</>
+                            ) : (
+                                <>Your requisition for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been created.</>
+                            )}
                         </p>
                         
                         {/* Approval Target Box */}
@@ -893,40 +899,56 @@ function CreateVacancy({ admin }) {
                             textAlign: 'left'
                         }}>
                             <h4 style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FiUser /> Approval Routing
+                                <FiUser /> {admin.role === 'admin' ? 'Vacancy Status' : 'Approval Routing'}
                             </h4>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                    width: '10px',
-                                    height: '10px',
-                                    borderRadius: '50%',
-                                    background: '#d97706',
-                                    flexShrink: 0
-                                }} className="dot pulse"></div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <div className={`dot ${
+                                    admin.role === 'admin' ? 'pulse-green' :
+                                    admin.role === 'sub_admin1' ? 'pulse-blue' : 'pulse-amber'
+                                }`} style={{ flexShrink: 0, marginTop: '4px' }}></div>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
-                                        Awaiting Action: Sub Admin 1
+                                        {admin.role === 'admin' && 'Status: LIVE & Published'}
+                                        {admin.role === 'sub_admin1' && 'Awaiting Action: Global Admin'}
+                                        {admin.role === 'sub_admin2' && 'Awaiting Action: Sub Admin 1'}
                                     </p>
-                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
-                                        Email notification sent to evaluation reviewers.
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
+                                        {admin.role === 'admin' && 'The vacancy is active and visible to applicants.'}
+                                        {admin.role === 'sub_admin1' && 'Email notification sent to global approval reviewers.'}
+                                        {admin.role === 'sub_admin2' && 'Email notification sent to evaluation reviewers.'}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <button 
-                                type="button" 
-                                className="btn btn-gold" 
-                                style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
-                                onClick={() => {
-                                    const targetId = approvalSubmitModal.id;
-                                    setApprovalSubmitModal(null);
-                                    navigate(`/admin/approvals?highlight=${targetId}`);
-                                }}
-                            >
-                                Track in Approval Pipeline
-                            </button>
+                            {admin.role === 'admin' ? (
+                                <button 
+                                    type="button" 
+                                    className="btn btn-gold" 
+                                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                                    onClick={() => {
+                                        const targetId = approvalSubmitModal.id;
+                                        setApprovalSubmitModal(null);
+                                        navigate(`/admin/vacancies?highlight=${targetId}`);
+                                    }}
+                                >
+                                    View Published Vacancy
+                                </button>
+                            ) : (
+                                <button 
+                                    type="button" 
+                                    className="btn btn-gold" 
+                                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
+                                    onClick={() => {
+                                        const targetId = approvalSubmitModal.id;
+                                        setApprovalSubmitModal(null);
+                                        navigate(`/admin/approvals?highlight=${targetId}`);
+                                    }}
+                                >
+                                    Track in Approval Pipeline
+                                </button>
+                            )}
                             <button 
                                 type="button" 
                                 className="btn btn-outline" 
@@ -1014,12 +1036,24 @@ function CreateVacancy({ admin }) {
                 }
 
                 .dot { width: 6px; height: 6px; border-radius: 50%; }
-                .dot.pulse { background: #10b981; animation: pulse 2s infinite; }
+                .dot.pulse-green { background: #16a34a; animation: pulseGreen 2s infinite; }
+                .dot.pulse-blue { background: #2563eb; animation: pulseBlue 2s infinite; }
+                .dot.pulse-amber { background: #d97706; animation: pulseAmber 2s infinite; }
 
-                @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+                @keyframes pulseGreen {
+                    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+                }
+                @keyframes pulseBlue {
+                    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+                }
+                @keyframes pulseAmber {
+                    0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
                 }
 
                 .hero-title-p {
