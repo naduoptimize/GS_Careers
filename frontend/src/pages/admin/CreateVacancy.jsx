@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createVacancy, updateVacancy, getVacancy, getCompanies, getCandidateCount, getMatchingCandidates, getNextReferenceNumber, API_BASE } from '../../services/api';
 import { EMPLOYMENT_TYPES, OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIONS } from '../../utils/constants';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiSave, FiCheckCircle, FiInfo, FiBriefcase, FiMapPin, FiClock, FiCalendar, FiTarget, FiUsers, FiX, FiUser, FiFileText, FiMail, FiExternalLink } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiCheckCircle, FiInfo, FiBriefcase, FiMapPin, FiClock, FiCalendar, FiTarget, FiUsers, FiX, FiUser, FiFileText, FiMail, FiExternalLink, FiTag, FiPlus } from 'react-icons/fi';
 
 function CreateVacancy({ admin }) {
     const navigate = useNavigate();
@@ -28,14 +28,19 @@ function CreateVacancy({ admin }) {
         designation: '',
         description: '',
         requirements: '',
+        required_skills: '',
         location: '',
         employment_type: 'Full-Time',
         min_experience: '0 years',
         min_relevant_experience: '0 years',
         publish_date: new Date().toISOString().split('T')[0],
         expire_date: '',
-        is_active: 1
+        is_active: 1,
+        approval_status: '',
+        rejection_reason: ''
     });
+    const [skillInput, setSkillInput] = useState('');
+    const skillInputRef = useRef(null);
 
     useEffect(() => {
         loadData();
@@ -121,13 +126,16 @@ function CreateVacancy({ admin }) {
                         designation: vacancy.designation,
                         description: vacancy.description || '',
                         requirements: vacancy.requirements || '',
+                        required_skills: vacancy.required_skills || '',
                         location: vacancy.location || '',
                         employment_type: vacancy.employment_type,
                         min_experience: vacancy.min_experience || '0 years',
                         min_relevant_experience: vacancy.min_relevant_experience || '0 years',
                         publish_date: vacancy.publish_date,
                         expire_date: vacancy.expire_date,
-                        is_active: vacancy.is_active
+                        is_active: vacancy.is_active,
+                        approval_status: vacancy.approval_status || '',
+                        rejection_reason: vacancy.rejection_reason || ''
                     });
                 }
             } else {
@@ -195,7 +203,24 @@ function CreateVacancy({ admin }) {
 
         try {
             setLoading(true);
-            const payload = { ...form, submit_for_approval: submitForApproval };
+            
+            // Auto-commit any unsaved skill in the input box before saving
+            let finalSkills = form.required_skills;
+            if (skillInput.trim()) {
+                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                if (skillsToAdd.length > 0) {
+                    const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                    const updated = [...existing];
+                    skillsToAdd.forEach(s => {
+                        if (!updated.includes(s)) {
+                            updated.push(s);
+                        }
+                    });
+                    finalSkills = updated.join(',');
+                }
+            }
+
+            const payload = { ...form, required_skills: finalSkills, submit_for_approval: submitForApproval };
             let newId = id;
             if (isEditing) {
                 await updateVacancy({ ...payload, id });
@@ -259,6 +284,30 @@ function CreateVacancy({ admin }) {
             <form onSubmit={(e) => e.preventDefault()} className="premium-form-layout">
                 <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
                     <div className="form-sections-container">
+                        {form.approval_status === 'rejected' && (
+                            <div className="rejection-banner animate-fade-in" style={{
+                                background: 'rgba(220, 38, 38, 0.08)',
+                                border: '1px solid rgba(220, 38, 38, 0.2)',
+                                borderRadius: '16px',
+                                padding: '20px',
+                                marginBottom: '24px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.03)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626' }}></span>
+                                    Requisition Rejected
+                                </div>
+                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#dc2626', fontWeight: 600 }}>
+                                    Reason: {form.rejection_reason || 'No specific rejection reason provided.'}
+                                </p>
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#991b1b', opacity: 0.8 }}>
+                                    Please make the required changes below and click "Submit for Approval" to restart the validation process.
+                                </p>
+                            </div>
+                        )}
                     {/* Section 1: Basic Information */}
                     <section className="form-section-card">
                         <div className="section-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
@@ -270,7 +319,7 @@ function CreateVacancy({ admin }) {
                         </div>
 
                         <div className="admin-grid-2">
-                            <div className="form-group-p">
+                            <div className="form-group-p full-width">
                                 <label htmlFor="company_id">Company <span className="required">*</span></label>
                                 <div className="input-with-preview" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <div className="input-wrapper" style={{ flex: 1 }}>
@@ -415,6 +464,121 @@ function CreateVacancy({ admin }) {
                                         className="premium-input with-icon"
                                     />
                                 </div>
+                            </div>
+
+                            {/* ── MANDATORY SKILLS TAG INPUT ── */}
+                            <div className="form-group-p full-width">
+                                <label htmlFor="skill_input" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <FiTag size={14} style={{ color: 'var(--crimson)' }} />
+                                    Mandatory Skills <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(press Enter or comma to add)</span>
+                                </label>
+                                <div className="skills-tag-box" onClick={() => skillInputRef.current?.focus()}>
+                                    {form.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => (
+                                        <span key={idx} className="skill-tag">
+                                            {skill.trim()}
+                                            <button
+                                                type="button"
+                                                className="skill-tag-remove"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const arr = form.required_skills.split(',').filter(s => s.trim());
+                                                    arr.splice(idx, 1);
+                                                    setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
+                                                }}
+                                                aria-label={`Remove ${skill.trim()}`}
+                                            ><FiX size={11} /></button>
+                                        </span>
+                                    ))}
+                                    <input
+                                        ref={skillInputRef}
+                                        id="skill_input"
+                                        type="text"
+                                        className="skill-tag-input"
+                                        placeholder={form.required_skills ? '' : 'e.g. Microsoft Excel, SAP, AutoCAD...'}
+                                        value={skillInput}
+                                        onChange={e => setSkillInput(e.target.value)}
+                                        onBlur={() => {
+                                            if (skillInput.trim()) {
+                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                                if (skillsToAdd.length > 0) {
+                                                    const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                                                    const updated = [...existing];
+                                                    skillsToAdd.forEach(s => {
+                                                        if (!updated.includes(s)) {
+                                                            updated.push(s);
+                                                        }
+                                                    });
+                                                    setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
+                                                }
+                                                setSkillInput('');
+                                            }
+                                        }}
+                                        onKeyDown={e => {
+                                            if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && skillInput.trim()) {
+                                                e.preventDefault();
+                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                                if (skillsToAdd.length === 0) return;
+                                                const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                                                const updated = [...existing];
+                                                skillsToAdd.forEach(s => {
+                                                    if (!updated.includes(s)) {
+                                                        updated.push(s);
+                                                    }
+                                                });
+                                                setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
+                                                setSkillInput('');
+                                            } else if (e.key === 'Backspace' && !skillInput) {
+                                                const arr = form.required_skills.split(',').filter(s => s.trim());
+                                                if (arr.length > 0) {
+                                                    arr.pop();
+                                                    setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    {skillInput.trim() && (
+                                        <button
+                                            type="button"
+                                            className="skill-tag-add-btn"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                                if (skillsToAdd.length > 0) {
+                                                    const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                                                    const updated = [...existing];
+                                                    skillsToAdd.forEach(s => {
+                                                        if (!updated.includes(s)) {
+                                                            updated.push(s);
+                                                        }
+                                                    });
+                                                    setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
+                                                }
+                                                setSkillInput('');
+                                                skillInputRef.current?.focus();
+                                            }}
+                                            style={{
+                                                background: 'var(--crimson)',
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '4px 10px',
+                                                fontSize: '0.75rem',
+                                                cursor: 'pointer',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                marginLeft: '6px',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
+                                            }}
+                                        >
+                                            <FiPlus size={12} /> Add
+                                        </button>
+                                    )}
+                                </div>
+                                {form.required_skills.split(',').filter(s => s.trim()).length === 0 && (
+                                    <p style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '6px' }}>No skills added yet. Type a skill and press Enter.</p>
+                                )}
                             </div>
                         </div>
                     </section>
@@ -1266,6 +1430,80 @@ function CreateVacancy({ admin }) {
                     box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
                 }
 
+                /* ── SKILLS TAG INPUT ── */
+                .skills-tag-box {
+                    min-height: 52px;
+                    padding: 8px 12px;
+                    background: #fff;
+                    border: 1.5px solid #eef0f2;
+                    border-radius: var(--radius-md);
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    align-items: center;
+                    cursor: text;
+                    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+                }
+
+                .skills-tag-box:focus-within {
+                    border-color: var(--crimson);
+                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
+                }
+
+                .skill-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    padding: 5px 10px 5px 12px;
+                    background: linear-gradient(135deg, rgba(139,26,43,0.08), rgba(139,26,43,0.04));
+                    border: 1px solid rgba(139,26,43,0.2);
+                    border-radius: 20px;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    color: var(--crimson);
+                    white-space: nowrap;
+                    animation: tag-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+
+                @keyframes tag-pop {
+                    from { transform: scale(0.7); opacity: 0; }
+                    to   { transform: scale(1);   opacity: 1; }
+                }
+
+                .skill-tag-remove {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 1px;
+                    color: rgba(139,26,43,0.5);
+                    display: flex;
+                    align-items: center;
+                    border-radius: 50%;
+                    transition: color 0.15s, background 0.15s;
+                }
+
+                .skill-tag-remove:hover {
+                    color: var(--crimson);
+                    background: rgba(139,26,43,0.1);
+                }
+
+                .skill-tag-input {
+                    border: none;
+                    outline: none;
+                    font-family: inherit;
+                    font-size: 0.9rem;
+                    color: var(--text-primary);
+                    background: transparent;
+                    flex: 1;
+                    min-width: 160px;
+                    padding: 4px 4px;
+                }
+
+                .skill-tag-input::placeholder {
+                    color: #b0bec5;
+                    font-weight: 400;
+                }
+
                 .sticky-sidebar {
                     position: sticky;
                     top: 24px;
@@ -1647,83 +1885,194 @@ function CreateVacancy({ admin }) {
                     100% { transform: scale(1); opacity: 1; }
                 }
 
-                /* RESPONSIVENESS */
+                /* ── RESPONSIVENESS ─────────────────────────── */
+
+                @media (max-width: 1200px) {
+                    .premium-form-layout {
+                        grid-template-columns: 1fr 300px;
+                    }
+                }
+
                 @media (max-width: 1024px) {
                     .create-vacancy-page {
                         padding: 20px;
                     }
-                    
+
                     .vacancies-orchestration-header {
                         flex-direction: column;
                         align-items: flex-start;
-                        padding: 32px 24px;
+                        padding: 24px 20px;
+                        border-radius: 18px;
+                        gap: 16px;
                     }
-                    
-                    .hero-title-p { font-size: 1.8rem; }
-                }
 
-                @media (max-width: 992px) {
+                    .hero-title-p { font-size: 1.6rem; }
+
                     .premium-form-layout {
                         grid-template-columns: 1fr;
+                        margin-top: 1.5rem;
                     }
-                    
+
                     .sticky-sidebar {
                         position: static;
-                        margin-top: 24px;
+                        top: auto;
+                    }
+
+                    .form-sidebar-container {
+                        order: -1;
+                    }
+
+                    /* Sidebar becomes a horizontal summary strip on tablet */
+                    .status-preview-card {
+                        padding: 16px;
                     }
                 }
 
                 @media (max-width: 768px) {
-                    /* Grid stacking handled by global utilities */
-                    
+                    .create-vacancy-page {
+                        padding: 12px;
+                    }
+
+                    .vacancies-orchestration-header {
+                        padding: 18px 16px;
+                        border-radius: 14px;
+                        gap: 12px;
+                        margin-bottom: 16px;
+                    }
+
+                    .hero-title-p { font-size: 1.35rem; }
+                    .hero-subtitle-p { font-size: 0.82rem; }
+
+                    .badge-p {
+                        font-size: 0.62rem;
+                        padding: 4px 10px;
+                        margin-bottom: 8px;
+                    }
+
                     .form-section-card {
-                        padding: 24px;
+                        padding: 16px;
+                        border-radius: 14px;
                     }
-                    
+
                     .section-header {
-                        flex-direction: column;
-                        align-items: flex-start;
+                        flex-direction: row;
+                        align-items: center;
+                        gap: 12px;
+                        margin-bottom: 16px;
+                        padding-bottom: 12px;
                     }
-                    
+
+                    .section-icon {
+                        width: 36px;
+                        height: 36px;
+                        font-size: 1rem;
+                        flex-shrink: 0;
+                    }
+
+                    /* Force 2-col grids to single column on mobile */
+                    .form-grid-2,
+                    .form-grid-3 {
+                        grid-template-columns: 1fr;
+                        gap: 14px;
+                    }
+
+                    .full-width {
+                        grid-column: 1;
+                    }
+
+                    .premium-input,
+                    .premium-textarea {
+                        font-size: 1rem; /* prevents iOS zoom */
+                    }
+
+                    /* Sidebar action buttons full-width on mobile */
+                    .form-actions-p .btn {
+                        width: 100%;
+                        justify-content: center;
+                    }
+
+                    /* Tips card compact */
+                    .tips-card {
+                        padding: 14px;
+                    }
+
+                    .status-preview-card {
+                        padding: 14px;
+                    }
+
+                    /* Match modal */
                     .match-item-card {
                         flex-direction: column;
                         align-items: flex-start;
-                        gap: 16px;
+                        gap: 12px;
                     }
-                    
+
                     .cand-actions-p {
                         flex-direction: row;
                         width: 100%;
                     }
-                    
+
                     .cand-actions-p .btn {
                         flex: 1;
                         justify-content: center;
                     }
-                    
+
                     .modal-header-p {
+                        padding: 16px 18px;
                         flex-direction: column;
                         align-items: flex-start !important;
-                        gap: 16px;
+                        gap: 12px;
                     }
-                    
+
                     .header-info-p {
-                        flex-direction: column;
+                        flex-direction: row;
                         align-items: flex-start;
+                        gap: 10px;
+                    }
+
+                    .match-modal-p {
+                        max-width: 100%;
+                        border-radius: 16px;
+                    }
+
+                    .modal-overlay-p {
+                        padding: 10px;
                     }
                 }
 
                 @media (max-width: 480px) {
-                    .hero-title-p { font-size: 1.6rem; }
-                    
+                    .hero-title-p { font-size: 1.15rem; }
+
+                    .vacancies-orchestration-header {
+                        padding: 14px 12px;
+                    }
+
+                    .form-section-card {
+                        padding: 12px;
+                    }
+
+                    .skills-tag-box {
+                        padding: 6px 10px;
+                        gap: 6px;
+                    }
+
+                    .skill-tag-input {
+                        min-width: 100px;
+                        font-size: 0.95rem;
+                    }
+
                     .cand-actions-p {
                         flex-direction: column;
                     }
-                    
+
                     .match-modal-p {
                         height: 100%;
                         max-height: 100%;
                         border-radius: 0;
+                    }
+
+                    .modal-overlay-p {
+                        padding: 0;
                     }
                 }
             `}</style>

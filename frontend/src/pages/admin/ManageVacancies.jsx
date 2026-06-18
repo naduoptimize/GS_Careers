@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllVacancies, deleteVacancy, updateVacancy, getCompanies, getStats, API_BASE, getApplications, assignVacancyCandidate } from '../../services/api';
+import { getAllVacancies, deleteVacancy, updateVacancy, getCompanies, getStats, API_BASE, getApplications, assignVacancyCandidate, getVacancyAuditLog } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 import { formatDate, daysLeft } from '../../utils/constants';
@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
-    FiEye, FiMapPin, FiX, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo
+    FiEye, FiMapPin, FiX, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 
@@ -272,6 +272,29 @@ function ManageVacancies({ admin }) {
     const [searchCandidate, setSearchCandidate] = useState('');
     const [assigningAppId, setAssigningAppId] = useState(null);
 
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+
+    useEffect(() => {
+        if (viewDetail && viewDetail.id) {
+            fetchAuditLogs(viewDetail.id);
+        } else {
+            setAuditLogs([]);
+        }
+    }, [viewDetail]);
+
+    const fetchAuditLogs = async (vacancyId) => {
+        try {
+            setLoadingLogs(true);
+            const res = await getVacancyAuditLog(vacancyId);
+            setAuditLogs(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to load audit logs:', err);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
+
     const handleOpenAssignModal = async () => {
         try {
             setLoadingShortlisted(true);
@@ -349,9 +372,27 @@ function ManageVacancies({ admin }) {
                 getStats()
             ]);
 
-            setVacancies(vacRes.data.data || []);
+            const loadedVacancies = vacRes.data.data || [];
+            setVacancies(loadedVacancies);
             setCompanies(compRes.data.data || []);
             setStats(statsRes.data.data || { total_vacancies: 0, active_vacancies: 0, total_applications: 0 });
+
+            // Handle initial highlight page calculation
+            const searchParams = new URLSearchParams(window.location.search);
+            const highlightId = searchParams.get('highlight');
+            if (highlightId && loadedVacancies.length > 0) {
+                const filtered = loadedVacancies.filter(v =>
+                    v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (v.reference_number && v.reference_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    v.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    v.designation.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                const targetIndex = filtered.findIndex(v => v.id == highlightId);
+                if (targetIndex !== -1) {
+                    const targetPage = Math.floor(targetIndex / itemsPerPage) + 1;
+                    setCurrentPage(targetPage);
+                }
+            }
         } catch (err) {
             console.error(err);
             toast.error('Failed to load dashboard data');
@@ -404,6 +445,22 @@ function ManageVacancies({ admin }) {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, companyFilter]);
+
+    // Handle card/row highlighting and scroll into view when redirecting from email
+    const searchParams = new URLSearchParams(window.location.search);
+    const highlightId = searchParams.get('highlight');
+
+    useEffect(() => {
+        if (highlightId && !loading && vacancies.length > 0) {
+            setTimeout(() => {
+                const el = document.getElementById(`vacancy-card-${highlightId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('highlighted-row-active');
+                }
+            }, 300);
+        }
+    }, [loading, vacancies, highlightId]);
 
     return (
         <div className="manage-vacancies-console">
@@ -522,18 +579,31 @@ function ManageVacancies({ admin }) {
                 ) : (
                     <div className="premium-table-container">
                         <table className="premium-table">
+                            <colgroup>
+                                <col />
+                                <col />
+                                <col />
+                                <col />
+                                <col />
+                                <col />
+                                <col />
+                                <col />
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Position & Establishment</th>
+                                    <th>Position &amp; Establishment</th>
                                     <th>Classification</th>
-                                    <th style={{ width: '100px' }}>Engagement Pulse</th>
-                                    <th style={{ textAlign: 'center', width: '180px' }}>
-                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.5px', color: '#94a3b8', fontWeight: 800 }}>Stages</div>
-                                        <div style={{ display: 'flex', gap: '22px', justifyContent: 'center', alignItems: 'center' }}>
-                                            <span title="Pending (Orange)" style={{ display: 'flex' }}><FiClock size={13} style={{ color: '#d97706' }} /></span>
-                                            <span title="Under Review (Blue)" style={{ display: 'flex' }}><FiEye size={13} style={{ color: '#2563eb' }} /></span>
-                                            <span title="Rejected (Red)" style={{ display: 'flex' }}><FiXCircle size={13} style={{ color: '#dc2626' }} /></span>
-                                            <span title="Shortlisted (Green)" style={{ display: 'flex' }}><FiCheckCircle size={13} style={{ color: '#16a34a' }} /></span>
+                                    <th>Skills</th>
+                                    <th>Engagement Pulse</th>
+                                    <th style={{ textAlign: 'center' }}>
+                                        <div className="stages-col-header">
+                                            <div style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8', fontWeight: 800 }}>Stages</div>
+                                            <div className="stages-icons-row">
+                                                <span title="Pending (Orange)"><FiClock size={12} style={{ color: '#d97706' }} /></span>
+                                                <span title="Under Review (Blue)"><FiEye size={12} style={{ color: '#2563eb' }} /></span>
+                                                <span title="Rejected (Red)"><FiXCircle size={12} style={{ color: '#dc2626' }} /></span>
+                                                <span title="Shortlisted (Green)"><FiCheckCircle size={12} style={{ color: '#16a34a' }} /></span>
+                                            </div>
                                         </div>
                                     </th>
                                     <th>Registry Timeline</th>
@@ -545,7 +615,7 @@ function ManageVacancies({ admin }) {
                                 {paginatedVacancies.map(v => {
                                     const active = v.is_active && daysLeft(v.expire_date) > 0;
                                     return (
-                                        <tr key={v.id}>
+                                        <tr key={v.id} id={`vacancy-card-${v.id}`}>
                                             <td>
                                                 <div className="pos-entity-cell">
                                                     {v.reference_number && <span className="ref-badge-inline">#{v.reference_number}</span>}
@@ -576,6 +646,19 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </td>
                                             <td>
+                                                <div className="skills-cell">
+                                                    {v.required_skills
+                                                        ? v.required_skills.split(',').filter(s => s.trim()).slice(0, 3).map((skill, idx) => (
+                                                            <span key={idx} className="skill-pill">{skill.trim()}</span>
+                                                          ))
+                                                        : <span className="no-skills">—</span>
+                                                    }
+                                                    {v.required_skills && v.required_skills.split(',').filter(s => s.trim()).length > 3 && (
+                                                        <span className="skill-pill-more">+{v.required_skills.split(',').filter(s => s.trim()).length - 3}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td>
                                                 <div className="pulse-cell" style={{ maxWidth: '80px' }}>
                                                     <div className="pulse-info">
                                                         <strong style={{ fontSize: '1.1rem' }}>{v.application_count || 0}</strong>
@@ -586,23 +669,11 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: '22px', justifyContent: 'center', alignItems: 'center', padding: '4px 0' }}>
-                                                    {/* Pending */}
-                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.pending_count > 0 ? '#b8860b' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
-                                                        {v.pending_count || 0}
-                                                    </span>
-                                                    {/* Under Review */}
-                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.review_count > 0 ? '#1e40af' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
-                                                        {v.review_count || 0}
-                                                    </span>
-                                                    {/* Rejected */}
-                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.rejected_count > 0 ? '#991b1b' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
-                                                        {v.rejected_count || 0}
-                                                    </span>
-                                                    {/* Shortlisted */}
-                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: v.shortlisted_count > 0 ? '#15803d' : '#cbd5e1', minWidth: '12px', textAlign: 'center' }}>
-                                                        {v.shortlisted_count || 0}
-                                                    </span>
+                                                <div className="stages-cell-row">
+                                                    <span className="stage-num" style={{ color: v.pending_count > 0 ? '#b8860b' : '#cbd5e1' }}>{v.pending_count || 0}</span>
+                                                    <span className="stage-num" style={{ color: v.review_count > 0 ? '#1e40af' : '#cbd5e1' }}>{v.review_count || 0}</span>
+                                                    <span className="stage-num" style={{ color: v.rejected_count > 0 ? '#991b1b' : '#cbd5e1' }}>{v.rejected_count || 0}</span>
+                                                    <span className="stage-num" style={{ color: v.shortlisted_count > 0 ? '#15803d' : '#cbd5e1' }}>{v.shortlisted_count || 0}</span>
                                                 </div>
                                             </td>
                                             <td>
@@ -800,6 +871,81 @@ function ManageVacancies({ admin }) {
 
                             {/* Approval Timeline */}
                             {renderApprovalTimeline(viewDetail)}
+
+                            {/* Audit History Log */}
+                            <div className="vd-section" style={{ marginTop: '24px' }}>
+                                <h3 className="vd-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                    <FiActivity /> Requisition History Audit Trail
+                                </h3>
+                                <div className="vd-section-body-enhanced" style={{ padding: '20px', background: 'rgba(248, 250, 252, 0.6)' }}>
+                                    {loadingLogs ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                            <div className="spinner-small" style={{ borderTopColor: 'var(--text-muted)' }}></div>
+                                            Retrieving log entries...
+                                        </div>
+                                    ) : auditLogs.length === 0 ? (
+                                        <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {auditLogs.map((log) => {
+                                                const actionLabels = {
+                                                    initiated: 'Draft Initiated',
+                                                    submitted: 'Requisition Submitted',
+                                                    edited: 'Details Revised',
+                                                    sub1_approved: 'Approved by Tier-1 Reviewer',
+                                                    global_approved: 'Authorized by Global Admin',
+                                                    rejected: 'Requisition Rejected'
+                                                };
+                                                const actionColors = {
+                                                    initiated: '#64748b',
+                                                    submitted: '#d97706',
+                                                    edited: '#6b21a8',
+                                                    sub1_approved: '#16a34a',
+                                                    global_approved: '#16a34a',
+                                                    rejected: '#dc2626'
+                                                };
+                                                return (
+                                                    <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                                                <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b' }}>
+                                                                    {actionLabels[log.action] || log.action.toUpperCase()}
+                                                                </strong>
+                                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                                    {log.created_at}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                                                                By: <strong>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                            </div>
+                                                            {log.old_status && log.new_status && (
+                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                                    Transition: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.old_status}</code> &rarr; <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.new_status}</code>
+                                                                </div>
+                                                            )}
+                                                            {log.reason && (
+                                                                <div style={{
+                                                                    marginTop: '8px',
+                                                                    padding: '8px 12px',
+                                                                    background: '#fff',
+                                                                    borderLeft: '3px solid #dc2626',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.8rem',
+                                                                    fontStyle: 'italic',
+                                                                    color: '#dc2626',
+                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                                                                }}>
+                                                                    "{log.reason}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
 
                             {/* Selected Employee Section */}
                             <div className="vd-selected-employee-section">
@@ -1139,7 +1285,43 @@ function ManageVacancies({ admin }) {
                     border-radius: 50%;
                     background: #10b981;
                 }
-                
+
+                /* Skills column pills */
+                .skills-cell {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    max-width: 180px;
+                }
+
+                .skill-pill {
+                    display: inline-block;
+                    padding: 3px 9px;
+                    background: linear-gradient(135deg, rgba(139,26,43,0.07), rgba(139,26,43,0.03));
+                    border: 1px solid rgba(139,26,43,0.18);
+                    border-radius: 12px;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: var(--crimson);
+                    white-space: nowrap;
+                }
+
+                .skill-pill-more {
+                    display: inline-block;
+                    padding: 3px 9px;
+                    background: #f1f5f9;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: #64748b;
+                }
+
+                .no-skills {
+                    color: #cbd5e1;
+                    font-size: 0.85rem;
+                }
+
                 /* Selection Modal */
                 .sam-overlay {
                     position: fixed;
@@ -2101,12 +2283,12 @@ function ManageVacancies({ admin }) {
                     .vacancies-orchestration-header {
                         flex-direction: column;
                         align-items: flex-start;
-                        gap: 20px;
-                        padding: 24px;
+                        gap: 16px;
+                        padding: 20px;
                         border-radius: 16px;
                     }
                     
-                    .serif-title-p { font-size: 2rem; }
+                    .serif-title-p { font-size: 1.9rem; }
                     
                     .stats-mosaic-p {
                         grid-template-columns: repeat(2, 1fr);
@@ -2115,61 +2297,120 @@ function ManageVacancies({ admin }) {
                     .console-toolbar-p {
                         flex-direction: column;
                         align-items: flex-start;
-                        gap: 16px;
+                        gap: 12px;
+                        padding: 16px;
+                    }
+
+                    .toolbar-search-row {
+                        flex-wrap: wrap;
+                        width: 100%;
                     }
                     
                     .search-orchestrator {
                         max-width: 100%;
                         width: 100%;
                     }
-                    
-                    .toolbar-actions-p {
-                        width: 100%;
-                    }
+
+                    .btn-reset-p { flex-shrink: 0; }
                     
                     .select-orchestrator select {
+                        width: 100%;
+                    }
+
+                    .toolbar-filters-row {
+                        width: 100%;
+                    }
+
+                    .filter-group {
+                        width: 100%;
+                    }
+
+                    .select-orchestrator {
                         width: 100%;
                     }
                 }
 
                 @media (max-width: 768px) {
-                    .orchestrated-table thead { display: none; }
-                    
-                    .orchestrated-table tr {
-                        display: block;
-                        padding: 20px;
-                        border-bottom: 8px solid #f8fafc;
+                    .vacancies-orchestration-header {
+                        padding: 16px;
+                        gap: 14px;
+                        border-radius: 14px;
+                        margin-bottom: 16px;
                     }
-                    
-                    .orchestrated-table td {
-                        display: block;
-                        padding: 12px 0;
-                        border: none;
-                        width: 100%;
+
+                    .serif-title-p { font-size: 1.5rem; }
+
+                    .hero-subline { font-size: 0.82rem; }
+
+                    .stats-mosaic-p {
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 10px;
+                        margin-bottom: 16px;
                     }
-                    
-                    .orchestrated-table td::before {
-                        content: attr(data-label);
-                        display: block;
-                        font-size: 0.7rem;
-                        font-weight: 800;
-                        color: #94a3b8;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                        margin-bottom: 6px;
+
+                    .mosaic-card-p {
+                        padding: 14px;
+                        gap: 8px;
                     }
-                    
+
+                    .m-value { font-size: 1.3rem; }
+
+                    .console-toolbar-p {
+                        padding: 14px;
+                        gap: 10px;
+                        border-radius: 14px;
+                        margin-bottom: 16px;
+                    }
+
+                    .orchestration-table-wrapper {
+                        border-radius: 14px;
+                    }
+
+                    /* On mobile, make the premium table horizontally scrollable with min size */
+                    .premium-table-container {
+                        overflow-x: auto;
+                        border-radius: 12px;
+                    }
+
+                    .premium-table {
+                        min-width: 640px;
+                    }
+
+                    .premium-table th,
+                    .premium-table td {
+                        padding: 10px 8px;
+                        font-size: 0.75rem;
+                    }
+
                     .orchestration-actions {
                         justify-content: flex-start;
+                    }
+
+                    .o-btn {
+                        width: 28px !important;
+                        height: 28px !important;
+                        font-size: 0.8rem !important;
+                    }
+
+                    .pagination-footer {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 10px;
+                        padding: 12px 14px;
                     }
                 }
 
                 @media (max-width: 480px) {
                     .stats-mosaic-p {
-                        grid-template-columns: 1fr;
+                        grid-template-columns: 1fr 1fr;
                     }
                     
-                    .serif-title-p { font-size: 1.8rem; }
+                    .serif-title-p { font-size: 1.3rem; }
+
+                    .console-badge { font-size: 0.55rem; }
+
+                    .btn-establish-p span { display: none; }
+                    .btn-establish-p { padding: 10px 14px; }
                 }
             `}</style>
         </div>

@@ -127,6 +127,128 @@ const DocxViewer = ({ url }) => {
     );
 };
 
+const getNormalizedSkills = (skillsMetadataStr, tags) => {
+    let parsedReport = null;
+    let parsedSkills = null;
+    try {
+        if (skillsMetadataStr) {
+            const parsedData = JSON.parse(skillsMetadataStr);
+            if (parsedData && typeof parsedData === 'object' && !Array.isArray(parsedData)) {
+                parsedReport = parsedData;
+                parsedSkills = parsedData.skills_analysis;
+            } else if (Array.isArray(parsedData)) {
+                parsedSkills = parsedData;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to parse skills metadata:", e);
+    }
+
+    const skills = [];
+    const seen = new Set();
+
+    // 1. Process parsedReport.skills_analysis
+    if (parsedReport && Array.isArray(parsedReport.skills_analysis)) {
+        parsedReport.skills_analysis.forEach(item => {
+            if (!item || !item.skill) return;
+            const skillName = item.skill.trim();
+            if (!skillName) return;
+            const key = skillName.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            let category = item.category;
+            if (category !== 'Relevant Skills' && category !== 'Related Skills') {
+                category = 'Additional Skills';
+            }
+
+            skills.push({
+                skill: skillName,
+                category: category,
+                experience: item.estimated_duration || item.experience || 'Mentioned Only',
+                context: item.usage_context || item.context || 'No usage context provided.',
+                evidence_source: item.evidence_source || 'Skills Section Only',
+                evidence_strength: item.evidence_strength || 'Mentioned Only',
+                experience_level: item.experience_level || 'Basic'
+            });
+        });
+    }
+
+    // 2. Process parsedReport.additional_skills
+    if (parsedReport && Array.isArray(parsedReport.additional_skills)) {
+        parsedReport.additional_skills.forEach(item => {
+            if (!item) return;
+            const isObj = typeof item === 'object' && item !== null;
+            const skillName = (isObj ? item.skill : item).trim();
+            if (!skillName) return;
+            const key = skillName.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            skills.push({
+                skill: skillName,
+                category: 'Additional Skills',
+                experience: isObj ? (item.estimated_duration || item.experience || 'Mentioned Only') : 'Mentioned Only',
+                context: isObj ? (item.usage_context || item.context || 'Mentioned in CV.') : 'Mentioned in CV.',
+                evidence_source: isObj ? (item.evidence_source || 'Skills Section Only') : 'Skills Section Only',
+                evidence_strength: isObj ? (item.evidence_strength || 'Mentioned Only') : 'Mentioned Only',
+                experience_level: isObj ? (item.experience_level || 'Basic') : 'Basic'
+            });
+        });
+    }
+
+    // 3. Process parsedSkills (legacy array)
+    if (!parsedReport && Array.isArray(parsedSkills)) {
+        parsedSkills.forEach(item => {
+            if (!item || !item.skill) return;
+            const skillName = item.skill.trim();
+            if (!skillName) return;
+            const key = skillName.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            let category = item.category;
+            if (category !== 'Relevant Skills' && category !== 'Related Skills') {
+                category = 'Additional Skills';
+            }
+
+            skills.push({
+                skill: skillName,
+                category: category,
+                experience: item.estimated_duration || item.experience || 'Mentioned Only',
+                context: item.usage_context || item.context || 'No usage context provided.',
+                evidence_source: item.evidence_source || 'Skills Section Only',
+                evidence_strength: item.evidence_strength || 'Mentioned Only',
+                experience_level: item.experience_level || 'Basic'
+            });
+        });
+    }
+
+    // 4. Process tags (for legacy plain strings case)
+    if (skills.length === 0 && tags) {
+        tags.split(',').map(s => s.trim()).filter(Boolean).forEach(skillName => {
+            const key = skillName.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            skills.push({
+                skill: skillName,
+                category: 'Additional Skills',
+                experience: 'Mentioned Only',
+                context: 'Candidate declared skill.',
+                evidence_source: 'Skills Section Only',
+                evidence_strength: 'Mentioned Only',
+                experience_level: 'Basic'
+            });
+        });
+    }
+
+    return {
+        skills,
+        parsedReport
+    };
+};
+
 function Applicants({ admin }) {
     const [searchParams] = useSearchParams();
     const [applications, setApplications] = useState([]);
@@ -179,7 +301,14 @@ function Applicants({ admin }) {
     });
 
     const [showJobDetails, setShowJobDetails] = useState(true);
+    const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
     const selVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id)) || {};
+
+    useEffect(() => {
+        if (showDetail) {
+            setActiveAdminTab('Relevant Skills');
+        }
+    }, [showDetail]);
 
     const applyAutoMatch = () => {
         if (!selVac.id) {
@@ -1346,7 +1475,22 @@ function Applicants({ admin }) {
                                                             <FiCalendar size={12} /> Scheduled
                                                         </div>
                                                         <div className="schedule-time">{formatDate(app.interview_date)}</div>
-                                                        <div className="schedule-time" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{app.interview_time}</div>
+                                                        <div className="schedule-time" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{app.interview_time}</div>
+                                                        <div style={{ marginTop: '6px' }}>
+                                                            {app.interview_confirmed === 'yes' ? (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', fontWeight: '700', color: '#16a34a', background: '#ecfdf5', border: '1px solid #b7f4cf', borderRadius: '100px', padding: '2px 8px' }}>
+                                                                    ✅ Confirmed
+                                                                </span>
+                                                            ) : app.interview_confirmed === 'no' ? (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', fontWeight: '700', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '100px', padding: '2px 8px' }}>
+                                                                    ❌ Declined
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', fontWeight: '700', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '100px', padding: '2px 8px' }}>
+                                                                    📩 Invited (Awaiting)
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -1445,116 +1589,352 @@ function Applicants({ admin }) {
 
                         <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
                             {showDetail.is_suggestion && (
-                                <div className="detail-notice" style={{ background: '#ecfdf5', padding: '16px 20px', borderRadius: '16px', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.9rem', marginBottom: '32px' }}>
+                                <div style={{ background: '#ecfdf5', padding: '10px 16px', borderRadius: '10px', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.85rem', marginBottom: '14px' }}>
                                     <p style={{ margin: 0 }}>This prospect matched your criteria from the Talent Pool. They previously applied for "{showDetail.last_applied_vacancy}" and consented to being contacted for future roles.</p>
                                 </div>
                             )}
-                            <div className="detail-grid-p admin-grid-2" style={{ gap: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-                                <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>
+
+                            {/* ── TOP INFO ROW: Contact + Profile + Submission in one strip ── */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
+
+                                {/* Contact */}
+                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
                                         Contact Protocols
-                                    </label>
-                                    <div className="submission-box-p" style={{ display: 'flex', flexDirection: 'column', gap: '24px', background: '#fcfcfd' }}>
-                                        <div className="contact-item-p" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                            <FiMail style={{ marginTop: '4px', color: 'var(--gold-accent)', fontSize: '1.2rem', flexShrink: 0 }} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                            <FiMail style={{ marginTop: '3px', color: 'var(--gold-accent)', flexShrink: 0 }} size={14} />
                                             <div>
-                                                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Email Dispatch</span>
-                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.4' }}>{showDetail.email}</p>
+                                                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Email</span>
+                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem', wordBreak: 'break-all' }}>{showDetail.email}</p>
                                             </div>
                                         </div>
-                                        <div className="contact-item-p" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                            <FiPhone style={{ marginTop: '4px', color: 'var(--gold-accent)', fontSize: '1.2rem', flexShrink: 0 }} />
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                            <FiPhone style={{ marginTop: '3px', color: 'var(--gold-accent)', flexShrink: 0 }} size={14} />
                                             <div>
-                                                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Direct Line</span>
-                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.4' }}>{showDetail.contact_number}</p>
+                                                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Phone</span>
+                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.contact_number}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>
+                                {/* Professional Profile */}
+                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
                                         Professional Profile
-                                    </label>
-                                    <div className="submission-box-p" style={{ gridTemplateColumns: '1fr 1fr 1fr', background: '#fcfcfd' }}>
-                                        <div className="sm-item">
-                                            <span>Overall Exp.</span>
-                                            <p>{showDetail.overall_experience}</p>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Overall Exp.</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.overall_experience}</p>
                                         </div>
-                                        <div className="sm-item">
-                                            <span>Relevant Exp.</span>
-                                            <p>{showDetail.relevant_experience}</p>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Relevant Exp.</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.relevant_experience}</p>
                                         </div>
-                                        <div className="sm-item">
-                                            <span>Qualification</span>
-                                            <p>{showDetail.qualification}</p>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Qualification</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.qualification}</p>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="detail-section-p full-width">
-                                    <label>Submission Details</label>
-                                    <div className="submission-box-p" style={{ gridTemplateColumns: '1fr 0.8fr 2fr', background: '#fcfcfd', alignItems: 'start', width: '100%', boxSizing: 'border-box', gap: '16px' }}>
-                                        <div className="sm-item">
-                                            <span>{showDetail.is_suggestion ? 'Previously Applied to' : 'Company'}</span>
-                                            <p>{showDetail.is_suggestion ? showDetail.last_applied_vacancy : showDetail.company_name}</p>
+                                {/* Submission Details */}
+                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
+                                        Submission Details
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>{showDetail.is_suggestion ? 'Previously Applied to' : 'Company'}</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.is_suggestion ? showDetail.last_applied_vacancy : showDetail.company_name}</p>
                                         </div>
-                                        <div className="sm-item">
-                                            <span style={{ whiteSpace: 'nowrap' }}>Salary Expectation</span>
-                                            <p>{showDetail.salary_expectation || 'Not specified'}</p>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Salary Expectation</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.salary_expectation || 'Not specified'}</p>
                                         </div>
-                                        <div className="sm-item">
-                                            <span>Applied Date</span>
-                                            <p style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
-                                                <FiCalendar size={14} style={{ color: 'var(--gold-accent)' }} />
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Applied Date</span>
+                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <FiCalendar size={13} style={{ color: 'var(--gold-accent)' }} />
                                                 {formatDateTime(showDetail.applied_at)}
                                             </p>
                                         </div>
                                     </div>
-
-                                    {showDetail.status === 'rejected' && showDetail.rejection_reason && (
-                                        <div className="rejection-reason-box mt-3">
-                                            <span>Rejection Reason</span>
-                                            <p>{showDetail.rejection_reason}</p>
-                                        </div>
-                                    )}
-
-                                    {Boolean(showDetail.is_blocked == 1 || showDetail.is_email_blocked) && (
-                                        <div className="rejection-reason-box mt-3" style={{ border: '1px solid #fee2e2', background: '#fef2f2', color: '#991b1b' }}>
-                                            <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}><FiSlash size={14} /> BLOCK REASON (ADMIN ONLY)</span>
-                                            <p style={{ color: '#991b1b', fontWeight: 600 }}>{showDetail.block_reason || 'No reason specified'}</p>
-                                        </div>
-                                    )}
-
-                                    {showDetail.status === 'shortlisted' && showDetail.interview_date && (
-                                        <div className="detail-section-p full-width" style={{ marginTop: '32px' }}>
-                                            <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>
-                                                Confirmed Interview Schedule
-                                            </label>
-                                            <div className="submission-box-p" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', gridTemplateColumns: '1fr 1.5fr 1.5fr', marginTop: '12px', alignItems: 'start' }}>
-                                                <div className="sm-item">
-                                                    <span>Medium / Type</span>
-                                                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                                        <FiVideo style={{ color: 'var(--gold-accent)' }} /> {showDetail.interview_type}
-                                                    </p>
-                                                </div>
-                                                <div className="sm-item">
-                                                    <span>Date & Duration</span>
-                                                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                                        <FiCalendar style={{ color: 'var(--gold-accent)' }} /> {formatDate(showDetail.interview_date)} at {showDetail.interview_time}
-                                                    </p>
-                                                </div>
-                                                <div className="sm-item">
-                                                    <span>Location / Resource</span>
-                                                    <p style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-primary)' }}>
-                                                        <FiMapPin style={{ color: 'var(--gold-accent)', marginTop: '4px' }} /> {showDetail.interview_location}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
+
+                            {/* Rejection / Block notices */}
+                            {showDetail.status === 'rejected' && showDetail.rejection_reason && (
+                                <div className="rejection-reason-box" style={{ marginBottom: '12px' }}>
+                                    <span>Rejection Reason</span>
+                                    <p>{showDetail.rejection_reason}</p>
+                                </div>
+                            )}
+                            {Boolean(showDetail.is_blocked == 1 || showDetail.is_email_blocked) && (
+                                <div className="rejection-reason-box" style={{ border: '1px solid #fee2e2', background: '#fef2f2', color: '#991b1b', marginBottom: '12px' }}>
+                                    <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}><FiSlash size={14} /> BLOCK REASON (ADMIN ONLY)</span>
+                                    <p style={{ color: '#991b1b', fontWeight: 600 }}>{showDetail.block_reason || 'No reason specified'}</p>
+                                </div>
+                            )}
+
+                            {/* ── CANDIDATE SKILLS & AI EVALUATION (full width) ── */}
+                            <div style={{ marginBottom: '12px' }}>
+                                <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--ivory-dark)' }}>
+                                    Candidate Skills &amp; AI Recruiter Evaluation
+                                </div>
+                                {(() => {
+                                    const { skills, parsedReport } = getNormalizedSkills(showDetail.skills_metadata, showDetail.tags);
+                                    const tabCategories = ['Relevant Skills', 'Related Skills', 'Additional Skills'];
+                                    const activeSkills = skills.filter(item => item.category === activeAdminTab);
+                                    
+                                    return (
+                                        <div className="admin-recruiter-report">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                                                <div className="admin-ai-badge" style={{ margin: 0 }}>
+                                                    <FiCpu size={14} style={{ color: 'var(--gold-accent)' }} />
+                                                    <span>Steuart AI Recruiter Evaluation Report</span>
+                                                </div>
+                                            </div>
+
+                                            {parsedReport && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
+                                                <div className="recruiter-report-summary">
+                                                    {parsedReport.experience_summary && (
+                                                        <div className="report-summary-block">
+                                                            <h6>Experience Summary</h6>
+                                                            <p className="summary-text">{parsedReport.experience_summary}</p>
+                                                        </div>
+                                                    )}
+                                                    {Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0 && (
+                                                        <div className="report-insights-block">
+                                                            <h6>Recruiter Insights &amp; Observations</h6>
+                                                            <ul className="insights-list">
+                                                                {parsedReport.recruiter_insights.map((insight, idx) => (
+                                                                    <li key={idx}>{insight}</li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {parsedReport && (
+                                                (Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0) ||
+                                                (Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0) ||
+                                                (Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0)
+                                            ) && (
+                                                <div className="requirements-validation-panel">
+                                                    <h6>Mandatory Requirements Validation</h6>
+                                                    <div className="validation-grid">
+                                                        <div className="validation-col fully-supported">
+                                                            <span className="col-title green">Fully Demonstrated</span>
+                                                            <div className="badge-list">
+                                                                {Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0 ? (
+                                                                    parsedReport.fully_demonstrated_skills.map((skill, idx) => (
+                                                                        <span key={idx} className="val-badge green">{skill}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="no-badge">None identified</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="validation-col partially-supported">
+                                                            <span className="col-title orange">Partially Demonstrated</span>
+                                                            <div className="badge-list">
+                                                                {Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0 ? (
+                                                                    parsedReport.partially_demonstrated_skills.map((skill, idx) => (
+                                                                        <span key={idx} className="val-badge orange">{skill}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="no-badge">None identified</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="validation-col missing-evidence">
+                                                            <span className="col-title red">No Evidence Found</span>
+                                                            <div className="badge-list">
+                                                                {Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0 ? (
+                                                                    parsedReport.requirements_without_evidence.map((skill, idx) => (
+                                                                        <span key={idx} className="val-badge red">{skill}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="no-badge">None identified</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="skills-analysis-matrix-block">
+                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '14px', gap: '16px', flexWrap: 'wrap' }}>
+                                                    {tabCategories.map(tabName => {
+                                                        const count = skills.filter(item => item.category === tabName).length;
+                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+                                                        
+                                                        return (
+                                                            <button
+                                                                key={tabName}
+                                                                type="button"
+                                                                className={`apb-tab-btn ${activeAdminTab === tabName ? 'active' : ''}`}
+                                                                onClick={() => setActiveAdminTab(tabName)}
+                                                                style={{
+                                                                    padding: '8px 14px',
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    borderBottom: activeAdminTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
+                                                                    color: activeAdminTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.85rem',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
+                                                                    transition: 'all 0.2s ease',
+                                                                    marginBottom: '-2px'
+                                                                }}
+                                                            >
+                                                                <span>{emoji} {tabName}</span>
+                                                                <span style={{
+                                                                    fontSize: '0.7rem',
+                                                                    background: activeAdminTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                    color: activeAdminTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '100px',
+                                                                    fontWeight: 800
+                                                                }}>
+                                                                    {count}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {activeSkills.length > 0 ? (
+                                                    <div className="admin-skills-list-grid">
+                                                        {activeSkills.map((item, idx) => {
+                                                            const isMand = parsedReport && (
+                                                                parsedReport.fully_demonstrated_skills?.includes(item.skill) || 
+                                                                parsedReport.partially_demonstrated_skills?.includes(item.skill)
+                                                            );
+                                                            return (
+                                                                <div key={idx} className={`admin-skill-card-detailed ${isMand ? 'admin-mandatory-match' : ''}`}>
+                                                                    <div className="admin-skill-card-top">
+                                                                        <span className="admin-skill-name-txt">
+                                                                            {item.skill}
+                                                                            {isMand && (
+                                                                                <span className="admin-mand-pill">Mandatory</span>
+                                                                            )}
+                                                                        </span>
+                                                                        <span className="level-badge" style={{ margin: 0, textTransform: 'capitalize' }}>
+                                                                            {item.experience_level}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="admin-skill-meta-row">
+                                                                        <span className="source-txt" style={{ fontStyle: 'normal', fontWeight: 600 }}>
+                                                                            via {item.evidence_source}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="admin-skill-context-txt">{item.context}</p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ padding: '20px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.88rem' }}>
+                                                        No skills identified under {activeAdminTab}.
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {parsedReport && (
+                                                (Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0) ||
+                                                (Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0)
+                                            ) && (
+                                                <div className="credentials-validation-panel" style={{ marginTop: '0px' }}>
+                                                    <h6>Credentials &amp; Additional Information</h6>
+                                                    <div className="validation-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                                        <div className="validation-col">
+                                                            <span className="col-title" style={{ color: '#4f46e5' }}>Qualifications Found</span>
+                                                            <div className="badge-list">
+                                                                {Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0 ? (
+                                                                    parsedReport.qualifications_found.map((qual, idx) => (
+                                                                        <span key={idx} className="val-badge blue" style={{ background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>{qual}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="no-badge">None identified</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="validation-col">
+                                                            <span className="col-title" style={{ color: '#0891b2' }}>Certifications Found</span>
+                                                            <div className="badge-list">
+                                                                {Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0 ? (
+                                                                    parsedReport.certifications_found.map((cert, idx) => (
+                                                                        <span key={idx} className="val-badge cyan" style={{ background: '#ecfeff', color: '#0e7490', border: '1px solid #c5f2f7' }}>{cert}</span>
+                                                                    ))
+                                                                ) : (
+                                                                    <span className="no-badge">None identified</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* Interview Schedule (if shortlisted with date) */}
+                            {showDetail.status === 'shortlisted' && showDetail.interview_date && (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--ivory-dark)' }}>
+                                        Confirmed Interview Schedule
+                                    </div>
+                                    <div className="submission-box-p" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', gridTemplateColumns: '1fr 1.2fr 1.2fr 1.2fr', alignItems: 'start' }}>
+                                        <div className="sm-item">
+                                            <span>Medium / Type</span>
+                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                                <FiVideo style={{ color: 'var(--gold-accent)' }} /> {showDetail.interview_type}
+                                            </p>
+                                        </div>
+                                        <div className="sm-item">
+                                            <span>Date &amp; Duration</span>
+                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                                <FiCalendar style={{ color: 'var(--gold-accent)' }} /> {formatDate(showDetail.interview_date)} at {showDetail.interview_time}
+                                            </p>
+                                        </div>
+                                        <div className="sm-item">
+                                            <span>Location / Resource</span>
+                                            <p style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-primary)' }}>
+                                                <FiMapPin style={{ color: 'var(--gold-accent)', marginTop: '4px' }} /> {showDetail.interview_location}
+                                            </p>
+                                        </div>
+                                        <div className="sm-item">
+                                            <span>Attendance Status</span>
+                                            <p style={{ marginTop: '4px' }}>
+                                                {showDetail.interview_confirmed === 'yes' ? (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#16a34a', background: '#ecfdf5', border: '1px solid #b7f4cf', borderRadius: '100px', padding: '2px 10px' }}>
+                                                        ✅ Confirmed
+                                                    </span>
+                                                ) : showDetail.interview_confirmed === 'no' ? (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '100px', padding: '2px 10px' }}>
+                                                        ❌ Declined
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '100px', padding: '2px 10px' }}>
+                                                        📩 Invited (Awaiting RSVP)
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
 
                             <div className="cv-preview-section-p">
                                 <div className="cv-banner-p">
@@ -1687,7 +2067,7 @@ function Applicants({ admin }) {
                                 <div style={{ background: '#ebf8ff', color: '#3182ce', padding: '8px', borderRadius: '8px', display: 'flex' }}><FiMail size={20} /></div>
                                 <div>
                                     <h2 style={{ margin: 0 }}>Send Interview Invitation</h2>
-                                    <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>To: <strong>{inviteTarget.first_name} {inviteTarget.last_name}</strong> — {inviteTarget.vacancy_title}</p>
+                                    <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>To: <strong>{inviteTarget.first_name} {inviteTarget.last_name}</strong> {inviteTarget.contact_number && `(Tel: ${inviteTarget.contact_number})`} — {inviteTarget.vacancy_title}</p>
                                 </div>
                             </div>
                             <button className="close-btn-p" onClick={closeInviteModal}><FiX /></button>
@@ -2363,12 +2743,12 @@ function Applicants({ admin }) {
                 .cv-banner-p {
                     display: flex;
                     align-items: center;
-                    gap: 20px;
+                    gap: 16px;
                     background: #1a1a2e;
-                    padding: 20px;
-                    border-radius: 20px;
+                    padding: 16px 20px;
+                    border-radius: 16px;
                     color: #fff;
-                    margin-top: 32px;
+                    margin-top: 16px;
                 }
 
                 .cb-icon { 
@@ -2384,7 +2764,7 @@ function Applicants({ admin }) {
                 .cb-text p { margin: 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); }
 
                 .modal-actions-footer-p {
-                    padding: 24px 48px;
+                    padding: 16px 28px;
                     border-top: 1px solid #e2e8f0;
                     background: #fcfcfd;
                 }
@@ -2392,11 +2772,11 @@ function Applicants({ admin }) {
                 .submission-box-p {
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
-                    padding: 20px;
+                    padding: 14px 16px;
                     background: #fdfdfd;
                     border: 1px solid #f1f5f9;
-                    border-radius: 16px;
-                    gap: 24px;
+                    border-radius: 12px;
+                    gap: 16px;
                     align-items: start;
                 }
 
@@ -2404,7 +2784,7 @@ function Applicants({ admin }) {
                     display: block; 
                     font-size: 0.65rem; 
                     color: var(--text-muted); 
-                    margin-bottom: 8px; 
+                    margin-bottom: 4px; 
                     text-transform: uppercase; 
                     font-weight: 800; 
                     letter-spacing: 0.5px;

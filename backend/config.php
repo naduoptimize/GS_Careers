@@ -30,6 +30,10 @@ define('SMTP_FROM_NAME', 'George Steuart Careers');
 define('SMTP_REPLY_TO', 'no-reply@georgesteuart.com');
 define('SMTP_DEBUG', 0); // 0 = off, 1 = client, 2 = client and server
 
+// ---- FRONTEND URL ----
+// If your frontend runs on a different port (e.g. 3001), update this value
+define('FRONTEND_URL', 'http://localhost:3000');
+
 // ---- FILE UPLOADS ----
 define('UPLOAD_DIR', __DIR__ . '/uploads/cv/');
 define('MAX_CV_SIZE', 5 * 1024 * 1024); // 5MB
@@ -211,4 +215,32 @@ function sendEmail($to, $toName, $subject, $body)
         return false;
     }
 }
+
+function queueEmail($to, $toName, $subject, $body)
+{
+    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED) return true;
+
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO email_queue (recipient_email, recipient_name, subject, body, status, attempts) VALUES (?, ?, ?, ?, 'pending', 0)");
+        $stmt->execute([$to, $toName, $subject, $body]);
+        
+        // Asynchronously trigger the email queue processor script
+        $scriptPath = __DIR__ . '/scripts/process_queue.php';
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows background execution
+            $cmd = "start /B php \"" . $scriptPath . "\" > NUL 2>&1";
+            pclose(popen($cmd, "r"));
+        } else {
+            // Linux/macOS background execution
+            $cmd = "php \"" . $scriptPath . "\" > /dev/null 2>&1 &";
+            exec($cmd);
+        }
+        return true;
+    } catch (\Exception $e) {
+        error_log("Queue Email Error: " . $e->getMessage());
+        return false;
+    }
+}
+
 

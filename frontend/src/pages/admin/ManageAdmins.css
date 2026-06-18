@@ -853,19 +853,284 @@
     }
     
     .hero-title-p { font-size: 1.6rem; }
+
+    .hero-actions-p {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .btn-hero-p {
+        flex: 1;
+        justify-content: center;
+        min-width: 160px;
+    }
 }
 
 @media (max-width: 768px) {
     .stats-mosaic-grid {
-        grid-template-columns: 1fr;
-        gap: 16px;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
     }
 
     .dashboard-hero-premium {
-        padding: 30px 20px !important;
+        padding: 20px !important;
+        border-radius: 16px !important;
+    }
+
+    .hero-title-p { font-size: 1.4rem; }
+
+    .hero-badge-p { font-size: 0.68rem; padding: 5px 12px; }
+
+    .console-toolbar-p {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    .toolbar-search-row {
+        flex-wrap: wrap;
+    }
+
+    .search-orchestrator {
+        min-width: 100%;
+    }
+
+    .btn-reset-p {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .results-card-p {
+        border-radius: 16px;
+    }
+
+    .orchestration-header {
+        padding: 16px 20px !important;
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .h-right {
+        width: 100%;
+    }
+
+    .count-badge {
+        width: fit-content;
+    }
+
+    .premium-table th,
+    .premium-table td {
+        padding: 12px 14px;
+    }
+
+    .pagination-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px 20px;
+    }
+
+    .pagination-controls {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+    }
+
+    .page-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .delete-modal-p {
+        padding: 28px 20px;
+    }
+
+    .admin-modal-p {
+        width: 95% !important;
+        max-width: none !important;
         border-radius: 20px !important;
     }
+
+    .modal-body-p {
+        padding: 20px !important;
+        max-height: 60vh;
+    }
+
+    .modal-footer-p {
+        padding: 14px 20px !important;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .modal-footer-p button {
+        flex: 1;
+        justify-content: center;
+    }
 }
+
+/* ── COMPANY TABLE MOBILE CARD VIEW ────────────── */
+@media (max-width: 600px) {
+    .stats-mosaic-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    /* Company table card transform */
+    .orchestration-table .premium-table,
+    .orchestration-table .premium-table thead,
+    .orchestration-table .premium-table tbody,
+    .orchestration-table .premium-table th,
+    .orchestration-table .premium-table td,
+    .orchestration-table .premium-table tr {
+        display: block;
+    }
+
+    .orchestration-table .premium-table thead {
+        display: none;
+    }
+
+    .orchestration-table .premium-table tbody tr {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 16px;
+        margin-bottom: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        animation: rowSlide 0.35s ease both;
+    }
+
+    .orchestration-table .premium-table tbody tr:hover td {
+        background: transparent;
+    }
+
+    .orchestration-table .premium-table td {
+        padding: 0;
+        border-bottom: none;
+    }
+
+    .orchestration-table .premium-table td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #94a3b8;
+        margin-bottom: 4px;
+    }
+
+    .orchestration-table .premium-table td[data-label="Operations"]::before {
+        display: none;
+    }
+
+    .orchestration-table td[data-label="Operations"] .orchestration-actions {
+        justify-content: flex-start;
+    }
+
+    .table-wrapper-p {
+        overflow-x: visible;
+    }
+
+    /* Locations table in card mode */
+    .orchestration-container .premium-table td {
+        padding: 6px 0;
+    }
+
+    /* Header responsive */
+    .orchestration-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 14px !important;
+        padding: 16px !important;
+    }
+
+    .h-right {
+        flex-direction: column !important;
+        width: 100%;
+        gap: 10px !important;
+    }
+
+    .h-right .search-orchestrator {
+        width: 100% !important;
+    }
+
+    .h-right input {
+        width: 100% !important;
+    }
+
+    /* Actions */
+    .orchestration-actions {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .o-btn {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title-p { font-size: 1.25rem; }
+    .hero-actions-p .btn-hero-p { font-size: 0.82rem; padding: 10px 14px; }
+
+    .stat-glass-card .s-value { font-size: 1.5rem; }
+
+    .delete-modal-p {
+        border-radius: 20px;
+        padding: 24px 16px;
+    }
+}
+
+/* ── PREMIUM TOOLTIP STYLES ── */
+.tooltip-trigger {
+    position: relative;
+    cursor: pointer;
+}
+
+.tooltip-trigger:hover .tooltip-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.tooltip-content {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: #1e293b;
+    color: #ffffff;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tooltip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #1e293b transparent transparent transparent;
+}
+
+
+
 
 /* ── PREMIUM TOOLTIP STYLES ── */
 .tooltip-trigger {

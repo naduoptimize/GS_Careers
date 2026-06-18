@@ -40,6 +40,9 @@ switch ($action) {
     case 'reject':
         rejectVacancy();
         break;
+    case 'audit_log':
+        getVacancyAuditLog();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -203,7 +206,7 @@ function createVacancy()
     }
 
     $db = getDB();
-    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, location, employment_type, min_experience, min_relevant_experience, publish_date, expire_date, created_by, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, required_skills, location, employment_type, min_experience, min_relevant_experience, publish_date, expire_date, created_by, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -211,6 +214,7 @@ function createVacancy()
         sanitize($input['designation']),
         $input['description'],
         $input['requirements'] ?? '',
+        $input['required_skills'] ?? '',
         sanitize($input['location'] ?? ''),
         $input['employment_type'] ?? 'Full-Time',
         $input['min_experience'] ?? '0-1 years',
@@ -222,6 +226,9 @@ function createVacancy()
     ]);
 
     $newId = $db->lastInsertId();
+
+    // Log the initiation/submission of vacancy
+    logVacancyAction($newId, $auth['admin_id'], $submitForApproval ? 'submitted' : 'initiated', null, $status);
 
     if ($submitForApproval) {
         jsonResponse(201, 'Vacancy created successfully', ['id' => $newId], true);
@@ -295,7 +302,7 @@ function updateVacancy()
         $rej_at = null;
     }
 
-    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?");
+    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, required_skills = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -303,6 +310,7 @@ function updateVacancy()
         sanitize($input['designation']),
         $input['description'],
         $input['requirements'] ?? '',
+        $input['required_skills'] ?? '',
         sanitize($input['location'] ?? ''),
         $input['employment_type'] ?? 'Full-Time',
         $input['min_experience'] ?? '0-1 years',
@@ -319,6 +327,8 @@ function updateVacancy()
         $rej_at,
         $id
     ]);
+
+    logVacancyAction($id, $auth['admin_id'], $submitForApproval ? 'submitted' : 'edited', $currentStatus, $status);
 
     if ($submitForApproval) {
         jsonResponse(200, 'Vacancy updated successfully', null, true);
@@ -561,19 +571,23 @@ function approveVacancy()
         
         $stmtUpdate = $db->prepare("UPDATE vacancies SET approval_status = 'pending_global', rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = NOW() WHERE id = ?");
         $stmtUpdate->execute([$auth['admin_id'], $vacancyId]);
+
+        logVacancyAction($vacancyId, $auth['admin_id'], 'sub1_approved', 'pending_subadmin1', 'pending_global');
         
         jsonResponse(200, 'Vacancy approved by Sub Admin 1 and forwarded to Global Admin', null, true);
         
         notifyReviewers($vacancyId, 'pending_global');
 
     } elseif ($role === 'super_admin' || $role === 'admin') {
-        // Can approve pending_global across any company
-        if ($vacancy['approval_status'] !== 'pending_global') {
-            jsonResponse(400, 'Vacancy is not pending Global Admin approval');
+        // Can approve pending_global or pending_subadmin1 across any company
+        if ($vacancy['approval_status'] !== 'pending_global' && $vacancy['approval_status'] !== 'pending_subadmin1') {
+            jsonResponse(400, 'Vacancy is not pending approval');
         }
         
         $stmtUpdate = $db->prepare("UPDATE vacancies SET approval_status = 'approved', rejection_reason = NULL, global_approved_by = ?, global_approved_at = NOW() WHERE id = ?");
         $stmtUpdate->execute([$auth['admin_id'], $vacancyId]);
+
+        logVacancyAction($vacancyId, $auth['admin_id'], 'global_approved', $vacancy['approval_status'], 'approved');
         
         jsonResponse(200, 'Vacancy approved successfully and is now active/publishable', null, true);
         
@@ -623,19 +637,23 @@ function rejectVacancy()
         
         $stmtUpdate = $db->prepare("UPDATE vacancies SET approval_status = 'rejected', rejection_reason = ?, rejected_by = ?, rejected_at = NOW() WHERE id = ?");
         $stmtUpdate->execute([$reason, $auth['admin_id'], $vacancyId]);
+
+        logVacancyAction($vacancyId, $auth['admin_id'], 'rejected', 'pending_subadmin1', 'rejected', $reason);
         
         jsonResponse(200, 'Vacancy rejected successfully', null, true);
         
         notifyCreator($vacancyId, 'rejected', $reason);
 
     } elseif ($role === 'super_admin' || $role === 'admin') {
-        // Can reject pending_global across any company
-        if ($vacancy['approval_status'] !== 'pending_global') {
+        // Can reject pending_global or pending_subadmin1 across any company
+        if ($vacancy['approval_status'] !== 'pending_global' && $vacancy['approval_status'] !== 'pending_subadmin1') {
             jsonResponse(400, 'Vacancy is not in a state that can be rejected by Global Admin');
         }
         
         $stmtUpdate = $db->prepare("UPDATE vacancies SET approval_status = 'rejected', rejection_reason = ?, rejected_by = ?, rejected_at = NOW() WHERE id = ?");
         $stmtUpdate->execute([$reason, $auth['admin_id'], $vacancyId]);
+
+        logVacancyAction($vacancyId, $auth['admin_id'], 'rejected', $vacancy['approval_status'], 'rejected', $reason);
         
         jsonResponse(200, 'Vacancy rejected successfully', null, true);
         
@@ -704,14 +722,14 @@ function notifyReviewers($vacancyId, $status)
                     </tr>
                 </table>
                 <div style='text-align: center; margin: 30px 0;'>
-                    <a href='http://localhost:3000/admin/approvals' style='padding: 12px 24px; background-color: #2a050b; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;'>Review Requisition</a>
+                    <a href='" . FRONTEND_URL . "/admin/approvals?highlight={$vacancyId}' style='padding: 12px 24px; background-color: #2a050b; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;'>Review Requisition</a>
                 </div>
                 <p style='font-size: 12px; color: #777;'>This is an automated system notification. Please do not reply directly to this email.</p>
             </div>
         </div>
         ";
         
-        sendEmail($reviewer['email'], $reviewer['full_name'], $subject, $body);
+        queueEmail($reviewer['email'], $reviewer['full_name'], $subject, $body);
     }
 }
 
@@ -775,14 +793,56 @@ function notifyCreator($vacancyId, $action, $reason = '')
             </table>
             {$additionalContent}
             <div style='text-align: center; margin: 30px 0;'>
-                <a href='http://localhost:3000/admin/vacancies' style='padding: 12px 24px; background-color: #2a050b; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;'>Go to Vacancies</a>
+                <a href='" . FRONTEND_URL . "/admin/vacancies?highlight={$vacancyId}' style='padding: 12px 24px; background-color: #2a050b; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;'>Go to Vacancies</a>
             </div>
             <p style='font-size: 12px; color: #777;'>This is an automated system notification. Please do not reply directly to this email.</p>
         </div>
     </div>
     ";
     
-    sendEmail($creatorEmail, $creatorName, $subject, $body);
+    queueEmail($creatorEmail, $creatorName, $subject, $body);
+}
+
+function getVacancyAuditLog()
+{
+    $auth = verifyToken();
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        jsonResponse(400, 'Invalid vacancy ID');
+    }
+
+    $db = getDB();
+    
+    // If company scoped, verify company matches
+    if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
+        $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
+        $stmt->execute([$id]);
+        $vac = $stmt->fetch();
+        if (!$vac || (int)$vac['company_id'] !== (int)$auth['company_id']) {
+            jsonResponse(403, 'Unauthorized to view audit logs for this vacancy');
+        }
+    }
+
+    $stmt = $db->prepare("SELECT l.*, a.full_name as admin_name, a.role as admin_role 
+                          FROM vacancy_audit_logs l 
+                          JOIN admins a ON l.admin_id = a.id 
+                          WHERE l.vacancy_id = ? 
+                          ORDER BY l.created_at ASC, l.id ASC");
+    $stmt->execute([$id]);
+    $logs = $stmt->fetchAll();
+
+    jsonResponse(200, 'Audit logs retrieved', $logs);
+}
+
+function logVacancyAction($vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason = null)
+{
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO vacancy_audit_logs (vacancy_id, admin_id, action, old_status, new_status, reason) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason]);
+    } catch (Exception $e) {
+        error_log("Failed to insert audit log: " . $e->getMessage());
+    }
 }
 
 

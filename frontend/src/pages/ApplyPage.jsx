@@ -4,7 +4,8 @@ import {
     FiArrowLeft, FiMapPin, FiBriefcase, FiCalendar, FiUpload,
     FiCheck, FiMenu, FiX, FiUser, FiMail, FiPhone, FiBookOpen,
     FiClock, FiFileText, FiFacebook, FiLinkedin,
-    FiGlobe, FiHash, FiChevronRight, FiAlertCircle
+    FiGlobe, FiHash, FiChevronRight, FiAlertCircle, FiTag, FiZap, FiCheckCircle,
+    FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import { getVacancy, applyForJob, API_BASE } from '../services/api';
@@ -17,6 +18,77 @@ const OVERALL_EXPERIENCE_OPTIONS = [
 ];
 const RELEVANT_EXPERIENCE_OPTIONS = OVERALL_EXPERIENCE_OPTIONS;
 const QUALIFICATION_OPTIONS = ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification'];
+
+const isRobustMatch = (skill, requirement) => {
+    if (!skill || !requirement) return false;
+    const s = skill.toLowerCase().trim();
+    const r = requirement.toLowerCase().trim();
+    
+    if (s === r) return true;
+    
+    // Boundary check for word matching (avoids false matches like "Java" matching "JavaScript")
+    const escapedS = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexS = new RegExp(`\\b${escapedS}\\b`, 'i');
+    if (regexS.test(r)) return true;
+    
+    const escapedR = r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexR = new RegExp(`\\b${escapedR}\\b`, 'i');
+    if (regexR.test(s)) return true;
+    
+    // Synonym mapping
+    const synonyms = [
+        ["gcp", "google cloud", "google cloud platform"],
+        ["aws", "amazon web services"],
+        ["azure", "microsoft azure"],
+        ["ci/cd", "cicd", "continuous integration", "continuous deployment"],
+        ["js", "javascript"],
+        ["ts", "typescript"],
+        ["kubernetes", "k8s"]
+    ];
+    for (const group of synonyms) {
+        const hasS = group.some(term => s.includes(term) || term.includes(s));
+        if (hasS) {
+            const matched = group.some(term => {
+                const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regexTerm = new RegExp(`\\b${escapedTerm}\\b`, 'i');
+                return regexTerm.test(r);
+            });
+            if (matched) return true;
+        }
+    }
+    
+    return false;
+};
+
+const normalizeSkills = (skills) => {
+    if (!Array.isArray(skills)) return [];
+    const seen = new Set();
+    return skills
+        .map(item => {
+            if (!item || !item.skill) return null;
+            const cleanSkill = item.skill.trim();
+            if (!cleanSkill) return null;
+            
+            let cleanCategory = item.category;
+            if (cleanCategory !== 'Relevant Skills' && cleanCategory !== 'Related Skills') {
+                cleanCategory = 'Additional Skills';
+            }
+            
+            return {
+                ...item,
+                skill: cleanSkill,
+                category: cleanCategory,
+                context: (item.context || item.usage_context || '').trim() || 'No usage context provided.'
+            };
+        })
+        .filter(item => {
+            if (!item) return false;
+            const lowerSkill = item.skill.toLowerCase();
+            if (seen.has(lowerSkill)) return false;
+            seen.add(lowerSkill);
+            return true;
+        });
+};
 
 function ApplyPage() {
     const { id } = useParams();
@@ -33,6 +105,14 @@ function ApplyPage() {
         overall_experience: '', relevant_experience: '', qualification: '',
         salary_expectation: '', cv: null, future_consent: null
     });
+    const [matchedSkills, setMatchedSkills] = useState([]); // skills auto-detected from CV
+    const [userSkills, setUserSkills] = useState([]); // candidate general skills (editable/manual)
+    const [skillsMetadata, setSkillsMetadata] = useState([]); // structured skills metadata with experience/context/category
+    const [aiAnalysis, setAiAnalysis] = useState(null); // full recruiter analysis payload
+    const [skillsPanelExpanded, setSkillsPanelExpanded] = useState(false);
+    const [reviewSkillsExpanded, setReviewSkillsExpanded] = useState(false);
+    const [activeTab, setActiveTab] = useState('Relevant Skills');
+    const [activeReviewTab, setActiveReviewTab] = useState('Relevant Skills');
 
     useEffect(() => {
         const fetchVacancy = async () => {
@@ -48,6 +128,10 @@ function ApplyPage() {
     }, [id, navigate]);
 
     const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+    const requiredSkillsList = vacancy?.required_skills
+        ? vacancy.required_skills.split(',').map(s => s.trim()).filter(Boolean)
+        : [];
 
     const [parsing, setParsing] = useState(false);
 
@@ -98,12 +182,134 @@ function ApplyPage() {
                 throw new Error("Gemini API key is not configured. Please define VITE_GEMINI_API_KEY in your .env file.");
             }
             const models = [
+                "gemini-2.5-flash-lite",
                 "gemini-2.5-flash",
-                "gemini-flash-latest",
                 "gemini-2.5-pro",
-                "gemini-pro-latest",
-                "gemini-2.0-flash"
+                "gemini-2.0-flash",
+                "gemini-flash-latest",
+                "gemini-pro-latest"
             ];
+
+            const promptText = `You are an advanced AI system for CV Skill Extraction and Job Matching Analysis.
+
+Your task is to analyze a Candidate CV and a Job Description, extract skills, and categorize them strictly based on relevance to the job requirements.
+
+You must behave like a strict technical recruiter. Do not guess or assume anything without evidence.
+
+📥 INPUT
+
+You will receive:
+
+CV TEXT:
+${text}
+
+JOB DESCRIPTION:
+Job Title: ${vacancy?.title || 'Open Position'}
+Description: ${vacancy?.description || 'No description provided'}
+Requirements & Qualifications: ${vacancy?.requirements || 'No requirements provided'}
+Mandatory Skills: ${vacancy?.required_skills || 'No mandatory skills specified'}
+
+⚙️ PROCESS
+
+Step 1: Extract all CV skills
+Extract all skills from the CV including:
+- Technical skills (programming languages, frameworks, tools)
+- Soft skills
+- Academic or learning skills
+Also identify where each skill is mentioned (projects, experience, education).
+
+Step 2: Analyze Job Description
+Extract and analyze:
+- Mandatory (Must-have) skills
+- Required skills
+- Nice-to-have skills
+- Tools, frameworks, and domain knowledge
+
+Step 3: Create Job Skill Matrix
+Create a structured Job Skill Matrix from the job description.
+Group skills into:
+- Core Required Skills
+- Supporting Skills
+- Optional Skills
+
+Step 4: Skill Classification (STRICT RULES)
+For EACH extracted CV skill, compare it with the Job Skill Matrix and classify as follows:
+
+🟢 RELEVANT SKILLS
+IF:
+Skill is directly related to Job Skill Matrix
+AND
+There is clear usage evidence in CV (project/work/internship)
+→ Classify as "Relevant Skills" and output under skills_analysis with category "Relevant Skills".
+
+🟡 RELATED SKILLS
+IF:
+Skill is supporting or adjacent to Job Skill Matrix
+OR
+Skill has partial/basic usage
+→ Classify as "Related Skills" and output under skills_analysis with category "Related Skills".
+
+🔵 ADDITIONAL SKILLS
+IF:
+Skill is NOT related to Job Skill Matrix
+OR
+Skill is only mentioned with no usage evidence
+OR
+Skill is irrelevant to the job role
+→ Classify as "Additional Skills" and output in the additional_skills array matching the structured object format.
+
+UPDATED CRITICAL RULES (FINAL VERSION)
+- Do NOT extract random extra skills
+- 👉 Only include skills found in CV OR required by job context, FINAL RULES
+- Never hallucinate data
+- Never assume missing skills
+- Always stay CV-grounded
+- Always stay job-relevant
+- Always prioritize accuracy over completeness
+- Never mix skill categories incorrectly
+- NEVER mix Additional Skills with Relevant Skills
+- ALWAYS treat CV-mentioned skills as valid input signals (skills listed in any section: skills, projects, experience, education)
+- DO NOT assume deep expertise unless CV clearly indicates level of usage
+- ALWAYS follow job relevance strictly when categorizing skills
+- NEVER exaggerate candidate experience beyond what is described in CV
+- ALWAYS base classification on job relevance + CV presence + context clarity, not assumptions
+- **usage_context rule**: The 'usage_context' field for each skill MUST be a concise, single-sentence summary (max 20 words) detailing exactly where or how the skill was utilized (e.g. 'Built the frontend of a job portal with React'). NEVER concatenate multiple project descriptions or copy/paste large paragraphs.
+- **certifications exclusion**: Do NOT extract names of certifications, online courses, training courses, or credentials (such as 'Python for Beginners', 'Web Design for Beginners', 'Introduction to Android Studio', etc.) as skills. These MUST be extracted strictly under the 'certifications_found' array. Only extract the underlying skill (e.g., 'Python', 'Web Design', 'Android Studio') if it matches the job relevance criteria.
+- **evidence_source rule**: Classify the 'evidence_source' field strictly based on these guidelines:
+  * 'Professional Experience': Only if the skill is used within permanent full-time/part-time job history.
+  * 'Internship': Only if used in designated student or graduate internships.
+  * 'Project': Only if used in specific individual, personal, or freelance projects.
+  * 'Freelance Work': Only if used in contract or freelance gigs.
+  * 'Academic Work': Only if used during university/school courses or academic degree projects.
+  * 'Certification': Only if verified by professional certification credentials.
+  * 'Training': Only if used during short training programs, workshops, or bootcamps.
+  * 'Skills Section Only': Only if the skill is strictly mentioned in a flat listing of skills without any context, projects, or work history explanation.
+
+==================================================
+PHASE 4 - REQUIREMENT VALIDATION
+================================
+For each mandatory job requirement (if any are specified in Mandatory Skills or requirements), determine if they are:
+- "Fully Demonstrated" (Evidence must exist in work experience, projects, certifications, etc.)
+- "Partially Demonstrated"
+- "No Evidence Found"
+Compare and list their names under the matching demonstration lists.
+
+==================================================
+PHASE 5 - RECRUITER INSIGHTS
+============================
+Generate practical recruiter observations/insights.
+
+==================================================
+PERSONAL PROFILE EXTRACTION
+===========================
+Also extract candidate's personal details to populate the profile fields.
+Important constraints:
+- first_name / last_name: Carefully split the candidate's full name. The first name part goes into 'first_name' and all remaining surname/middle/last name parts MUST go into 'last_name'. Never leave the 'last_name' empty if a multi-word name is present on the CV.
+- qualification: Extract the highest qualification matching the qualifications enum ONLY if it is relevant to the job requirements / target domain.
+- overall_experience / relevant_experience: Estimate the years of experience that are relevant and suitable to the job vacancy description. Do not count unrelated/non-professional experience.
+- Do not make up or guess any details that are not directly supported by factual evidence in the CV. All data must strictly reflect actual CV facts matching the job vacancy.
+
+Analyze the candidate and return the output matching the requested JSON schema.`;
 
             let response = null;
             let lastError = null;
@@ -122,12 +328,7 @@ function ApplyPage() {
                                     {
                                         parts: [
                                             {
-                                                text: `You are an expert resume parser for George Steuart & Company Ltd. 
-Parse the following candidate resume text and extract the details strictly matching the requested JSON schema.
-Ensure phone numbers are extracted correctly (usually starting with +94 or 07), first/last names are clean and correctly separated, and qualifications & experience are mapped EXACTLY to the allowed enum options.
-
-Resume Text:
-${text}`
+                                                text: promptText
                                             }
                                         ]
                                     }
@@ -153,9 +354,73 @@ ${text}`
                                                 type: "STRING", 
                                                 enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
                                             },
-                                            salary_expectation: { type: "STRING" }
+                                            salary_expectation: { type: "STRING" },
+                                            
+                                            // Advanced Recruiter Analysis
+                                            skills_analysis: {
+                                                type: "ARRAY",
+                                                description: "Categorized skills classified as Relevant Skills or Related Skills. Include skills present in the CV even if they lack project/work experience context. ONLY extract skills that are explicitly present in the candidate's CV text.",
+                                                items: {
+                                                    type: "OBJECT",
+                                                    properties: {
+                                                        skill: { type: "STRING" },
+                                                        category: { type: "STRING", description: "Must be exactly 'Relevant Skills' or 'Related Skills'." },
+                                                        experience_level: { type: "STRING", enum: ["Expert", "Advanced", "Intermediate", "Basic", "Mentioned Only"] },
+                                                        estimated_duration: { type: "STRING", enum: ["Less than 3 Months", "3–6 Months", "6–12 Months", "1–2 Years", "2–3 Years", "3+ Years"] },
+                                                        evidence_strength: { type: "STRING", enum: ["Strong Evidence", "Moderate Evidence", "Weak Evidence", "Mentioned Only"] },
+                                                        evidence_source: { type: "STRING", description: "Strictly match the origin: 'Professional Experience' for job history, 'Internship' for student/graduate internships, 'Project' for distinct projects, 'Freelance Work' for contract gigs, 'Academic Work' for university/degree studies, 'Certification' for credentials, 'Training' for short workshops/courses, or 'Skills Section Only' for flat listings without context.", enum: ["Professional Experience", "Internship", "Project", "Freelance Work", "Academic Work", "Certification", "Training", "Skills Section Only"] },
+                                                        usage_context: { type: "STRING", description: "A concise, single-sentence summary of how/where the candidate used this skill (e.g., 'Built the frontend of a job portal with React'). Max 20 words. Do NOT concatenate multiple projects or copy entire paragraphs." }
+                                                    },
+                                                    required: ["skill", "category", "experience_level", "estimated_duration", "evidence_strength", "evidence_source", "usage_context"]
+                                                }
+                                            },
+                                            fully_demonstrated_skills: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            },
+                                            partially_demonstrated_skills: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            },
+                                            requirements_without_evidence: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            },
+                                            additional_skills: {
+                                                type: "ARRAY",
+                                                description: "Extract and list skills from the CV classified under the Additional Skills Category. For each skill, include context and evidence details.",
+                                                items: {
+                                                    type: "OBJECT",
+                                                    properties: {
+                                                        skill: { type: "STRING" },
+                                                        experience_level: { type: "STRING", enum: ["Expert", "Advanced", "Intermediate", "Basic", "Mentioned Only"] },
+                                                        estimated_duration: { type: "STRING", enum: ["Less than 3 Months", "3–6 Months", "6–12 Months", "1–2 Years", "2–3 Years", "3+ Years"] },
+                                                        evidence_strength: { type: "STRING", enum: ["Strong Evidence", "Moderate Evidence", "Weak Evidence", "Mentioned Only"] },
+                                                        evidence_source: { type: "STRING", description: "Strictly match the origin: 'Professional Experience' for job history, 'Internship' for student/graduate internships, 'Project' for distinct projects, 'Freelance Work' for contract gigs, 'Academic Work' for university/degree studies, 'Certification' for credentials, 'Training' for short workshops/courses, or 'Skills Section Only' for flat listings without context.", enum: ["Professional Experience", "Internship", "Project", "Freelance Work", "Academic Work", "Certification", "Training", "Skills Section Only"] },
+                                                        usage_context: { type: "STRING", description: "A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words." }
+                                                    },
+                                                    required: ["skill", "experience_level", "estimated_duration", "evidence_strength", "evidence_source", "usage_context"]
+                                                }
+                                            },
+                                            qualifications_found: {
+                                                type: "ARRAY",
+                                                description: "Academic qualifications found in the CV that are relevant or suitable for the job vacancy description.",
+                                                items: { type: "STRING" }
+                                            },
+                                            certifications_found: {
+                                                type: "ARRAY",
+                                                description: "Professional certifications found in the CV that are relevant or suitable for the job vacancy description.",
+                                                items: { type: "STRING" }
+                                            },
+                                            experience_summary: {
+                                                type: "STRING"
+                                            },
+                                            recruiter_insights: {
+                                                type: "ARRAY",
+                                                items: { type: "STRING" }
+                                            }
                                         },
-                                        required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience"]
+                                        required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience", "skills_analysis"]
                                     }
                                 }
                             })
@@ -209,18 +474,71 @@ ${text}`
                 salary_expectation: parsed.salary_expectation || prev.salary_expectation || ''
             }));
 
+            // Extract skills_metadata for local display mapping
+            let parsedMetadata = [];
+            if (Array.isArray(parsed.skills_analysis)) {
+                parsedMetadata = parsed.skills_analysis.map(item => ({
+                    skill: item.skill,
+                    experience: item.estimated_duration,
+                    context: item.usage_context,
+                    category: item.category,
+                    evidence_source: item.evidence_source || 'Skills Section Only',
+                    evidence_strength: item.evidence_strength || 'Mentioned Only',
+                    experience_level: item.experience_level || 'Basic',
+                    is_mandatory: parsed.fully_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) || 
+                                  parsed.partially_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) ||
+                                  requiredSkillsList.some(rs => isRobustMatch(item.skill, rs))
+                }));
+            }
+            if (Array.isArray(parsed.additional_skills)) {
+                parsed.additional_skills.forEach(item => {
+                    const isObj = typeof item === 'object' && item !== null;
+                    const skillName = isObj ? item.skill : item;
+                    if (skillName && !parsedMetadata.some(x => x.skill.toLowerCase() === skillName.toLowerCase())) {
+                        parsedMetadata.push({
+                            skill: skillName,
+                            experience: isObj ? (item.estimated_duration || "Mentioned Only") : "Mentioned Only",
+                            context: isObj ? (item.usage_context || "Mentioned in CV with no specific project/experience context.") : "Mentioned in CV with no specific project/experience context.",
+                            category: "Additional Skills",
+                            evidence_source: isObj ? (item.evidence_source || "Skills Section Only") : "Skills Section Only",
+                            evidence_strength: isObj ? (item.evidence_strength || "Mentioned Only") : "Mentioned Only",
+                            experience_level: isObj ? (item.experience_level || "Basic") : "Basic",
+                            is_mandatory: false
+                        });
+                    }
+                });
+            }
+            const normalized = normalizeSkills(parsedMetadata);
+            setSkillsMetadata(normalized);
+            setAiAnalysis(parsed);
+            setSkillsPanelExpanded(false);
+
+            // Auto-detect matched mandatory skills
+            const detected = normalized.filter(item => item.is_mandatory).map(item => item.skill);
+            setMatchedSkills(detected);
+
+            // Pre-fill all general skills from CV
+            const cleanedSkills = [...new Set(normalized.map(item => item.skill))];
+            setUserSkills(cleanedSkills);
+
             toast.update(toastId, {
-                render: "🎉 Steuart AI successfully parsed your CV and auto-filled the form!",
+                render: requiredSkillsList.length > 0
+                    ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
+                    : "🎉 Steuart AI successfully parsed your CV and auto-filled the form!",
                 type: "success",
-                autoClose: 4000,
+                autoClose: 5000,
                 isLoading: false
             });
         } catch (err) {
             console.error("CV parsing error:", err);
+            let userFriendlyMessage = err.message || 'Please enter details manually.';
+            if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
+                userFriendlyMessage = "Gemini API key quota exceeded (status 429). Please update your VITE_GEMINI_API_KEY in the frontend/.env file, or wait for the quota to reset. You can still fill out the form manually.";
+            }
             toast.update(toastId, {
-                render: `⚠️ AI auto-fill failed: ${err.message || 'Please enter details manually.'}`,
+                render: `⚠️ AI auto-fill failed: ${userFriendlyMessage}`,
                 type: "warning",
-                autoClose: 7000,
+                autoClose: 10000,
                 isLoading: false
             });
         } finally {
@@ -234,6 +552,12 @@ ${text}`
         if (file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5MB).'); return; }
         
         setForm(prev => ({ ...prev, cv: file }));
+
+        // Clear any previous AI parsing results when a new file is uploaded
+        setAiAnalysis(null);
+        setSkillsMetadata([]);
+        setMatchedSkills([]);
+        setUserSkills([]);
 
         if (file.type === 'application/pdf') {
             await parseResumeWithAI(file);
@@ -278,6 +602,58 @@ ${text}`
                 else formData.append(key, form[key]);
             });
             formData.append('vacancy_id', id);
+            formData.append('tags', userSkills.join(', '));
+            
+            let finalAnalysis = aiAnalysis;
+            if (!finalAnalysis) {
+                // Construct a fallback analysis object using the current skillsMetadata state
+                finalAnalysis = {
+                    skills_analysis: skillsMetadata
+                        .filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills')
+                        .map(item => ({
+                            skill: item.skill,
+                            category: item.category,
+                            experience_level: 'Declared',
+                            estimated_duration: item.experience || '1-2 Years',
+                            evidence_strength: 'Mentioned Only',
+                            evidence_source: 'Skills Section Only',
+                            usage_context: item.context || 'Manually added by candidate'
+                        })),
+                    fully_demonstrated_skills: skillsMetadata.filter(item => item.is_mandatory).map(item => item.skill),
+                    partially_demonstrated_skills: [],
+                    requirements_without_evidence: [],
+                    additional_skills: skillsMetadata
+                        .filter(item => item.category === 'Additional Skills')
+                        .map(item => item.skill),
+                    qualifications_found: [form.qualification].filter(Boolean),
+                    certifications_found: [],
+                    experience_summary: `Candidate has ${form.overall_experience} of total experience.`,
+                    recruiter_insights: ["Candidate manually submitted profile information."]
+                };
+            } else {
+                // Synchronize any manual edits/deletions back into it
+                finalAnalysis.skills_analysis = skillsMetadata
+                    .filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills')
+                    .map(item => {
+                        return {
+                            skill: item.skill,
+                            category: item.category,
+                            experience_level: item.experience_level || 'Declared',
+                            estimated_duration: item.experience || '1-2 Years',
+                            evidence_strength: item.evidence_strength || 'Mentioned Only',
+                            evidence_source: item.evidence_source || 'Skills Section Only',
+                            usage_context: item.context || 'Manually added by candidate'
+                        };
+                    });
+                
+                finalAnalysis.additional_skills = skillsMetadata
+                    .filter(item => item.category === 'Additional Skills')
+                    .map(item => item.skill);
+
+                finalAnalysis.fully_demonstrated_skills = skillsMetadata.filter(item => item.is_mandatory).map(item => item.skill);
+            }
+            formData.append('skills_metadata', JSON.stringify(finalAnalysis));
+
             await applyForJob(formData);
             toast.success('Application submitted!');
             navigate('/success', { state: { vacancy } });
@@ -300,6 +676,28 @@ ${text}`
 
     return (
         <div className="apb-page">
+            <style>{`
+                .spinner-small {
+                    width: 22px;
+                    height: 22px;
+                    border: 2px solid rgba(200, 169, 81, 0.15);
+                    border-top-color: var(--gold-accent, #c8a951);
+                    border-radius: 50%;
+                    animation: spin-cv 0.8s linear infinite;
+                }
+                @keyframes spin-cv {
+                    to { transform: rotate(360deg); }
+                }
+                .skill-source-badge {
+                    font-size: 0.65rem;
+                    background: #f1f5f9;
+                    color: #475569;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-weight: 700;
+                    display: inline-block;
+                }
+            `}</style>
 
             {/* ── Navbar ── */}
             <nav className="navbar">
@@ -372,6 +770,25 @@ ${text}`
                                     <p>{vacancy.requirements}</p>
                                 </div>
                             )}
+
+                            {/* ── Mandatory Skills Panel ── */}
+                            {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
+                                <div className="apb-info-block apb-skills-block">
+                                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <FiTag size={13} style={{ color: 'var(--crimson, #8b1a2b)' }} />
+                                        Mandatory Skills
+                                    </h4>
+                                    <div className="apb-skills-list">
+                                        {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => (
+                                            <span key={idx} className="apb-skill-badge">{skill.trim()}</span>
+                                        ))}
+                                    </div>
+                                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '10px', marginBottom: 0 }}>
+                                        ✨ Upload your PDF CV — AI will auto-detect which skills you have.
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="apb-info-meta">
                                 {vacancy?.location && <div className="apb-meta-row"><FiMapPin /><span>{vacancy.location}</span></div>}
                                 {vacancy?.employment_type && <div className="apb-meta-row"><FiBriefcase /><span>{vacancy.employment_type}</span></div>}
@@ -402,19 +819,7 @@ ${text}`
                                 <h2 className="apb-card-title">Your Application</h2>
 
                                 <form onSubmit={handleReview}>
-                                    <style>{`
-                                        .spinner-small {
-                                            width: 22px;
-                                            height: 22px;
-                                            border: 2px solid rgba(200, 169, 81, 0.15);
-                                            border-top-color: var(--gold-accent, #c8a951);
-                                            border-radius: 50%;
-                                            animation: spin-cv 0.8s linear infinite;
-                                        }
-                                        @keyframes spin-cv {
-                                            to { transform: rotate(360deg); }
-                                        }
-                                    `}</style>
+
 
                                     {/* CV Upload at the TOP */}
                                     <div className="apb-fieldset-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -433,7 +838,7 @@ ${text}`
                                                 <div className="spinner-small" style={{ flexShrink: 0 }}></div>
                                                 <div style={{ textAlign: 'left' }}>
                                                     <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>Steuart AI is parsing your resume...</div>
-                                                    <div className="apb-upload-hint">Extracting contact details, qualifications, and experience. Please wait.</div>
+                                                    <div className="apb-upload-hint">Extracting contact details, qualifications, experience and skill matches. Please wait.</div>
                                                 </div>
                                             </div>
                                         ) : (
@@ -547,6 +952,186 @@ ${text}`
                                         </div>
                                     </div>
 
+                                    {/* ── AI Skill Match / Extracted Skills Dashboard ── */}
+                                    {aiAnalysis && !parsing && (
+                                        <div className={`apb-skill-match-panel premium-skills-container ${!skillsPanelExpanded ? 'collapsed' : ''}`} style={{ marginTop: '24px', marginBottom: '24px' }}>
+                                            <div className="apb-smp-header" onClick={() => setSkillsPanelExpanded(v => !v)}>
+                                                <FiZap size={16} className="apb-smp-icon pulse-animation" style={{ color: 'var(--gold-accent)' }} />
+                                                <span className="apb-smp-title">
+                                                    Steuart AI Skills Profile Analysis
+                                                </span>
+                                                {form.cv && !parsing && (
+                                                    <span className="apb-smp-badge" style={{ marginRight: '8px' }}>
+                                                        {skillsMetadata.length} Verified Skills
+                                                    </span>
+                                                )}
+                                                <span className="apb-smp-chevron">
+                                                    {skillsPanelExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
+                                                </span>
+                                            </div>
+                                            
+                                            {skillsPanelExpanded && (
+                                                <>
+                                                    {/* AI recruiter warning about human-like verification */}
+                                                    {form.cv && !parsing && (
+                                                        <div className="ai-verification-notice">
+                                                            <span className="ai-notice-icon">🤖</span>
+                                                            <div>
+                                                                <strong>Human-like Verification:</strong> Steuart AI filtered out list-only skills that lacked supporting work history or project context in your CV.
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
+                                                    {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
+                                                        <div className="mandatory-skills-checklist">
+                                                            <h4 className="skills-subtitle">
+                                                                <FiCheckCircle size={13} style={{ color: 'var(--gold-accent)', marginRight: '6px' }} />
+                                                                Mandatory Requirements Status
+                                                            </h4>
+                                                            <div className="apb-smp-skills">
+                                                                {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
+                                                                    const skillName = skill.trim();
+                                                                    const isMatched = skillsMetadata.some(item => isRobustMatch(item.skill, skillName));
+                                                                    const matchedItem = skillsMetadata.find(item => isRobustMatch(item.skill, skillName));
+                                                                    
+                                                                    return (
+                                                                        <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
+                                                                            <span className={`apb-smp-check-icon ${isMatched ? 'on' : 'off'}`}>
+                                                                                {isMatched ? <FiCheck size={10} /> : <FiX size={10} />}
+                                                                            </span>
+                                                                            <span className="apb-smp-skill-name">{skillName}</span>
+                                                                            {isMatched ? (
+                                                                                <span className="apb-smp-ai-tag">
+                                                                                    <FiZap size={9} /> Matched
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="apb-smp-missing-tag">Not found in CV</span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Detailed categorized skills display */}
+                                                    {skillsMetadata.length > 0 ? (
+                                                        <div className="categorized-skills-grid">
+                                                            {/* Horizontal Tab System */}
+                                                            <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
+                                                                {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
+                                                                    const count = skillsMetadata.filter(item => item.category === tabName).length;
+                                                                    
+                                                                    const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+                                                                    
+                                                                    return (
+                                                                        <button
+                                                                            key={tabName}
+                                                                            type="button"
+                                                                            className={`apb-tab-btn ${activeTab === tabName ? 'active' : ''}`}
+                                                                            onClick={() => setActiveTab(tabName)}
+                                                                            style={{
+                                                                                padding: '10px 16px',
+                                                                                background: 'none',
+                                                                                border: 'none',
+                                                                                borderBottom: activeTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
+                                                                                color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                                fontWeight: 700,
+                                                                                fontSize: '0.88rem',
+                                                                                cursor: 'pointer',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '6px',
+                                                                                transition: 'all 0.2s ease',
+                                                                                marginBottom: '-2px'
+                                                                            }}
+                                                                        >
+                                                                            <span>{emoji} {tabName}</span>
+                                                                            <span style={{
+                                                                                fontSize: '0.72rem',
+                                                                                background: activeTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                                color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                                padding: '2px 8px',
+                                                                                borderRadius: '100px',
+                                                                                fontWeight: 800
+                                                                            }}>
+                                                                                {count}
+                                                                            </span>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {/* Tab Content */}
+                                                            {(() => {
+                                                                const activeSkills = skillsMetadata.filter(item => item.category === activeTab);
+
+                                                                if (activeSkills.length === 0) {
+                                                                    return (
+                                                                        <div className="no-skills-extracted" style={{ padding: '30px 10px', textAlign: 'center', color: '#94a3b8' }}>
+                                                                            <p>No skills identified under {activeTab} in your CV.</p>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="category-block animate-fade-in" style={{ border: 'none', background: 'transparent', padding: 0 }}>
+                                                                        <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
+                                                                            {activeSkills.map((item, idx) => (
+                                                                                <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
+                                                                                    <div className="skill-card-top">
+                                                                                        <span className="skill-card-name">
+                                                                                            {item.skill}
+                                                                                        </span>
+                                                                                        <div className="skill-card-actions">
+                                                                                            <button 
+                                                                                                type="button" 
+                                                                                                className="skill-delete-btn"
+                                                                                                onClick={() => {
+                                                                                                    setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                    setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                    if (item.is_mandatory) {
+                                                                                                        setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                    }
+                                                                                                }}
+                                                                                                title="Remove Skill"
+                                                                                            >
+                                                                                                <FiX size={12} />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {item.evidence_source && (
+                                                                                        <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '0px 0 4px 0' }}>
+                                                                                            <span className="skill-source-badge">
+                                                                                                via {item.evidence_source}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    <p className="skill-card-context">
+                                                                                        {item.context}
+                                                                                    </p>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="no-skills-extracted">
+                                                            {form.cv ? (
+                                                                <p>Steuart AI could not find any skills with sufficient project context in your resume. You can add skills manually below.</p>
+                                                            ) : (
+                                                                <p>Upload a PDF CV to automatically extract and verify your skills with project experience details.</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* CV is now uploaded and parsed at the top */}
 
                                     {/* Privacy Consent */}
@@ -646,6 +1231,113 @@ ${text}`
                                         </span>
                                     </div>
                                 </div>
+
+                                {skillsMetadata.length > 0 && (
+                                    <div className="apb-review-block">
+                                        <div 
+                                            className="apb-rev-section" 
+                                            onClick={() => setReviewSkillsExpanded(v => !v)}
+                                            style={{ 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'space-between', 
+                                                cursor: 'pointer',
+                                                userSelect: 'none'
+                                            }}
+                                        >
+                                            <span>AI Skills Analysis Portfolio</span>
+                                            <span style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
+                                                {reviewSkillsExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                                            </span>
+                                        </div>
+                                        {reviewSkillsExpanded && (
+                                            <div className="review-categorized-skills" style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
+                                                {/* Step 2 Review Tab System */}
+                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '8px', gap: '16px', flexWrap: 'wrap' }}>
+                                                    {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
+                                                        const count = skillsMetadata.filter(item => item.category === tabName).length;
+                                                        
+                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+                                                        
+                                                        return (
+                                                            <button
+                                                                key={tabName}
+                                                                type="button"
+                                                                className={`apb-tab-btn ${activeReviewTab === tabName ? 'active' : ''}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation(); // Prevent toggling the collapsible block
+                                                                    setActiveReviewTab(tabName);
+                                                                }}
+                                                                style={{
+                                                                    padding: '8px 12px',
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    borderBottom: activeReviewTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
+                                                                    color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.82rem',
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '6px',
+                                                                    transition: 'all 0.2s ease',
+                                                                    marginBottom: '-2px'
+                                                                }}
+                                                            >
+                                                                <span>{emoji} {tabName}</span>
+                                                                <span style={{
+                                                                    fontSize: '0.68rem',
+                                                                    background: activeReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                    color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                    padding: '1px 6px',
+                                                                    borderRadius: '100px',
+                                                                    fontWeight: 800
+                                                                }}>
+                                                                    {count}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Step 2 Tab Content List */}
+                                                {(() => {
+                                                    const activeSkills = skillsMetadata.filter(item => item.category === activeReviewTab);
+
+                                                    if (activeSkills.length === 0) {
+                                                        return (
+                                                            <div style={{ padding: '20px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                                                No skills classified under {activeReviewTab}.
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div className="review-category-group" style={{ padding: '12px 16px', background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '12px' }}>
+                                                            <div style={{ display: 'grid', gap: '10px' }}>
+                                                                {activeSkills.map((item, idx) => (
+                                                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                                                                            <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                                                {item.skill}
+                                                                            </span>
+                                                                            {item.evidence_source && (
+                                                                                <span className="skill-source-badge">
+                                                                                    via {item.evidence_source}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.45' }}>{item.context}</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="apb-disclosure" style={{ fontWeight: 700, color: '#b8860b', background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.3)', borderRadius: '8px', padding: '10px 14px' }}>
                                     <FiAlertCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle', color: '#b8860b' }} />

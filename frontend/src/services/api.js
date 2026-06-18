@@ -57,6 +57,7 @@ export const updateVacancy = (data) => api.post('/vacancies.php?action=update', 
 export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', data);
 export const assignVacancyCandidate = (data) => api.post('/vacancies.php?action=assign_candidate', data);
 export const getNextReferenceNumber = (companyId) => api.get(`/vacancies.php?action=next_reference_number&company_id=${companyId}`);
+export const getVacancyAuditLog = (id) => api.get(`/vacancies.php?action=audit_log&id=${id}`);
 
 // Vacancy approvals
 export const getPendingApprovals = () => api.get('/vacancies.php?action=pending_approvals');
@@ -123,6 +124,7 @@ export const unblockCandidate = (data) => {
     return api.post('/applications.php', formData, { params: { action: 'unblock_candidate' } });
 };
 export const getStats = () => api.get('/applications.php?action=stats');
+export const confirmInterview = (id, response) => axios.get(`${API_BASE}/applications.php?action=confirm_interview&id=${id}&response=${response}`);
 
 // Admins
 export const getAdmins = () => api.get('/admins.php?action=list');

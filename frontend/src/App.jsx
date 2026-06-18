@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import VacanciesPage from './pages/VacanciesPage';
 import ApplyPage from './pages/ApplyPage';
 import SuccessPage from './pages/SuccessPage';
+import ConfirmInterview from './pages/ConfirmInterview';
 
 // Admin pages
 import LoginPage from './pages/admin/LoginPage';
@@ -66,6 +67,7 @@ function App() {
             <Route path="/vacancies" element={<VacanciesPage />} />
             <Route path="/apply/:id" element={<ApplyPage />} />
             <Route path="/success" element={<SuccessPage />} />
+            <Route path="/confirm-interview" element={<ConfirmInterview />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<LoginPage />} />

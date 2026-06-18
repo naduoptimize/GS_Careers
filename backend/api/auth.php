@@ -219,7 +219,7 @@ function handleSendRecovery()
     // Send Email
     $subject = $type === 'link' ? "Reset Your George Steuart Group Password" : "Your Password Reset Code";
     $body = $type === 'link' ? 
-        "Hi {$admin['full_name']},<br><br>You requested a password reset. Click the link below to proceed:<br><br><a href='http://localhost:3000/admin/reset-password?token={$token}' style='padding: 10px 20px; background: #2a050b; color: #fff; text-decoration: none; border-radius: 5px;'>Reset Password</a><br><br>If you didn't request this, please ignore." :
+        "Hi {$admin['full_name']},<br><br>You requested a password reset. Click the link below to proceed:<br><br><a href='" . FRONTEND_URL . "/admin/reset-password?token={$token}' style='padding: 10px 20px; background: #2a050b; color: #fff; text-decoration: none; border-radius: 5px;'>Reset Password</a><br><br>If you didn't request this, please ignore." :
         "Hi {$admin['full_name']},<br><br>Your password reset security code is: <strong style='font-size: 24px; letter-spacing: 4px;'>{$token}</strong><br><br>Enter this code in the recovery screen to proceed.";
 
     if (sendEmail($email, $admin['full_name'], $subject, $body)) {

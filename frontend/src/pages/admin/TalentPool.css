@@ -273,3 +273,48 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* ── RESPONSIVE ──────────────────────────────── */
+
+@media (max-width: 1024px) {
+    .premium-table th,
+    .premium-table td {
+        padding: 12px 14px;
+    }
+
+    .premium-table { min-width: 780px; }
+}
+
+@media (max-width: 768px) {
+    .premium-table { min-width: 640px; }
+
+    .premium-table th,
+    .premium-table td {
+        padding: 10px 10px;
+        font-size: 0.78rem;
+    }
+
+    .avatar-p { width: 36px; height: 36px; border-radius: 10px; }
+    .candidate-cell { gap: 10px; }
+    .name-p { font-size: 0.86rem; }
+
+    .pagination-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 16px;
+    }
+
+    .o-btn { width: 30px; height: 30px; font-size: 0.85rem; }
+}
+
+@media (max-width: 480px) {
+    .premium-table { min-width: 560px; }
+
+    .premium-table th,
+    .premium-table td {
+        padding: 8px 8px;
+        font-size: 0.72rem;
+    }
+}
+

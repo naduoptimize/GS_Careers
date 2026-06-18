@@ -22,7 +22,7 @@ function AdminLayout({ admin, children }) {
                 if (admin.role === 'sub_admin1') {
                     count = list.filter(v => v.approval_status === 'pending_subadmin1').length;
                 } else if (admin.role === 'super_admin' || admin.role === 'admin') {
-                    count = list.filter(v => v.approval_status === 'pending_global').length;
+                    count = list.filter(v => v.approval_status === 'pending_global' || v.approval_status === 'pending_subadmin1').length;
                 }
                 setPendingCount(count);
             } catch (err) {

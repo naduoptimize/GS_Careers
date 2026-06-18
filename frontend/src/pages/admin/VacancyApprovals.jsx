@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
     FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiSearch, FiFilter,
     FiEye, FiArrowLeft, FiCheck, FiX, FiCalendar, FiBriefcase, FiMapPin,
-    FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser
+    FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser, FiEdit2
 } from 'react-icons/fi';
-import { getPendingApprovals, approveVacancy, rejectVacancy, API_BASE } from '../../services/api';
+import { getPendingApprovals, approveVacancy, rejectVacancy, getVacancyAuditLog, API_BASE } from '../../services/api';
 import { formatDate, daysLeft } from '../../utils/constants';
 import './VacancyApprovals.css';
 
@@ -210,6 +211,7 @@ const renderApprovalTimeline = (v) => {
 };
 
 function VacancyApprovals({ admin }) {
+    const navigate = useNavigate();
     const searchParams = new URLSearchParams(window.location.search);
     const highlightId = searchParams.get('highlight');
     const [vacancies, setVacancies] = useState([]);
@@ -226,9 +228,32 @@ function VacancyApprovals({ admin }) {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 6;
 
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
+
     useEffect(() => {
         loadData();
     }, []);
+
+    useEffect(() => {
+        if (viewDetail && viewDetail.id) {
+            fetchAuditLogs(viewDetail.id);
+        } else {
+            setAuditLogs([]);
+        }
+    }, [viewDetail]);
+
+    const fetchAuditLogs = async (vacancyId) => {
+        try {
+            setLoadingLogs(true);
+            const res = await getVacancyAuditLog(vacancyId);
+            setAuditLogs(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to load audit logs:', err);
+        } finally {
+            setLoadingLogs(false);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -305,7 +330,7 @@ function VacancyApprovals({ admin }) {
             return v.approval_status === 'pending_subadmin1';
         }
         if (admin.role === 'super_admin' || admin.role === 'admin') {
-            return v.approval_status === 'pending_global';
+            return v.approval_status === 'pending_global' || v.approval_status === 'pending_subadmin1';
         }
         return false; // sub_admin2 has no actions
     };
@@ -642,9 +667,18 @@ function VacancyApprovals({ admin }) {
                                         </div>
 
                                         <div className="card-actions-row">
-                                            <button className="btn-action view" onClick={() => setViewDetail(v)}>
-                                                <FiEye /> Review Details
-                                            </button>
+                                             <button className="btn-action view" onClick={() => setViewDetail(v)}>
+                                                 <FiEye /> Review Details
+                                             </button>
+                                             {v.approval_status === 'rejected' && admin.role !== 'super_admin' && (
+                                                 <button 
+                                                     className="btn-action approve" 
+                                                     onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)}
+                                                     style={{ background: 'var(--gold-accent, #C8A951)', color: '#fff', borderColor: 'var(--gold-accent, #C8A951)' }}
+                                                 >
+                                                     <FiEdit2 /> Edit Requisition
+                                                 </button>
+                                             )}
                                             {needsAction && (
                                                 <div className="auth-actions">
                                                     <button 
@@ -742,6 +776,81 @@ function VacancyApprovals({ admin }) {
                             {/* Approval Timeline */}
                             {renderApprovalTimeline(viewDetail)}
 
+                            {/* Audit History Log */}
+                            <div className="vd-section" style={{ marginTop: '24px' }}>
+                                <h3 className="vd-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                    <FiActivity /> Requisition History Audit Trail
+                                </h3>
+                                <div className="vd-section-body-enhanced" style={{ padding: '20px', background: 'rgba(248, 250, 252, 0.6)' }}>
+                                    {loadingLogs ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                                            <div className="spinner-small" style={{ borderTopColor: 'var(--text-muted)' }}></div>
+                                            Retrieving log entries...
+                                        </div>
+                                    ) : auditLogs.length === 0 ? (
+                                        <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {auditLogs.map((log) => {
+                                                const actionLabels = {
+                                                    initiated: 'Draft Initiated',
+                                                    submitted: 'Requisition Submitted',
+                                                    edited: 'Details Revised',
+                                                    sub1_approved: 'Approved by Tier-1 Reviewer',
+                                                    global_approved: 'Authorized by Global Admin',
+                                                    rejected: 'Requisition Rejected'
+                                                };
+                                                const actionColors = {
+                                                    initiated: '#64748b',
+                                                    submitted: '#d97706',
+                                                    edited: '#6b21a8',
+                                                    sub1_approved: '#16a34a',
+                                                    global_approved: '#16a34a',
+                                                    rejected: '#dc2626'
+                                                };
+                                                return (
+                                                    <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                                                <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b' }}>
+                                                                    {actionLabels[log.action] || log.action.toUpperCase()}
+                                                                </strong>
+                                                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                                                    {log.created_at}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                                                                By: <strong>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                            </div>
+                                                            {log.old_status && log.new_status && (
+                                                                <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                                                                    Transition: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.old_status}</code> &rarr; <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>{log.new_status}</code>
+                                                                </div>
+                                                            )}
+                                                            {log.reason && (
+                                                                <div style={{
+                                                                    marginTop: '8px',
+                                                                    padding: '8px 12px',
+                                                                    background: '#fff',
+                                                                    borderLeft: '3px solid #dc2626',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.8rem',
+                                                                    fontStyle: 'italic',
+                                                                    color: '#dc2626',
+                                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                                                                }}>
+                                                                    "{log.reason}"
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="vd-meta-grid">
                                 <div className="vd-meta-item">
                                     <span className="vd-meta-label">Designation</span>
@@ -780,6 +889,11 @@ function VacancyApprovals({ admin }) {
 
                         <div className="vd-footer">
                             <button className="vd-btn cancel" onClick={() => setViewDetail(null)}>Close</button>
+                            {viewDetail.approval_status === 'rejected' && admin.role !== 'super_admin' && (
+                                <button className="vd-btn gold" onClick={() => { setViewDetail(null); navigate(`/admin/vacancies/edit/${viewDetail.id}`); }}>
+                                    <FiEdit2 size={14} style={{ marginRight: 6 }} /> Edit Requisition
+                                </button>
+                            )}
                             {requiresAction(viewDetail) && (
                                 <div className="actions-cluster" style={{ display: 'flex', gap: '10px' }}>
                                     <button 
