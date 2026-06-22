@@ -43,6 +43,9 @@ switch ($action) {
     case 'audit_log':
         getVacancyAuditLog();
         break;
+    case 'all_audit_logs':
+        listAllAuditLogs();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -362,10 +365,18 @@ function deleteVacancy()
         }
     }
 
-    $stmt = $db->prepare("DELETE FROM vacancies WHERE id = ?");
-    $stmt->execute([$id]);
+    try {
+        // Set hired_application_id to NULL to break circular foreign key dependency
+        $stmt = $db->prepare("UPDATE vacancies SET hired_application_id = NULL WHERE id = ?");
+        $stmt->execute([$id]);
 
-    jsonResponse(200, 'Vacancy deleted successfully');
+        $stmt = $db->prepare("DELETE FROM vacancies WHERE id = ?");
+        $stmt->execute([$id]);
+
+        jsonResponse(200, 'Vacancy deleted successfully');
+    } catch (Exception $e) {
+        jsonResponse(500, 'Failed to delete vacancy: ' . $e->getMessage());
+    }
 }
 
 function assignCandidate()
@@ -396,17 +407,34 @@ function assignCandidate()
     }
 
     // Verify candidate application belongs to this vacancy if assigning
+    $candidateName = "None";
     if ($applicationId !== null) {
-        $stmt = $db->prepare("SELECT id, status FROM applications WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, status, first_name, last_name FROM applications WHERE id = ?");
         $stmt->execute([$applicationId]);
         $app = $stmt->fetch();
         if (!$app) {
             jsonResponse(404, 'Candidate application not found');
         }
+        $candidateName = $app['first_name'] . ' ' . $app['last_name'];
     }
 
     $stmt = $db->prepare("UPDATE vacancies SET hired_application_id = ? WHERE id = ?");
     $stmt->execute([$applicationId, $vacancyId]);
+
+    // Fetch vacancy current status for audit logs
+    $stmtVac = $db->prepare("SELECT approval_status FROM vacancies WHERE id = ?");
+    $stmtVac->execute([$vacancyId]);
+    $vacStatus = $stmtVac->fetchColumn() ?: 'unknown';
+
+    // Audit logging the assignment/hiring
+    if ($applicationId !== null) {
+        $auditAction = 'candidate_hired';
+        $auditReason = "Candidate: " . $candidateName . " hired/assigned to vacancy.";
+    } else {
+        $auditAction = 'candidate_unassigned';
+        $auditReason = "Hired candidate was unassigned from vacancy.";
+    }
+    logVacancyAction($vacancyId, $auth['admin_id'], $auditAction, $vacStatus, $vacStatus, $auditReason);
 
     jsonResponse(200, 'Candidate assigned to vacancy successfully');
 }
@@ -967,13 +995,11 @@ function notifyCreatorApproved($vacancyId)
 {
     $db = getDB();
     $stmt = $db->prepare("
-        SELECT v.id, v.title, v.reference_number, c.name AS company_name,
-               creator.email AS creator_email, creator.full_name AS creator_name, creator.role AS creator_role,
-               sub1.email AS sub1_email, sub1.full_name AS sub1_name
+        SELECT v.id, v.title, v.reference_number, v.company_id, c.name AS company_name,
+               creator.email AS creator_email, creator.full_name AS creator_name, creator.role AS creator_role
         FROM vacancies v
         JOIN companies c ON v.company_id = c.id
         JOIN admins creator ON v.created_by = creator.id
-        LEFT JOIN admins sub1 ON sub1.role = 'sub_admin1' AND sub1.company_id = v.company_id AND sub1.is_active = 1
         WHERE v.id = ?");
     $stmt->execute([$vacancyId]);
     $vacancy = $stmt->fetch();
@@ -989,10 +1015,12 @@ function notifyCreatorApproved($vacancyId)
               . gsInfoRow('Company', htmlspecialchars($companyName), '#dcfce7')
               . gsInfoRow('Status', gsStatusPill('APPROVED &amp; LIVE', 'approved'), '#dcfce7');
 
-    $buildApprovalBody = function($recipientName, $isCreator = true) use ($title, $refNumber, $companyName, $portalUrl, $infoRows) {
-        $introText = $isCreator
-            ? "Great news! The job vacancy requisition you submitted has been <strong>approved by the Global Admin</strong> and is now <strong>successfully published and live</strong> on the careers portal. Candidates can now view and apply for this position."
-            : "Great news! The job vacancy requisition you approved has been <strong>fully approved by the Global Admin</strong> and is now <strong>successfully published and live</strong> on the careers portal.";
+    $buildApprovalBody = function($recipientName, $recipientEmail, $creatorEmail, $creatorName) use ($title, $refNumber, $companyName, $portalUrl, $infoRows) {
+        if ($recipientEmail === $creatorEmail) {
+            $introText = "Great news! The job vacancy requisition you submitted has been <strong>approved by the Global Admin</strong> and is now <strong>successfully published and live</strong> on the careers portal. Candidates can now view and apply for this position.";
+        } else {
+            $introText = "Great news! The job vacancy requisition created by <strong>{$creatorName}</strong> has been <strong>fully approved and published</strong>. It is now <strong>live</strong> on the careers portal.";
+        }
 
         $contentHtml = "
           <p style='margin:0 0 6px;font-size:14px;color:#64748b;'>Dear <strong style='color:#1e293b;'>{$recipientName}</strong>,</p>
@@ -1020,14 +1048,34 @@ function notifyCreatorApproved($vacancyId)
 
     $subject = "&#127881; Vacancy Approved &amp; Published — {$refNumber}";
 
-    // 1. Notify creator (Sub Admin 2 or Sub Admin 1)
-    $creatorBody = $buildApprovalBody($vacancy['creator_name'], true);
-    queueEmail($vacancy['creator_email'], $vacancy['creator_name'], $subject, $creatorBody);
+    // Gather recipients (email => name)
+    $recipients = [];
 
-    // 2. Notify Sub Admin 1 (Only if the creator was Sub Admin 2)
-    if ($vacancy['creator_role'] === 'sub_admin2' && !empty($vacancy['sub1_email']) && $vacancy['sub1_email'] !== $vacancy['creator_email']) {
-        $sub1Body = $buildApprovalBody($vacancy['sub1_name'], false);
-        queueEmail($vacancy['sub1_email'], $vacancy['sub1_name'], $subject, $sub1Body);
+    // 1. Creator is always notified
+    $recipients[$vacancy['creator_email']] = $vacancy['creator_name'];
+
+    // 2. If creator is sub_admin2, notify all active sub_admin1 users of that company
+    if ($vacancy['creator_role'] === 'sub_admin2') {
+        $stmtSub1 = $db->prepare("SELECT email, full_name FROM admins WHERE role = 'sub_admin1' AND company_id = ? AND is_active = 1");
+        $stmtSub1->execute([$vacancy['company_id']]);
+        $sub1List = $stmtSub1->fetchAll();
+        foreach ($sub1List as $sub1) {
+            $recipients[$sub1['email']] = $sub1['full_name'];
+        }
+    }
+
+    // 3. Always notify all active admin and super_admin users (Global Admins)
+    $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role IN ('admin', 'super_admin') AND is_active = 1");
+    $stmtAdmins->execute();
+    $adminList = $stmtAdmins->fetchAll();
+    foreach ($adminList as $adm) {
+        $recipients[$adm['email']] = $adm['full_name'];
+    }
+
+    // Send emails to all gathered unique recipients
+    foreach ($recipients as $email => $name) {
+        $body = $buildApprovalBody($name, $email, $vacancy['creator_email'], $vacancy['creator_name']);
+        queueEmail($email, $name, $subject, $body);
     }
 }
 
@@ -1206,15 +1254,36 @@ function getVacancyAuditLog()
     jsonResponse(200, 'Audit logs retrieved', $logs);
 }
 
-function logVacancyAction($vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason = null)
+// Note: logVacancyAction() helper has been moved to backend/config.php for global availability.
+
+function listAllAuditLogs()
 {
-    try {
-        $db = getDB();
-        $stmt = $db->prepare("INSERT INTO vacancy_audit_logs (vacancy_id, admin_id, action, old_status, new_status, reason) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason]);
-    } catch (Exception $e) {
-        error_log("Failed to insert audit log: " . $e->getMessage());
+    $auth = verifyToken();
+    $role = $auth['role'];
+    $companyId = $auth['company_id'] ?? null;
+    $db = getDB();
+
+    $sql = "SELECT l.*, a.full_name as admin_name, a.role as admin_role, 
+                   v.title as vacancy_title, v.reference_number as vacancy_ref, c.name as company_name
+            FROM vacancy_audit_logs l
+            LEFT JOIN admins a ON l.admin_id = a.id
+            JOIN vacancies v ON l.vacancy_id = v.id
+            JOIN companies c ON v.company_id = c.id";
+    $params = [];
+
+    // Subsidiary admins can only see logs of their own company/subsidiary
+    if ($role === 'sub_admin1' || $role === 'sub_admin2') {
+        $sql .= " WHERE v.company_id = ?";
+        $params[] = $companyId;
     }
+
+    $sql .= " ORDER BY l.created_at DESC, l.id DESC";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $logs = $stmt->fetchAll();
+
+    jsonResponse(200, 'All audit logs retrieved', $logs);
 }
 
 

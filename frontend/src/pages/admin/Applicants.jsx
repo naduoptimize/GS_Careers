@@ -1396,7 +1396,7 @@ function Applicants({ admin }) {
                             <tbody>
                                 {paginatedApps.map((app) => (
                                     <tr key={app.id} className={selectedIds.includes(app.id) ? 'row-selected' : ''}>
-                                        <td>
+                                        <td data-label="Select">
                                             <input
                                                 type="checkbox"
                                                 className="premium-checkbox"
@@ -1405,7 +1405,7 @@ function Applicants({ admin }) {
                                                 onClick={e => e.stopPropagation()}
                                             />
                                         </td>
-                                        <td>
+                                        <td data-label="Candidate">
                                             <div className="candidate-cell">
                                                 <div className="candidate-avatar">
                                                     {app.first_name?.[0]}{app.last_name?.[0]}
@@ -1428,7 +1428,7 @@ function Applicants({ admin }) {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Target Position">
                                             <div className="position-cell" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <img
                                                     src={app.company_logo ? `${BACKEND_ROOT}/uploads/logos/${app.company_logo}` : '/gs-logo.png'}
@@ -1443,7 +1443,7 @@ function Applicants({ admin }) {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Credentials">
                                             <div className="credentials-cell">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                                                     <span className="exp-badge">{app.overall_experience}</span>
@@ -1463,7 +1463,7 @@ function Applicants({ admin }) {
                                                 <div className="degree-txt">{app.qualification}</div>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Applied Timeline">
                                             <div className="timeline-cell">
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                     <FiCalendar size={14} style={{ color: 'var(--gold-accent)' }} />
@@ -1495,7 +1495,7 @@ function Applicants({ admin }) {
                                                 )}
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Actions">
                                             <div className="actions-cell">
                                                 {app.status === 'shortlisted' ? (
                                                     app.interview_date ? (
@@ -2067,7 +2067,29 @@ function Applicants({ admin }) {
                                 <div style={{ background: '#ebf8ff', color: '#3182ce', padding: '8px', borderRadius: '8px', display: 'flex' }}><FiMail size={20} /></div>
                                 <div>
                                     <h2 style={{ margin: 0 }}>Send Interview Invitation</h2>
-                                    <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>To: <strong>{inviteTarget.first_name} {inviteTarget.last_name}</strong> {inviteTarget.contact_number && `(Tel: ${inviteTarget.contact_number})`} — {inviteTarget.vacancy_title}</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                        <span>To:</span>
+                                        <strong style={{ color: 'var(--text-primary)' }}>{inviteTarget.first_name} {inviteTarget.last_name}</strong>
+                                        {inviteTarget.contact_number && (
+                                            <span style={{
+                                                background: '#ebf8ff',
+                                                color: '#2b6cb0',
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                fontWeight: '700',
+                                                fontSize: '0.78rem',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                border: '1px solid #cee0f5',
+                                                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                                            }}>
+                                                <FiPhone size={12} style={{ color: '#3182ce' }} /> {inviteTarget.contact_number}
+                                            </span>
+                                        )}
+                                        <span style={{ color: '#cbd5e1', margin: '0 2px' }}>—</span>
+                                        <span>{inviteTarget.vacancy_title}</span>
+                                    </p>
                                 </div>
                             </div>
                             <button className="close-btn-p" onClick={closeInviteModal}><FiX /></button>
@@ -2841,46 +2863,68 @@ function Applicants({ admin }) {
                     
                     .serif-title-p { font-size: 2.5rem; }
                     
-                    .toolbar-top {
+                    .toolbar-search-row {
                         flex-direction: column;
-                        align-items: flex-start;
-                        gap: 16px;
+                        align-items: stretch;
+                        width: 100%;
                     }
                     
-                    .toolbar-actions-p {
-                        flex-direction: column;
+                    .btn-reset-console, .btn-match-console {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                    
+                    .toolbar-filters-row {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 16px;
+                        width: 100%;
+                    }
+                    
+                    .filter-group {
+                        min-width: 0;
+                        flex: unset;
+                    }
+                    
+                    .filter-field-sort {
+                        grid-column: span 3;
+                        border-left: none;
+                        padding-left: 0;
+                        border-top: 1.5px solid #f1f5f9;
+                        padding-top: 16px;
                     }
                     
                     .select-orchestrator {
                         width: 100%;
                         min-width: 100%;
                     }
-                    
-                    .select-orchestrator[style*="borderLeft"] {
-                        border-left: none !important;
-                        padding-left: 0 !important;
-                        border-top: 1px solid #e2e8f0;
-                        padding-top: 16px;
-                    }
                 }
 
                 @media (max-width: 768px) {
-                    .orchestrated-table thead { display: none; }
+                    .premium-table {
+                        display: block;
+                        min-width: 0 !important;
+                        width: 100%;
+                    }
                     
-                    .orchestrated-table tr {
+                    .premium-table thead { display: none; }
+                    
+                    .premium-table tr {
                         display: block;
                         padding: 20px;
                         border-bottom: 8px solid #f8fafc;
+                        background: #fff;
                     }
                     
-                    .orchestrated-table td {
+                    .premium-table td {
                         display: block;
                         padding: 12px 0;
                         border: none;
                         width: 100%;
+                        box-sizing: border-box;
                     }
                     
-                    .orchestrated-table td::before {
+                    .premium-table td::before {
                         content: attr(data-label);
                         display: block;
                         font-size: 0.7rem;
@@ -2895,10 +2939,41 @@ function Applicants({ admin }) {
                         justify-content: flex-start;
                     }
                     
-                    .serif-title-p { font-size: 2rem; }
+                    .vacancies-orchestration-header {
+                        padding: 24px 20px;
+                        border-radius: 16px;
+                        gap: 16px;
+                    }
+                    
+                    .serif-title-p { font-size: 1.8rem; }
+                    
+                    .btn-establish-p {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                    
+                    .toolbar-filters-row {
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 12px;
+                    }
+                    
+                    .filter-field-sort {
+                        grid-column: span 2;
+                        border-top: 1.5px solid #f1f5f9;
+                        padding-top: 12px;
+                    }
                     
                     .submission-box-p {
                         grid-template-columns: 1fr;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .toolbar-filters-row {
+                        grid-template-columns: 1fr;
+                    }
+                    .filter-field-sort {
+                        grid-column: span 1;
                     }
                 }
 `}</style>

@@ -210,9 +210,17 @@ function deleteCompany()
         }
     }
 
-    // Delete company (will cascade delete vacancies and applications in InnoDB if constraints are set)
-    $stmt = $db->prepare("DELETE FROM companies WHERE id = ?");
-    $stmt->execute([$id]);
+    try {
+        // Set hired_application_id to NULL on all vacancies of this company to avoid circular foreign key cascade issues
+        $stmt = $db->prepare("UPDATE vacancies SET hired_application_id = NULL WHERE company_id = ?");
+        $stmt->execute([$id]);
 
-    jsonResponse(200, 'Company and all associated records deleted successfully');
+        // Delete company (will cascade delete vacancies and applications in InnoDB if constraints are set)
+        $stmt = $db->prepare("DELETE FROM companies WHERE id = ?");
+        $stmt->execute([$id]);
+
+        jsonResponse(200, 'Company and all associated records deleted successfully');
+    } catch (Exception $e) {
+        jsonResponse(500, 'Failed to delete company: ' . $e->getMessage());
+    }
 }

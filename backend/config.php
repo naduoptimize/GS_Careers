@@ -110,7 +110,11 @@ function jsonResponse($code, $message, $data = null, $continue = false)
 
 function sanitize($str)
 {
-    return htmlspecialchars(trim($str), ENT_QUOTES, 'UTF-8');
+    $decoded = trim($str);
+    while (html_entity_decode($decoded, ENT_QUOTES, 'UTF-8') !== $decoded) {
+        $decoded = html_entity_decode($decoded, ENT_QUOTES, 'UTF-8');
+    }
+    return $decoded;
 }
 
 function generateToken($adminId, $role, $companyId)
@@ -240,6 +244,17 @@ function queueEmail($to, $toName, $subject, $body)
     } catch (\Exception $e) {
         error_log("Queue Email Error: " . $e->getMessage());
         return false;
+    }
+}
+
+function logVacancyAction($vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason = null)
+{
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO vacancy_audit_logs (vacancy_id, admin_id, action, old_status, new_status, reason) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason]);
+    } catch (Exception $e) {
+        error_log("Failed to insert audit log: " . $e->getMessage());
     }
 }
 

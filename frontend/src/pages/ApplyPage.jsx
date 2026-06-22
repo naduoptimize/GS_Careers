@@ -839,15 +839,20 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     line-height: 1;
                 }
                 .skill-match-status-badge.matched {
-                    background-color: #e6fcf5;
-                    color: #0ca678;
-                    border: 1px solid #c3fae8;
-                }
-                .skill-match-status-badge.unmatched {
-                    background-color: #fff5f5;
-                    color: #fa5252;
-                    border: 1px solid #ffe3e3;
-                }
+                     background-color: #e6fcf5;
+                     color: #0ca678;
+                     border: 1px solid #c3fae8;
+                 }
+                 .skill-match-status-badge.unrelated {
+                     background-color: #f1f5f9;
+                     color: #475569;
+                     border: 1px solid #e2e8f0;
+                 }
+                 .skill-match-status-badge.unmatched {
+                     background-color: #fff5f5;
+                     color: #fa5252;
+                     border: 1px solid #ffe3e3;
+                 }
                 .skill-edit-btn-trigger {
                     background: none;
                     border: none;
@@ -1180,7 +1185,6 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                             
                                             {skillsPanelExpanded && (
                                                 <>
-                                                    {/* AI recruiter warning about human-like verification */}
                                                     {form.cv && !parsing && (
                                                         <div className="ai-verification-notice">
                                                             <span className="ai-notice-icon">🤖</span>
@@ -1189,6 +1193,18 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                             </div>
                                                         </div>
                                                     )}
+
+                                                    {skillsMetadata.length > 0 && skillsMetadata.filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills').length === 0 && (
+                                                         <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                             <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
+                                                             <div>
+                                                                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
+                                                                 <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
+                                                                     Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
+                                                                 </p>
+                                                             </div>
+                                                         </div>
+                                                     )}
 
                                                     {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
                                                     {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
@@ -1201,7 +1217,6 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                 {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
                                                                     const skillName = skill.trim();
                                                                     const isMatched = skillsMetadata.some(item => isRobustMatch(item.skill, skillName));
-                                                                    const matchedItem = skillsMetadata.find(item => isRobustMatch(item.skill, skillName));
                                                                     
                                                                     return (
                                                                         <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
@@ -1311,10 +1326,10 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                         }}
                                                                                                     />
                                                                                                     {rawCvText && (
-                                                                                                        <span className={`skill-match-status-badge ${currentMatch ? 'matched' : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                            {currentMatch ? '✓ Ok' : '⚠ Unmatched'}
-                                                                                                        </span>
-                                                                                                    )}
+                                                                        <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                            {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                        </span>
+                                                                    )}
                                                                                                 </div>
                                                                                             </div>
                                                                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
@@ -1350,10 +1365,10 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                     {item.skill}
                                                                                                 </span>
                                                                                                 {rawCvText && (
-                                                                                                    <span className={`skill-match-status-badge ${isMatched ? 'matched' : 'unmatched'}`}>
-                                                                                                        {isMatched ? '✓ Ok' : '⚠ Not matched for CV'}
-                                                                                                    </span>
-                                                                                                )}
+                                                                      <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                          {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                      </span>
+                                                                  )}
                                                                                             </div>
                                                                                             <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                                                 <button 
@@ -1418,8 +1433,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                             }}
                                                                                         />
                                                                                         {newSkillName.trim() && rawCvText && (
-                                                                                            <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? 'matched' : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                {checkSkillInCvText(newSkillName, rawCvText) ? '✓ Ok' : '⚠ Unmatched'}
+                                                                                            <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                {checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
@@ -1607,7 +1622,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                 <span>{emoji} {tabName}</span>
                                                                 <span style={{
                                                                     fontSize: '0.68rem',
-                                                                    background: activeReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                    background: activeReviewReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
                                                                     color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
                                                                     padding: '1px 6px',
                                                                     borderRadius: '100px',
@@ -1643,8 +1658,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                     {item.skill}
                                                                                 </span>
                                                                                 {rawCvText && (
-                                                                                    <span className={`skill-match-status-badge ${checkSkillInCvText(item.skill, rawCvText) ? 'matched' : 'unmatched'}`}>
-                                                                                        {checkSkillInCvText(item.skill, rawCvText) ? '✓ Ok' : '⚠ Not matched for CV'}
+                                                                                    <span className={`skill-match-status-badge ${checkSkillInCvText(item.skill, rawCvText) ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                        {checkSkillInCvText(item.skill, rawCvText) ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
                                                                                     </span>
                                                                                 )}
                                                                             </div>

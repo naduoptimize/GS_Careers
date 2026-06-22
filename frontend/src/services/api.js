@@ -58,6 +58,7 @@ export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', 
 export const assignVacancyCandidate = (data) => api.post('/vacancies.php?action=assign_candidate', data);
 export const getNextReferenceNumber = (companyId) => api.get(`/vacancies.php?action=next_reference_number&company_id=${companyId}`);
 export const getVacancyAuditLog = (id) => api.get(`/vacancies.php?action=audit_log&id=${id}`);
+export const getAllVacancyAuditLogs = () => api.get('/vacancies.php?action=all_audit_logs');
 
 // Vacancy approvals
 export const getPendingApprovals = () => api.get('/vacancies.php?action=pending_approvals');

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, FiCheckCircle } from 'react-icons/fi';
+import { FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, FiCheckCircle, FiActivity } from 'react-icons/fi';
 import { API_BASE, getPendingApprovals } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
@@ -70,6 +70,7 @@ function AdminLayout({ admin, children }) {
         { to: '/admin/approvals', icon: <FiCheckCircle />, label: 'Approvals', badge: pendingCount > 0 ? pendingCount : null },
         { to: '/admin/applicants', icon: <FiUsers />, label: 'Applicants', badge: null },
         { to: '/admin/talent-pool', icon: <FiTarget />, label: 'Talent Pool', badge: null },
+        { to: '/admin/audit-log', icon: <FiActivity />, label: 'Audit Log', badge: null },
     ];
 
     if (admin.role === 'super_admin' || admin.role === 'admin') {
@@ -121,7 +122,7 @@ function AdminLayout({ admin, children }) {
                             />
                         </div>
                         <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
-                            <div className="sidebar-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
+                            <div className="sidebar-title" style={{ whiteSpace: 'normal', lineHeight: '1.3' }}>{admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
                             <div className="sidebar-role">
                                 <span className="role-dot"></span>
                                 {getRoleDisplayName(admin.role)}
@@ -509,9 +510,8 @@ function AdminLayout({ admin, children }) {
                 .sidebar-user-role {
                     font-size: 0.7rem;
                     color: var(--text-muted);
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
+                    white-space: normal;
+                    line-height: 1.3;
                 }
 
                 .sidebar-logout-btn {

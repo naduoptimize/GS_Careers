@@ -103,9 +103,6 @@ function Dashboard({ admin }) {
                         <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
                     <span className="db-s-value">{totalVac}</span>
-                    <div className="db-s-progress-bar">
-                        <div className="db-s-progress-fill gold-fill" style={{ width: '100%' }}></div>
-                    </div>
                     <div className="db-s-trend"><FiTrendingUp /> Global Overview</div>
                 </div>
                 <div className="db-stat-card green" style={{ animationDelay: '0.2s' }}>
@@ -125,10 +122,7 @@ function Dashboard({ admin }) {
                         <div className="db-s-icon"><FiUsers /></div>
                     </div>
                     <span className="db-s-value">{totalApps}</span>
-                    <div className="db-s-progress-bar">
-                        <div className="db-s-progress-fill blue-fill" style={{ width: '75%' }}></div>
-                    </div>
-                    <div className="db-s-trend">Total Submissions</div>
+                    <div className="db-s-trend"><FiTrendingUp /> Total Submissions</div>
                 </div>
                 <div className="db-stat-card purple" style={{ animationDelay: '0.4s' }}>
                     <div className="db-s-header">
@@ -136,10 +130,7 @@ function Dashboard({ admin }) {
                         <div className="db-s-icon"><FiTarget /></div>
                     </div>
                     <span className="db-s-value">{talentPool}</span>
-                    <div className="db-s-progress-bar">
-                        <div className="db-s-progress-fill purple-fill" style={{ width: '60%' }}></div>
-                    </div>
-                    <div className="db-s-trend">Future Insights</div>
+                    <div className="db-s-trend"><FiTrendingUp /> Future Insights</div>
                 </div>
             </div>
 
@@ -456,6 +447,11 @@ function Dashboard({ admin }) {
                     overflow: hidden;
                 }
 
+                .db-stat-card.gold { background: linear-gradient(180deg, #fff 0%, #fffdf4 100%); }
+                .db-stat-card.green { background: linear-gradient(180deg, #fff 0%, #f4fcf9 100%); }
+                .db-stat-card.blue { background: linear-gradient(180deg, #fff 0%, #f4f8ff 100%); }
+                .db-stat-card.purple { background: linear-gradient(180deg, #fff 0%, #f8f4ff 100%); }
+
                 @keyframes slideUpFade {
                     from { opacity: 0; transform: translateY(16px); }
                     to { opacity: 1; transform: translateY(0); }
@@ -463,9 +459,11 @@ function Dashboard({ admin }) {
 
                 .db-stat-card:hover {
                     transform: translateY(-6px);
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-                    border-color: rgba(200,169,81,0.25);
                 }
+                .db-stat-card.gold:hover { box-shadow: 0 20px 35px rgba(200, 169, 81, 0.12); border-color: rgba(200, 169, 81, 0.35); }
+                .db-stat-card.green:hover { box-shadow: 0 20px 35px rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35); }
+                .db-stat-card.blue:hover { box-shadow: 0 20px 35px rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.35); }
+                .db-stat-card.purple:hover { box-shadow: 0 20px 35px rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.35); }
 
                 /* Subtle glowing top border for card hover accent */
                 .db-stat-card::after {

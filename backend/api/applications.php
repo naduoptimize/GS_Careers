@@ -610,6 +610,15 @@ function handleUpdateStatus()
         jsonResponse(500, 'Failed to update status');
     }
 
+    // Audit logging the candidate status change
+    $candidateName = $application['first_name'] . ' ' . $application['last_name'];
+    $auditAction = 'candidate_' . $newStatus;
+    $auditReason = "Candidate: " . $candidateName;
+    if ($newStatus === 'rejected') {
+        $auditReason .= " | Rejection Reason: " . $rejectionReason;
+    }
+    logVacancyAction($application['vacancy_id'], $auth['admin_id'], $auditAction, $currentStatus, $newStatus, $auditReason);
+
     // Return response immediately
     jsonResponse(200, 'Application status updated successfully', null, true);
 
@@ -674,6 +683,11 @@ function handleSendInterview()
     $stmt = $db->prepare("UPDATE applications SET interview_type = ?, interview_date = ?, interview_time = ?, interview_location = ?, interview_location_link = ? WHERE id = ?");
     $stmt->execute([$interviewType, $interviewDate, $interviewTime, $interviewLocation, $interviewLocationLink, $applicationId]);
 
+    // Audit logging the scheduled interview
+    $candidateName = $application['first_name'] . ' ' . $application['last_name'];
+    $auditReason = "Candidate: " . $candidateName . " | Date: " . $interviewDate . " @ " . $interviewTime . " | Type: " . $interviewType . " | Location: " . $interviewLocation;
+    logVacancyAction($application['vacancy_id'], $auth['admin_id'], 'interview_scheduled', $application['status'], $application['status'], $auditReason);
+
     // Return immediately, then send email
     jsonResponse(200, 'Interview invitation sent successfully', null, true);
 
@@ -703,7 +717,7 @@ function handleConfirmInterview()
         jsonResponse(400, 'Invalid confirmation parameters');
     }
 
-    $stmt = $db->prepare("SELECT status FROM applications WHERE id = ?");
+    $stmt = $db->prepare("SELECT first_name, last_name, status, vacancy_id FROM applications WHERE id = ?");
     $stmt->execute([$id]);
     $app = $stmt->fetch();
 
@@ -717,6 +731,12 @@ function handleConfirmInterview()
 
     $stmt = $db->prepare("UPDATE applications SET interview_confirmed = ? WHERE id = ?");
     $stmt->execute([$response, $id]);
+
+    // Audit logging candidate interview confirmation response
+    $candidateName = $app['first_name'] . ' ' . $app['last_name'];
+    $auditAction = 'interview_confirmed_' . $response;
+    $auditReason = "Candidate: " . $candidateName . " responded: " . strtoupper($response);
+    logVacancyAction($app['vacancy_id'], null, $auditAction, $app['status'], $app['status'], $auditReason);
 
     jsonResponse(200, 'Interview confirmation updated successfully');
 }

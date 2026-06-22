@@ -12,6 +12,29 @@ import './VacancyApprovals.css';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
+const decodeHTMLEntities = (text) => {
+    if (!text) return '';
+    let decoded = text;
+    try {
+        const parser = new DOMParser();
+        let lastDecoded = '';
+        while (decoded.includes('&') && decoded !== lastDecoded) {
+            lastDecoded = decoded;
+            const dom = parser.parseFromString(decoded, 'text/html');
+            decoded = dom.body.textContent || '';
+        }
+    } catch (e) {
+        const txt = document.createElement('textarea');
+        let lastDecoded = '';
+        while (decoded.includes('&') && decoded !== lastDecoded) {
+            lastDecoded = decoded;
+            txt.innerHTML = decoded;
+            decoded = txt.value;
+        }
+    }
+    return decoded;
+};
+
 const renderApprovalTimeline = (v) => {
     if (!v) return null;
 
@@ -134,8 +157,8 @@ const renderApprovalTimeline = (v) => {
 
     return (
         <div className="approval-stepper-timeline" style={{
-            marginTop: '24px',
-            marginBottom: '24px',
+            marginTop: '0px',
+            marginBottom: '0px',
             padding: '24px',
             background: '#f8fafc',
             borderRadius: '16px',
@@ -694,11 +717,11 @@ function VacancyApprovals({ admin }) {
                                             <div className="company-meta">
                                                 <img 
                                                     src={v.company_logo ? `${BACKEND_ROOT}/uploads/logos/${v.company_logo}` : '/gs-logo.png'} 
-                                                    alt={v.company_name} 
+                                                    alt={decodeHTMLEntities(v.company_name)} 
                                                     onError={(e) => e.target.src = '/gs-logo.png'}
                                                     className="mini-company-logo"
                                                 />
-                                                <span className="company-name">{v.company_name}</span>
+                                                <span className="company-name">{decodeHTMLEntities(v.company_name)}</span>
                                             </div>
                                             <span className={`status-pill ${v.approval_status}`}>
                                                 {getStatusLabel(v.approval_status)}
@@ -706,7 +729,7 @@ function VacancyApprovals({ admin }) {
                                         </div>
 
                                         <div className="card-body-section">
-                                            <h3 className="vacancy-title">{v.title}</h3>
+                                            <h3 className="vacancy-title">{decodeHTMLEntities(v.title)}</h3>
                                             <span className="ref-number">#{v.reference_number || 'No Ref Number'}</span>
                                             
                                             <div className="card-details-row">
@@ -716,7 +739,7 @@ function VacancyApprovals({ admin }) {
 
                                             {v.approval_status === 'rejected' && (
                                                 <div className="rejected-reason-box">
-                                                    <strong>Rejection Note:</strong> {v.rejection_reason || 'No reason provided.'}
+                                                    <strong>Rejection Note:</strong> {decodeHTMLEntities(v.rejection_reason) || 'No reason provided.'}
                                                 </div>
                                             )}
                                         </div>
@@ -791,7 +814,7 @@ function VacancyApprovals({ admin }) {
             {/* DETAIL MODAL */}
             {viewDetail && (
                 <div className="vd-overlay" onClick={() => setViewDetail(null)}>
-                    <div className="vd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+                    <div className="vd-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="vd-header">
                             <div className="vd-header-glow"></div>
                             <div className="vd-header-top">
@@ -803,20 +826,20 @@ function VacancyApprovals({ admin }) {
                                     <FiX />
                                 </button>
                             </div>
-                            <h2 className="vd-title">{viewDetail.title}</h2>
+                            <h2 className="vd-title">{decodeHTMLEntities(viewDetail.title)}</h2>
                             <div className="vd-company-row">
                                 <img 
                                     src={viewDetail.company_logo ? `${BACKEND_ROOT}/uploads/logos/${viewDetail.company_logo}` : '/gs-logo.png'} 
-                                    alt={viewDetail.company_name} 
+                                    alt={decodeHTMLEntities(viewDetail.company_name)} 
                                     onError={(e) => e.target.src = '/gs-logo.png'}
                                     className="vd-company-logo"
                                 />
-                                <span className="vd-company-name">{viewDetail.company_name}</span>
+                                <span className="vd-company-name">{decodeHTMLEntities(viewDetail.company_name)}</span>
                             </div>
                             <div className="vd-pills">
                                 {viewDetail.reference_number && <span className="vd-pill ref">#{viewDetail.reference_number}</span>}
                                 <span className="vd-pill"><FiBriefcase /> {viewDetail.employment_type}</span>
-                                {viewDetail.location && <span className="vd-pill"><FiMapPin /> {viewDetail.location}</span>}
+                                {viewDetail.location && <span className="vd-pill"><FiMapPin /> {decodeHTMLEntities(viewDetail.location)}</span>}
                             </div>
                         </div>
 
@@ -838,179 +861,187 @@ function VacancyApprovals({ admin }) {
 
                         <div className="vd-body">
                             {modalTab === 'details' ? (
-                                <>
-                                    {viewDetail.approval_status === 'rejected' && (
-                                        <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
-                                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
-                                            <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: '4px 0 0', fontWeight: 600 }}>{viewDetail.rejection_reason || 'No reason specified'}</p>
-                                        </div>
-                                    )}
+                                <div className="vd-details-layout">
+                                    <div className="vd-details-left">
+                                        {viewDetail.approval_status === 'rejected' && (
+                                            <div className="vd-rejection-banner" style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rejection Reason</span>
+                                                <p style={{ fontSize: '0.9rem', color: '#dc2626', margin: '4px 0 0', fontWeight: 600 }}>{decodeHTMLEntities(viewDetail.rejection_reason) || 'No reason specified'}</p>
+                                            </div>
+                                        )}
 
-                                    <div className="vd-form-section">
-                                        <h3 className="vd-form-section-title">General Information</h3>
-                                        <div className="vd-form-grid">
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Position / Job Title</span>
-                                                <div className="vd-form-value">{viewDetail.title}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Reference Number</span>
-                                                <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Establishment Entity</span>
-                                                <div className="vd-form-value">{viewDetail.company_name}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Designation Class</span>
-                                                <div className="vd-form-value">{viewDetail.designation || 'N/A'}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="vd-form-section">
-                                        <h3 className="vd-form-section-title">Operational Details</h3>
-                                        <div className="vd-form-grid">
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Employment Classification</span>
-                                                <div className="vd-form-value">{viewDetail.employment_type}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Work Location</span>
-                                                <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Experience Tier Required</span>
-                                                <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
-                                            </div>
-                                            <div className="vd-form-field">
-                                                <span className="vd-form-label">Active Listing Period</span>
-                                                <div className="vd-form-value">
-                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {viewDetail.publish_date}</span>
-                                                    <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
-                                                    <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {viewDetail.expire_date}</span>
+                                        <div className="vd-form-section">
+                                            <h3 className="vd-form-section-title">General Information</h3>
+                                            <div className="vd-form-grid">
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Position / Job Title</span>
+                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.title)}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Reference Number</span>
+                                                    <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Establishment Entity</span>
+                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.company_name)}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Designation Class</span>
+                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.designation) || 'N/A'}</div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div className="vd-form-section">
-                                        <h3 className="vd-form-section-title">Position Specification Sheets</h3>
-                                        <div className="vd-form-grid">
-                                            <div className="vd-form-field full-width" style={{ marginBottom: '16px' }}>
-                                                <span className="vd-form-label">Roles & Responsibilities (Job Description)</span>
-                                                <div className="vd-form-value-textarea">
-                                                    {renderFormattedText(viewDetail.description)}
+                                        <div className="vd-form-section">
+                                            <h3 className="vd-form-section-title">Operational Details</h3>
+                                            <div className="vd-form-grid">
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Employment Classification</span>
+                                                    <div className="vd-form-value">{viewDetail.employment_type}</div>
                                                 </div>
-                                            </div>
-                                            {viewDetail.requirements && (
-                                                <div className="vd-form-field full-width">
-                                                    <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
-                                                    <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
-                                                        {renderFormattedText(viewDetail.requirements)}
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Work Location</span>
+                                                    <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Experience Tier Required</span>
+                                                    <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                                </div>
+                                                <div className="vd-form-field">
+                                                    <span className="vd-form-label">Active Listing Period</span>
+                                                    <div className="vd-form-value">
+                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {viewDetail.publish_date}</span>
+                                                        <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
+                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {viewDetail.expire_date}</span>
                                                     </div>
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
-                                </>
-                            ) : (
-                                <>
-                                    {/* Approval Timeline */}
-                                    {renderApprovalTimeline(viewDetail)}
 
-                                    {/* Audit History Log */}
-                                    <div className="vd-section" style={{ marginTop: '24px' }}>
-                                        <h3 className="vd-section-title" style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            color: '#0f172a',
-                                            fontSize: '0.95rem',
-                                            fontWeight: 800,
-                                            borderBottom: '1.5px solid #e2e8f0',
-                                            paddingBottom: '10px',
-                                            marginBottom: '16px'
-                                        }}>
-                                            <FiActivity size={16} /> Requisition History Audit Trail
-                                        </h3>
-                                        <div className="vd-section-body-enhanced" style={{
-                                            padding: '24px',
-                                            background: '#f8fafc',
-                                            borderRadius: '16px',
-                                            border: '1.5px solid #e2e8f0',
-                                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
-                                        }}>
-                                            {loadingLogs ? (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 500 }}>
-                                                    <div className="spinner-small" style={{ borderTopColor: '#475569' }}></div>
-                                                    Retrieving log entries...
+                                    <div className="vd-details-right">
+                                        <div className="vd-form-section">
+                                            <h3 className="vd-form-section-title">Position Specification Sheets</h3>
+                                            <div className="vd-form-grid">
+                                                <div className="vd-form-field full-width" style={{ marginBottom: '16px' }}>
+                                                    <span className="vd-form-label">Roles & Responsibilities (Job Description)</span>
+                                                    <div className="vd-form-value-textarea">
+                                                        {renderFormattedText(decodeHTMLEntities(viewDetail.description))}
+                                                    </div>
                                                 </div>
-                                            ) : auditLogs.length === 0 ? (
-                                                <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
-                                            ) : (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                                    {auditLogs.map((log) => {
-                                                        const actionLabels = {
-                                                            initiated: 'Draft Initiated',
-                                                            submitted: 'Requisition Submitted',
-                                                            edited: 'Details Revised',
-                                                            sub1_approved: 'Approved by Tier-1 Reviewer',
-                                                            global_approved: 'Authorized by Global Admin',
-                                                            rejected: 'Requisition Rejected'
-                                                        };
-                                                        const actionColors = {
-                                                            initiated: '#64748b',
-                                                            submitted: '#d97706',
-                                                            edited: '#6b21a8',
-                                                            sub1_approved: '#16a34a',
-                                                            global_approved: '#16a34a',
-                                                            rejected: '#dc2626'
-                                                        };
-                                                        return (
-                                                            <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                                                                        <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b', fontWeight: 700 }}>
-                                                                            {actionLabels[log.action] || log.action.toUpperCase()}
-                                                                        </strong>
-                                                                        <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
-                                                                            {log.created_at}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
-                                                                        By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
-                                                                    </div>
-                                                                    {log.old_status && log.new_status && (
-                                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                                                                            Transition: <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.old_status}</code> &rarr; <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.new_status}</code>
-                                                                        </div>
-                                                                    )}
-                                                                    {log.reason && (
-                                                                        <div style={{
-                                                                            marginTop: '8px',
-                                                                            padding: '10px 14px',
-                                                                            background: '#fff3f2',
-                                                                            borderLeft: '4px solid #dc2626',
-                                                                            borderRadius: '6px',
-                                                                            fontSize: '0.8rem',
-                                                                            fontStyle: 'italic',
-                                                                            color: '#dc2626',
-                                                                            fontWeight: 500,
-                                                                            boxShadow: '0 1px 3px rgba(220,38,38,0.05)'
-                                                                        }}>
-                                                                            "{log.reason}"
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
+                                                {viewDetail.requirements && (
+                                                    <div className="vd-form-field full-width">
+                                                        <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
+                                                        <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
+                                                            {renderFormattedText(decodeHTMLEntities(viewDetail.requirements))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </>
+                                </div>
+                            ) : (
+                                <div className="vd-details-layout">
+                                    <div className="vd-details-left">
+                                        {/* Approval Timeline */}
+                                        {renderApprovalTimeline(viewDetail)}
+                                    </div>
+
+                                    <div className="vd-details-right">
+                                        {/* Audit History Log */}
+                                        <div className="vd-section" style={{ marginTop: '0px' }}>
+                                            <h3 className="vd-section-title" style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                color: '#0f172a',
+                                                fontSize: '0.95rem',
+                                                fontWeight: 800,
+                                                borderBottom: '1.5px solid #e2e8f0',
+                                                paddingBottom: '10px',
+                                                marginBottom: '16px'
+                                            }}>
+                                                <FiActivity size={16} /> Requisition History Audit Trail
+                                            </h3>
+                                            <div className="vd-section-body-enhanced" style={{
+                                                padding: '24px',
+                                                background: '#f8fafc',
+                                                borderRadius: '16px',
+                                                border: '1.5px solid #e2e8f0',
+                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.025)'
+                                            }}>
+                                                {loadingLogs ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: 500 }}>
+                                                        <div className="spinner-small" style={{ borderTopColor: '#475569' }}></div>
+                                                        Retrieving log entries...
+                                                    </div>
+                                                ) : auditLogs.length === 0 ? (
+                                                    <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '0.85rem' }}>No audit logs recorded for this vacancy.</p>
+                                                ) : (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                        {auditLogs.map((log) => {
+                                                            const actionLabels = {
+                                                                initiated: 'Draft Initiated',
+                                                                submitted: 'Requisition Submitted',
+                                                                edited: 'Details Revised',
+                                                                sub1_approved: 'Approved by Tier-1 Reviewer',
+                                                                global_approved: 'Authorized by Global Admin',
+                                                                rejected: 'Requisition Rejected'
+                                                            };
+                                                            const actionColors = {
+                                                                initiated: '#64748b',
+                                                                submitted: '#d97706',
+                                                                edited: '#6b21a8',
+                                                                sub1_approved: '#16a34a',
+                                                                global_approved: '#16a34a',
+                                                                rejected: '#dc2626'
+                                                            };
+                                                            return (
+                                                                <div key={log.id} style={{ display: 'flex', gap: '14px', borderLeft: `3px solid ${actionColors[log.action] || '#cbd5e1'}`, paddingLeft: '14px' }}>
+                                                                    <div style={{ flex: 1 }}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                                                                            <strong style={{ fontSize: '0.85rem', color: actionColors[log.action] || '#1e293b', fontWeight: 700 }}>
+                                                                                {actionLabels[log.action] || log.action.toUpperCase()}
+                                                                            </strong>
+                                                                            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                                                                                {log.created_at}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
+                                                                            By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                                        </div>
+                                                                        {log.old_status && log.new_status && (
+                                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                                                                                Transition: <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.old_status}</code> &rarr; <code style={{ background: '#e2e8f0', color: '#0f172a', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.7rem' }}>{log.new_status}</code>
+                                                                            </div>
+                                                                        )}
+                                                                        {log.reason && (
+                                                                            <div style={{
+                                                                                marginTop: '8px',
+                                                                                padding: '10px 14px',
+                                                                                background: '#fff3f2',
+                                                                                borderLeft: '4px solid #dc2626',
+                                                                                borderRadius: '6px',
+                                                                                fontSize: '0.8rem',
+                                                                                fontStyle: 'italic',
+                                                                                color: '#dc2626',
+                                                                                fontWeight: 500,
+                                                                                boxShadow: '0 1px 3px rgba(220,38,38,0.05)'
+                                                                            }}>
+                                                                                "{log.reason}"
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
 
@@ -1115,22 +1146,22 @@ function VacancyApprovals({ admin }) {
                         )}
                         
                         <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px', fontWeight: 800 }}>
-                            {actionSuccessModal.type === 'sub1_approved' && 'Requisition Approved'}
-                            {actionSuccessModal.type === 'global_approved' && 'Vacancy Published'}
-                            {actionSuccessModal.type === 'rejected' && 'Requisition Rejected'}
-                        </h2>
-                        
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
-                            {actionSuccessModal.type === 'sub1_approved' && (
-                                <>You have approved the requisition for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`}. It has been forwarded for Global approval.</>
-                            )}
-                            {actionSuccessModal.type === 'global_approved' && (
-                                <>The vacancy for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been successfully approved and published to the careers portal.</>
-                            )}
-                            {actionSuccessModal.type === 'rejected' && (
-                                <>The requisition for <strong>{actionSuccessModal.title}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been rejected.</>
-                            )}
-                        </p>
+                                    {actionSuccessModal.type === 'sub1_approved' && 'Requisition Approved'}
+                                    {actionSuccessModal.type === 'global_approved' && 'Vacancy Published'}
+                                    {actionSuccessModal.type === 'rejected' && 'Requisition Rejected'}
+                                </h2>
+                                
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
+                                    {actionSuccessModal.type === 'sub1_approved' && (
+                                        <>You have approved the requisition for <strong>{decodeHTMLEntities(actionSuccessModal.title)}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`}. It has been forwarded for Global approval.</>
+                                    )}
+                                    {actionSuccessModal.type === 'global_approved' && (
+                                        <>The vacancy for <strong>{decodeHTMLEntities(actionSuccessModal.title)}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been successfully approved and published to the careers portal.</>
+                                    )}
+                                    {actionSuccessModal.type === 'rejected' && (
+                                        <>The requisition for <strong>{decodeHTMLEntities(actionSuccessModal.title)}</strong> {actionSuccessModal.reference_number && `(Ref: #${actionSuccessModal.reference_number})`} has been rejected.</>
+                                    )}
+                                </p>
                         
                         {/* Approval Target / Info Box */}
                         <div style={{
@@ -1166,7 +1197,7 @@ function VacancyApprovals({ admin }) {
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
                                         {actionSuccessModal.type === 'sub1_approved' && 'Email notification sent to global approval reviewers.'}
                                         {actionSuccessModal.type === 'global_approved' && 'Notification email sent to the requisition creator.'}
-                                        {actionSuccessModal.type === 'rejected' && `Reason: "${actionSuccessModal.rejection_reason}"`}
+                                        {actionSuccessModal.type === 'rejected' && `Reason: "${decodeHTMLEntities(actionSuccessModal.rejection_reason)}"`}
                                     </p>
                                     {actionSuccessModal.type === 'rejected' && (
                                         <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>
