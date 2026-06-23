@@ -60,15 +60,245 @@ const renderFormattedText = (text) => {
 };
 
 // Comprehensive Domain Keywords for NLP-style matching
+// Comprehensive Domain Keywords — George Steuart Group Subsidiaries
+// Covers: GS&Co (parent), GS Teas, GS Health, GS Solutions, HVA Foods, GS Consumer,
+//         GS Travels, GS Aviation, Citrus Leisure, GS Insurance, GS Investments,
+//         GS Asset Management, GS Recruitment, GS Optimize
 const DOMAIN_KEYWORDS = {
-    accounting: ['accountant', 'audit', 'tax', 'ledger', 'invoice', 'payroll', 'finance', 'reconciliation', 'budget', 'tally', 'quickbooks', 'erp', 'casl', 'aat', 'cma', 'acca', 'cfo', 'treasury', 'billing'],
-    it_software: ['software', 'developer', 'engineer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'cloud', 'frontend', 'backend', 'fullstack', 'api', 'git', 'mobile', 'ios', 'android', 'laravel', 'c#', 'dot net', 'ui', 'ux', 'database', 'linux', 'devops', 'cybersecurity', 'networks', 'it'],
-    sales_marketing: ['sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo', 'social media', 'leads', 'conversions', 'customer', 'retail', 'wholesale', 'negotiation', 'promotion', 'crm', 'market research', 'revenue', 'growth', 'client', 'representative', 'merchandiser', 'brand manager', 'distribution'],
-    hr_admin: ['hr', 'human resources', 'recruitment', 'hiring', 'training', 'development', 'administrative', 'office', 'receptionist', 'clerk', 'ops', 'operations', 'clerical', 'data entry', 'policy', 'employee relations', 'attendance', 'secretarial', 'compliance'],
-    engineering: ['mechanical', 'electrical', 'civil', 'production', 'quality', 'qa', 'qc', 'process', 'maintenance', 'structural', 'autocad', 'blueprints', 'manufacturing', 'technician', 'workshop', 'factory', 'project management'],
-    healthcare: ['medical', 'pharma', 'healthcare', 'nurse', 'doctor', 'clinic', 'hospital', 'rehab', 'medicine', 'laboratory', 'pharmaceutical', 'biotech', 'clinical'],
-    hospitality: ['travel', 'tourism', 'hotel', 'resort', 'front office', 'steward', 'chef', 'guest', 'reservation', 'ticketing', 'guides', 'airline'],
-    logistics: ['logistics', 'supply chain', 'warehouse', 'shipping', 'export', 'import', 'procurement', 'inventory', 'transport', 'delivery', 'fleet', 'stores', 'purchasing']
+
+    // ── George Steuart & Company Ltd (Parent) ── shared corporate functions ──
+    finance_accounting: [
+        'accountant', 'audit', 'auditor', 'tax', 'ledger', 'invoice', 'payroll', 'finance',
+        'reconciliation', 'budget', 'tally', 'quickbooks', 'erp', 'sap', 'oracle financials',
+        'casl', 'aat', 'cma', 'acca', 'cpa', 'cfo', 'treasury', 'billing', 'accounts payable',
+        'accounts receivable', 'cost accounting', 'financial reporting', 'ifrs', 'cash flow',
+        'fixed assets', 'management accounts', 'variance analysis', 'internal audit',
+        'external audit', 'statutory', 'chartered accountant', 'ca sri lanka'
+    ],
+
+    hr_admin: [
+        'hr', 'human resources', 'recruitment', 'talent acquisition', 'hiring', 'onboarding',
+        'training', 'learning and development', 'l&d', 'performance management', 'kpi',
+        'administrative', 'office', 'receptionist', 'clerk', 'coordinator', 'executive',
+        'operations', 'clerical', 'data entry', 'policy', 'employee relations', 'attendance',
+        'secretarial', 'compliance', 'payroll', 'hris', 'grievance', 'organizational development',
+        'workforce planning', 'compensation', 'benefits', 'job evaluation', 'hr generalist',
+        'labour law', 'industrial relations', 'welfare', 'succession planning'
+    ],
+
+    legal_compliance: [
+        'legal', 'lawyer', 'attorney', 'legal officer', 'compliance', 'regulatory',
+        'contract', 'litigation', 'corporate law', 'intellectual property', 'company secretarial',
+        'company secretary', 'board', 'governance', 'due diligence', 'legal counsel',
+        'statutory compliance', 'data protection', 'gdpr', 'risk', 'risk management'
+    ],
+
+    // ── George Steuart Teas (Pvt) Ltd ──
+    tea: [
+        'tea', 'tea taster', 'tea blending', 'tea processing', 'tea packaging', 'tea export',
+        'tea buyer', 'tea grading', 'ctc', 'orthodox', 'green tea', 'black tea', 'white tea',
+        'flavoured tea', 'bulk tea', 'tea bags', 'colombo tea auction', 'tea broker',
+        'plantation', 'estate', 'garden', 'made tea', 'liquoring', 'tea factory',
+        'tea marketing', 'tea industry', 'camellia sinensis', 'agronomy', 'packing'
+    ],
+
+    // ── George Steuart Health (Pvt) Ltd ──
+    healthcare_pharma: [
+        'pharmaceutical', 'pharma', 'healthcare', 'medical', 'medicine', 'diagnostics',
+        'medical devices', 'surgical', 'clinical', 'laboratory', 'lab technician',
+        'medical representative', 'med rep', 'detail officer', 'drug regulatory',
+        'nmra', 'drug registration', 'hospital', 'clinic', 'dispensary', 'pharmacist',
+        'pharmacy', 'biotech', 'wellness', 'health products', 'medical marketing',
+        'key account manager', 'hospital sales', 'doctor detailing', 'product manager pharma',
+        'quality assurance pharma', 'cold chain', 'medical equipment', 'dental', 'ophthalmology'
+    ],
+
+    // ── George Steuart Solutions (Pvt) Ltd ── solar / generators / elevators / ACs ──
+    solutions_engineering: [
+        'solar', 'solar panels', 'photovoltaic', 'pv system', 'solar installation',
+        'solar engineer', 'renewable energy', 'net metering', 'inverter', 'battery storage',
+        'generator', 'genset', 'ups', 'power solutions', 'elevator', 'lift', 'escalator',
+        'stairlift', 'lift technician', 'elevator engineer', 'otis', 'schindler',
+        'air conditioning', 'hvac', 'ac technician', 'refrigeration', 'chillers',
+        'mechanical engineer', 'electrical engineer', 'electromechanical', 'installation',
+        'commissioning', 'maintenance', 'preventive maintenance', 'service technician',
+        'autocad', 'project engineer', 'site engineer', 'energy audit', 'building services'
+    ],
+
+    // ── HVA Foods (Pvt) Ltd ── food & beverage manufacturing ──
+    food_beverage: [
+        'food', 'beverage', 'food manufacturing', 'food production', 'food safety',
+        'haccp', 'iso 22000', 'food technology', 'food technologist', 'quality control food',
+        'fmcg food', 'factory', 'production supervisor', 'plant operator', 'food processing',
+        'packaging', 'labelling', 'r&d food', 'product development food', 'spices',
+        'condiments', 'bakery', 'confectionery', 'beverages', 'dairy', 'fmcg production',
+        'batch production', 'yield', 'shelf life', 'sensory evaluation', 'hygiene',
+        'gmp', 'food grade', 'costing food', 'npl', 'new product launch'
+    ],
+
+    // ── George Steuart Consumer (Pvt) Ltd ── FMCG distribution / sales ──
+    fmcg_sales_distribution: [
+        'fmcg', 'consumer goods', 'distribution', 'distributor', 'sales representative',
+        'field sales', 'territory manager', 'area sales manager', 'regional sales',
+        'van sales', 'key account', 'modern trade', 'general trade', 'trade marketing',
+        'merchandiser', 'shelf management', 'planogram', 'brand activation', 'btl', 'atl',
+        'channel management', 'retail', 'supermarket', 'spar', 'keells', 'cargills',
+        'detergent', 'personal care', 'home care', 'spices', 'teas fmcg',
+        'route to market', 'rtm', 'beat plan', 'outlet coverage', 'sell-in', 'sell-out',
+        'product listing', 'brand manager', 'trade promotions', 'secondary sales'
+    ],
+
+    // ── George Steuart Travels Ltd ──
+    travel_tourism: [
+        'travel', 'tourism', 'tour operator', 'inbound tourism', 'outbound tourism',
+        'corporate travel', 'leisure travel', 'travel consultant', 'travel advisor',
+        'ticketing', 'airline ticketing', 'gds', 'amadeus', 'galileo', 'sabre',
+        'iata', 'visa', 'passport', 'itinerary', 'tour planning', 'destination management',
+        'mice', 'event travel', 'incentive travel', 'group tours', 'fit', 'tailor-made tours',
+        'hotel booking', 'transfers', 'guide', 'tour guide', 'travel agency',
+        'reservations', 'operations travel', 'travel document', 'niche travel'
+    ],
+
+    // ── George Steuart Aviation (Pvt) Ltd ── GSA / airline representation ──
+    aviation: [
+        'aviation', 'airline', 'gsa', 'general sales agent', 'cargo', 'air cargo',
+        'iata', 'airport', 'ground handling', 'check-in', 'ramp', 'passenger handling',
+        'flight operations', 'load control', 'dangerous goods', 'dg', 'airside',
+        'airline sales', 'corporate airline', 'ticketing', 'reservations', 'crm airline',
+        'philippine airlines', 'aircraft', 'airfreight', 'revenue management',
+        'interline', 'codeshare', 'maldives', 'travel trade airline'
+    ],
+
+    // ── Citrus Leisure PLC ── hotels / resorts / F&B / leisure ──
+    hospitality_leisure: [
+        'hotel', 'resort', 'hospitality', 'restaurant', 'food and beverage', 'f&b',
+        'front office', 'front desk', 'guest relations', 'housekeeping', 'concierge',
+        'chef', 'sous chef', 'kitchen', 'banquet', 'events', 'stewarding',
+        'food service', 'room service', 'spa', 'recreation', 'leisure',
+        'property management', 'pms', 'opera', 'revenue management hotel', 'yield',
+        'occ', 'adr', 'revpar', 'hospitality management', 'duty manager', 'night manager',
+        'bellboy', 'valet', 'pool', 'bar', 'sommelier', 'barista', 'bartender',
+        'catering', 'reservation hotel', 'booking', 'citrus', 'hotel supervisor'
+    ],
+
+    // ── George Steuart Insurance Brokers (Pvt) Ltd ──
+    insurance: [
+        'insurance', 'insurance broker', 'risk management', 'underwriting',
+        'claims', 'claims management', 'reinsurance', 'life insurance', 'general insurance',
+        'health insurance', 'marine insurance', 'fire insurance', 'motor insurance',
+        'liability insurance', 'policy', 'premium', 'actuary', 'loss adjuster',
+        'corporate insurance', 'irb sri lanka', 'insurance regulation', 'ibsl',
+        'risk assessment', 'sum insured', 'deductible', 'renewal', 'endorsement'
+    ],
+
+    // ── George Steuart Investments (Pvt) Ltd ── money market / inter-bank ──
+    investments_money_market: [
+        'investments', 'investment', 'money market', 'treasury', 'interbank',
+        'fixed income', 'bonds', 'repo', 't-bills', 'government securities',
+        'forex', 'foreign exchange', 'capital market', 'securities', 'equity',
+        'dealing', 'dealer', 'central bank', 'cbsl', 'liquidity', 'interest rate',
+        'yield', 'portfolio', 'risk desk', 'market risk', 'credit risk',
+        'financial markets', 'sec', 'cse', 'stock exchange', 'broker dealer'
+    ],
+
+    // ── George Steuart Asset Management (Pvt) Ltd ── wealth / portfolio mgmt ──
+    asset_management_wealth: [
+        'asset management', 'wealth management', 'portfolio management', 'fund manager',
+        'unit trust', 'mutual fund', 'investment manager', 'investment analyst',
+        'client advisor', 'relationship manager wealth', 'high net worth', 'hnwi',
+        'financial planning', 'retirement planning', 'investment advisory',
+        'cfa', 'sec licensed', 'investment licence', 'aum', 'nav', 'benchmark',
+        'equity research', 'fundamental analysis', 'technical analysis', 'allocation'
+    ],
+
+    // ── George Steuart Recruitment ── overseas recruitment ──
+    overseas_recruitment: [
+        'overseas recruitment', 'overseas placement', 'foreign employment',
+        'slbfe', 'visa processing', 'work visa', 'demand letter', 'attestation',
+        'manpower', 'skilled workers', 'semi-skilled', 'unskilled', 'domestic workers',
+        'recruitment consultant', 'placement', 'candidate sourcing', 'mobilization',
+        'middle east', 'gulf', 'uae', 'qatar', 'saudi', 'kuwait', 'bahrain',
+        'employment agent', 'licensed recruitment', 'recruitment agency', 'foreign jobs'
+    ],
+
+    // ── George Steuart Optimize ── IT / project / cybersecurity ──
+    it_cybersecurity: [
+        'software', 'developer', 'software engineer', 'react', 'javascript', 'node',
+        'php', 'mysql', 'python', 'java', 'aws', 'azure', 'gcp', 'cloud', 'frontend',
+        'backend', 'fullstack', 'api', 'git', 'mobile', 'ios', 'android', 'laravel',
+        'c#', 'dot net', '.net', 'ui', 'ux', 'database', 'linux', 'devops', 'docker',
+        'kubernetes', 'ci/cd', 'cybersecurity', 'information security', 'iso 27001',
+        'penetration testing', 'ethical hacking', 'soc', 'siem', 'network security',
+        'firewall', 'endpoint', 'vulnerability', 'it support', 'helpdesk', 'infrastructure',
+        'networks', 'project manager', 'scrum', 'agile', 'business analyst',
+        'llm', 'ai', 'machine learning', 'data science', 'openai', 'gemini', 'agents',
+        'optimize', 'erp implementation', 'it consulting'
+    ],
+
+    // ── Cross-group: Sales & Marketing (general) ──
+    sales_marketing: [
+        'sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo',
+        'sem', 'social media', 'content marketing', 'email marketing', 'leads',
+        'conversions', 'customer', 'wholesale', 'negotiation', 'promotion', 'crm',
+        'market research', 'revenue', 'growth', 'client management', 'brand manager',
+        'product manager', 'category management', 'trade', 'b2b', 'b2c', 'e-commerce'
+    ],
+
+    // ── Cross-group: Supply Chain & Logistics ──
+    logistics_supply_chain: [
+        'logistics', 'supply chain', 'warehouse', 'shipping', 'export', 'import',
+        'procurement', 'inventory', 'transport', 'delivery', 'fleet', 'stores',
+        'purchasing', 'customs', 'clearing', 'forwarding', 'freight', 'lcl', 'fcl',
+        'letter of credit', 'lc', 'incoterms', 'supplier management', 'vendor',
+        'demand planning', 'mrp', 'stock control', 'distribution centre'
+    ]
+};
+
+// Clean candidate name and extract location
+const cleanCandidateNameAndLocation = (firstName, lastName) => {
+    let cleanFirst = (firstName || '').trim();
+    let cleanLast = (lastName || '').trim();
+    let detectedLocation = '';
+
+    const locationKeywords = [
+        'sri lanka', 'srilanka', 'colombo', 'kandy', 'galle', 'malabe', 'negombo', 'gampaha', 
+        'jaffna', 'batticaloa', 'trincomalee', 'kurunegala', 'kalutara', 'matara', 'moratuwa',
+        'nugegoda', 'maharagama', 'kotte', 'battaramulla', 'mount lavinia', 'dehiwala', 'rajagiriya'
+    ];
+    
+    const fullCombined = `${cleanFirst} ${cleanLast}`.trim();
+    
+    // Check if there is a comma
+    const commaIndex = fullCombined.lastIndexOf(',');
+    if (commaIndex !== -1) {
+        const beforeComma = fullCombined.substring(0, commaIndex).trim();
+        const afterComma = fullCombined.substring(commaIndex + 1).trim();
+        
+        // Find the last word in beforeComma
+        const wordsBefore = beforeComma.split(/\s+/);
+        const lastWordBefore = wordsBefore[wordsBefore.length - 1];
+        
+        if (wordsBefore.length > 1 && (locationKeywords.includes(lastWordBefore.toLowerCase()) || /^[A-Z]/.test(lastWordBefore))) {
+            detectedLocation = `${lastWordBefore}, ${afterComma}`;
+            wordsBefore.pop();
+            const namePart = wordsBefore.join(' ');
+            return { name: namePart, location: detectedLocation };
+        } else {
+            detectedLocation = afterComma;
+            return { name: beforeComma, location: detectedLocation };
+        }
+    }
+    
+    // Fallback: check if "Sri Lanka" is at the end without a comma
+    const sriLankaIndex = fullCombined.toLowerCase().lastIndexOf('sri lanka');
+    if (sriLankaIndex !== -1 && sriLankaIndex > 0) {
+        const namePart = fullCombined.substring(0, sriLankaIndex).trim();
+        const locPart = fullCombined.substring(sriLankaIndex).trim();
+        const cleanedName = namePart.replace(/,\s*$/, '').trim();
+        return { name: cleanedName, location: locPart };
+    }
+
+    return { name: fullCombined, location: '' };
 };
 
 const DocxViewer = ({ url }) => {
@@ -169,7 +399,8 @@ const getNormalizedSkills = (skillsMetadataStr, tags) => {
                 context: item.usage_context || item.context || 'No usage context provided.',
                 evidence_source: item.evidence_source || 'Skills Section Only',
                 evidence_strength: item.evidence_strength || 'Mentioned Only',
-                experience_level: item.experience_level || 'Basic'
+                experience_level: item.experience_level || 'Basic',
+                verified: item.verified !== false
             });
         });
     }
@@ -192,7 +423,8 @@ const getNormalizedSkills = (skillsMetadataStr, tags) => {
                 context: isObj ? (item.usage_context || item.context || 'Mentioned in CV.') : 'Mentioned in CV.',
                 evidence_source: isObj ? (item.evidence_source || 'Skills Section Only') : 'Skills Section Only',
                 evidence_strength: isObj ? (item.evidence_strength || 'Mentioned Only') : 'Mentioned Only',
-                experience_level: isObj ? (item.experience_level || 'Basic') : 'Basic'
+                experience_level: isObj ? (item.experience_level || 'Basic') : 'Basic',
+                verified: isObj && item.verified !== undefined ? item.verified !== false : true
             });
         });
     }
@@ -219,7 +451,8 @@ const getNormalizedSkills = (skillsMetadataStr, tags) => {
                 context: item.usage_context || item.context || 'No usage context provided.',
                 evidence_source: item.evidence_source || 'Skills Section Only',
                 evidence_strength: item.evidence_strength || 'Mentioned Only',
-                experience_level: item.experience_level || 'Basic'
+                experience_level: item.experience_level || 'Basic',
+                verified: item.verified !== false
             });
         });
     }
@@ -548,25 +781,55 @@ function Applicants({ admin }) {
         const targetFullText = targetTitle + ' ' + targetReqs + ' ' + targetDesc;
 
         // 1. SKILLS MATCH (40%)
-        // Dynamically extract skills from targets and match vs applicant profile
         let skillsScore = 0;
-        let possibleSkills = [];
-        Object.values(DOMAIN_KEYWORDS).flat().forEach(word => {
-            if (targetFullText.includes(word)) possibleSkills.push(word);
-        });
+        const parsedSkillsData = getNormalizedSkills(app.skills_metadata, app.tags);
+        const report = parsedSkillsData.parsedReport || {};
+        const skillsList = parsedSkillsData.skills || [];
 
-        // Ensure unique
-        possibleSkills = [...new Set(possibleSkills)];
+        if (skillsList.length > 0) {
+            // Count verified Relevant Skills and Related Skills
+            const numRelevant = skillsList.filter(s => s.category === 'Relevant Skills' && s.verified !== false).length;
+            const numRelated = skillsList.filter(s => s.category === 'Related Skills' && s.verified !== false).length;
+            
+            // Check mandatory requirements status
+            const numFully = Array.isArray(report.fully_demonstrated_skills) ? report.fully_demonstrated_skills.length : 0;
+            const numPartially = Array.isArray(report.partially_demonstrated_skills) ? report.partially_demonstrated_skills.length : 0;
+            const numMissing = Array.isArray(report.requirements_without_evidence) ? report.requirements_without_evidence.length : 0;
+            const totalMandatory = numFully + numPartially + numMissing;
 
-        const candidateInfo = (app.qualification + ' ' + (app.applied_vacancy || '') + ' ' + (app.last_applied_vacancy || '') + ' ' + app.tags).toLowerCase();
+            let mandatoryRatio = 1.0;
+            if (totalMandatory > 0) {
+                mandatoryRatio = (numFully * 1.0 + numPartially * 0.5) / totalMandatory;
+            }
 
-        if (possibleSkills.length > 0) {
-            const matches = possibleSkills.filter(s => candidateInfo.includes(s));
-            skillsScore = (matches.length / possibleSkills.length) * 100;
-            details.matchedKeywords = matches.map(m => m.charAt(0).toUpperCase() + m.slice(1));
+            // High score for having relevant skills, scaled by mandatory match success
+            const rawSkillsScore = (numRelevant * 15) + (numRelated * 5); 
+            skillsScore = Math.min(100, rawSkillsScore) * mandatoryRatio;
+            
+            // Penalty for missing mandatory requirements
+            if (numMissing > 0) {
+                skillsScore *= Math.max(0.4, 1 - (numMissing * 0.15));
+            }
+
+            details.matchedKeywords = skillsList
+                .filter(s => s.category === 'Relevant Skills' || s.category === 'Related Skills')
+                .map(s => s.skill);
         } else {
-            // fallback if no keywords found in job post
-            skillsScore = 70;
+            // Fallback for legacy applications: dynamically extract skills from targets and match vs applicant profile
+            let possibleSkills = [];
+            Object.values(DOMAIN_KEYWORDS).flat().forEach(word => {
+                if (targetFullText.includes(word)) possibleSkills.push(word);
+            });
+            possibleSkills = [...new Set(possibleSkills)];
+            const candidateInfo = (app.qualification + ' ' + (app.applied_vacancy || '') + ' ' + (app.last_applied_vacancy || '') + ' ' + app.tags).toLowerCase();
+
+            if (possibleSkills.length > 0) {
+                const matches = possibleSkills.filter(s => candidateInfo.includes(s));
+                skillsScore = (matches.length / possibleSkills.length) * 100;
+                details.matchedKeywords = matches.map(m => m.charAt(0).toUpperCase() + m.slice(1));
+            } else {
+                skillsScore = 70;
+            }
         }
         details.factors.skills = Math.round(skillsScore);
 
@@ -612,11 +875,9 @@ function Applicants({ admin }) {
         details.factors.qualification = Math.round(Math.min(100, qualScore));
 
         // 4. KEYWORD / TEXT MATCH (20%)
-        // Matches the "Vibe" and domain of the job post
         let keywordScore = 0;
         let jobDomain = '';
 
-        // Detect domain of the job
         for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
             const domainMatchCount = keywords.filter(k => targetFullText.includes(k)).length;
             if (domainMatchCount > 2) {
@@ -625,12 +886,14 @@ function Applicants({ admin }) {
             }
         }
 
+        const candidateInfo = (app.qualification + ' ' + (app.applied_vacancy || '') + ' ' + (app.last_applied_vacancy || '') + ' ' + app.tags).toLowerCase();
+
         if (jobDomain && DOMAIN_KEYWORDS[jobDomain]) {
             const domainKeywords = DOMAIN_KEYWORDS[jobDomain];
             const candidateDomainMatches = domainKeywords.filter(k => candidateInfo.includes(k)).length;
             keywordScore = Math.min(100, (candidateDomainMatches / Math.min(8, domainKeywords.length)) * 100);
         } else {
-            keywordScore = 50; // Neutral fallback
+            keywordScore = 50; 
         }
 
         // Bonus for job title similarity
@@ -750,7 +1013,14 @@ function Applicants({ admin }) {
                                 id="vacancy_filter"
                                 name="vacancy_id"
                                 value={filters.vacancy_id}
-                                onChange={(e) => setFilters({ ...filters, vacancy_id: e.target.value })}
+                                onChange={(e) => {
+                                    const newVacId = e.target.value;
+                                    setFilters(prev => ({
+                                        ...prev,
+                                        vacancy_id: newVacId,
+                                        sortBy: newVacId ? 'matchScore' : 'highExperience'
+                                    }));
+                                }}
                             >
                                 <option value="">All Active Roles</option>
                                 {vacancies.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
@@ -1445,18 +1715,34 @@ function Applicants({ admin }) {
                                         </td>
                                         <td data-label="Credentials">
                                             <div className="credentials-cell">
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
                                                     <span className="exp-badge">{app.overall_experience}</span>
-                                                    {filters.vacancy_id && (() => {
+                                                    {(() => {
                                                         const scoreData = calculateMatchScore(app);
-                                                        return scoreData.details.isQualified ? (
-                                                            <div className="match-indicator qualified" title="Meets/Exceeds Required Experience">
-                                                                <FiCheckCircle />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="match-indicator under" title="Below Required Experience">
-                                                                <FiAlertCircle />
-                                                            </div>
+                                                        const isQual = scoreData.details.isQualified;
+                                                        const score = scoreData.score;
+                                                        
+                                                        let badgeClass = 'match-pill-low';
+                                                        if (score >= 80) badgeClass = 'match-pill-high';
+                                                        else if (score >= 50) badgeClass = 'match-pill-medium';
+                                                        
+                                                        return (
+                                                            <>
+                                                                <span className={`match-score-pill ${badgeClass}`} title={`Skills: ${scoreData.details.factors.skills}%, Exp: ${scoreData.details.factors.experience}%, Qual: ${scoreData.details.factors.qualification}%, Domain: ${scoreData.details.factors.keyword}%`}>
+                                                                    🎯 {score}% Match
+                                                                </span>
+                                                                {filters.vacancy_id && (
+                                                                    isQual ? (
+                                                                        <div className="match-indicator qualified" title="Meets/Exceeds Required Experience">
+                                                                            <FiCheckCircle />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="match-indicator under" title="Below Required Experience">
+                                                                            <FiAlertCircle />
+                                                                        </div>
+                                                                    )
+                                                                )}
+                                                            </>
                                                         );
                                                     })()}
                                                 </div>
@@ -1566,436 +1852,473 @@ function Applicants({ admin }) {
             </div>
 
             {/* Detail Modal */}
-            {showDetail && (
-                <div className="confirm-overlay" onClick={() => setShowDetail(null)}>
-                    <div className="confirm-modal card-p animated-zoom" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1000px', width: '95%', textAlign: 'left', overflow: 'hidden' }}>
-                        <div className="modal-header-p" style={{ background: 'var(--bg-primary)', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div className="header-info-p" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-                                <div className="modal-avatar" style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'var(--ivory-dark)', color: 'var(--crimson)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', border: '1px solid rgba(200, 169, 81, 0.3)' }}>
-                                    {showDetail.first_name?.[0]}{showDetail.last_name?.[0]}
-                                </div>
-                                <div>
-                                    <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '2.4rem', letterSpacing: '-1px', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                        {showDetail.first_name} {showDetail.last_name}
-                                        <span className={`status-badge-p badge-${showDetail.status || 'pending'}`}>
-                                            {(showDetail.status || 'pending').replace('_', ' ')}
-                                        </span>
-                                    </h2>
-                                    <p style={{ color: 'var(--gold-accent)', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px', margin: '4px 0 0 0' }}>{showDetail.is_suggestion ? 'Pool Candidate' : `${showDetail.vacancy_title} Prospect`}</p>
-                                </div>
-                            </div>
-                            <button className="o-btn delete" onClick={() => setShowDetail(null)}><FiX /></button>
-                        </div>
-
-                        <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
-                            {showDetail.is_suggestion && (
-                                <div style={{ background: '#ecfdf5', padding: '10px 16px', borderRadius: '10px', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.85rem', marginBottom: '14px' }}>
-                                    <p style={{ margin: 0 }}>This prospect matched your criteria from the Talent Pool. They previously applied for "{showDetail.last_applied_vacancy}" and consented to being contacted for future roles.</p>
-                                </div>
-                            )}
-
-                            {/* ── TOP INFO ROW: Contact + Profile + Submission in one strip ── */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
-
-                                {/* Contact */}
-                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
-                                        Contact Protocols
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                            <FiMail style={{ marginTop: '3px', color: 'var(--gold-accent)', flexShrink: 0 }} size={14} />
-                                            <div>
-                                                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Email</span>
-                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem', wordBreak: 'break-all' }}>{showDetail.email}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                            <FiPhone style={{ marginTop: '3px', color: 'var(--gold-accent)', flexShrink: 0 }} size={14} />
-                                            <div>
-                                                <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Phone</span>
-                                                <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.contact_number}</p>
-                                            </div>
+            {showDetail && (() => {
+                const { name: cleanName, location: cleanLocation } = cleanCandidateNameAndLocation(showDetail.first_name, showDetail.last_name);
+                const initials = cleanName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                return (
+                    <div className="confirm-overlay" onClick={() => setShowDetail(null)}>
+                        <div className="confirm-modal candidate-detail-modal card-p animated-zoom" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1450px', width: '96%', textAlign: 'left', overflow: 'hidden' }}>
+                            <div className="modal-header-p candidate-header">
+                                <div className="header-info-p">
+                                    <div className="modal-avatar-wrapper">
+                                        <div className="modal-avatar-ring"></div>
+                                        <div className="modal-avatar-p">
+                                            {initials}
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Professional Profile */}
-                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
-                                        Professional Profile
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Overall Exp.</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.overall_experience}</p>
-                                        </div>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Relevant Exp.</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.relevant_experience}</p>
-                                        </div>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Qualification</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.qualification}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Submission Details */}
-                                <div style={{ background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '12px 14px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--ivory-dark)' }}>
-                                        Submission Details
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>{showDetail.is_suggestion ? 'Previously Applied to' : 'Company'}</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.is_suggestion ? showDetail.last_applied_vacancy : showDetail.company_name}</p>
-                                        </div>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Salary Expectation</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{showDetail.salary_expectation || 'Not specified'}</p>
-                                        </div>
-                                        <div>
-                                            <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Applied Date</span>
-                                            <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <FiCalendar size={13} style={{ color: 'var(--gold-accent)' }} />
-                                                {formatDateTime(showDetail.applied_at)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Rejection / Block notices */}
-                            {showDetail.status === 'rejected' && showDetail.rejection_reason && (
-                                <div className="rejection-reason-box" style={{ marginBottom: '12px' }}>
-                                    <span>Rejection Reason</span>
-                                    <p>{showDetail.rejection_reason}</p>
-                                </div>
-                            )}
-                            {Boolean(showDetail.is_blocked == 1 || showDetail.is_email_blocked) && (
-                                <div className="rejection-reason-box" style={{ border: '1px solid #fee2e2', background: '#fef2f2', color: '#991b1b', marginBottom: '12px' }}>
-                                    <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}><FiSlash size={14} /> BLOCK REASON (ADMIN ONLY)</span>
-                                    <p style={{ color: '#991b1b', fontWeight: 600 }}>{showDetail.block_reason || 'No reason specified'}</p>
-                                </div>
-                            )}
-
-                            {/* ── CANDIDATE SKILLS & AI EVALUATION (full width) ── */}
-                            <div style={{ marginBottom: '12px' }}>
-                                <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--ivory-dark)' }}>
-                                    Candidate Skills &amp; AI Recruiter Evaluation
-                                </div>
-                                {(() => {
-                                    const { skills, parsedReport } = getNormalizedSkills(showDetail.skills_metadata, showDetail.tags);
-                                    const tabCategories = ['Relevant Skills', 'Related Skills', 'Additional Skills'];
-                                    const activeSkills = skills.filter(item => item.category === activeAdminTab);
-                                    
-                                    return (
-                                        <div className="admin-recruiter-report">
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-                                                <div className="admin-ai-badge" style={{ margin: 0 }}>
-                                                    <FiCpu size={14} style={{ color: 'var(--gold-accent)' }} />
-                                                    <span>Steuart AI Recruiter Evaluation Report</span>
-                                                </div>
-                                            </div>
-
-                                            {parsedReport && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
-                                                <div className="recruiter-report-summary">
-                                                    {parsedReport.experience_summary && (
-                                                        <div className="report-summary-block">
-                                                            <h6>Experience Summary</h6>
-                                                            <p className="summary-text">{parsedReport.experience_summary}</p>
-                                                        </div>
-                                                    )}
-                                                    {Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0 && (
-                                                        <div className="report-insights-block">
-                                                            <h6>Recruiter Insights &amp; Observations</h6>
-                                                            <ul className="insights-list">
-                                                                {parsedReport.recruiter_insights.map((insight, idx) => (
-                                                                    <li key={idx}>{insight}</li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    <div className="candidate-name-container">
+                                        <h2>
+                                            {cleanName}
+                                            <span className={`status-badge-p badge-${showDetail.status || 'pending'}`}>
+                                                {(showDetail.status || 'pending').replace('_', ' ')}
+                                            </span>
+                                        </h2>
+                                        <div className="modal-subheaders">
+                                            <p className="modal-prospect-tag">{showDetail.is_suggestion ? 'Pool Candidate' : `${showDetail.vacancy_title} Prospect`}</p>
+                                            {cleanLocation && (
+                                                <p className="modal-location-tag">
+                                                    <FiMapPin size={12} style={{ color: 'var(--gold-accent)' }} />
+                                                    {cleanLocation}
+                                                </p>
                                             )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button className="o-btn delete" onClick={() => setShowDetail(null)}><FiX /></button>
+                            </div>
 
-                                            {parsedReport && (
-                                                (Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0) ||
-                                                (Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0) ||
-                                                (Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0)
-                                            ) && (
-                                                <div className="requirements-validation-panel">
-                                                    <h6>Mandatory Requirements Validation</h6>
-                                                    <div className="validation-grid">
-                                                        <div className="validation-col fully-supported">
-                                                            <span className="col-title green">Fully Demonstrated</span>
-                                                            <div className="badge-list">
-                                                                {Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0 ? (
-                                                                    parsedReport.fully_demonstrated_skills.map((skill, idx) => (
-                                                                        <span key={idx} className="val-badge green">{skill}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="no-badge">None identified</span>
-                                                                )}
+                            <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '82vh', padding: '24px 32px' }}>
+                                {showDetail.is_suggestion && (
+                                    <div style={{ background: '#ecfdf5', padding: '10px 16px', borderRadius: '10px', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.85rem', marginBottom: '14px' }}>
+                                        <p style={{ margin: 0 }}>This prospect matched your criteria from the Talent Pool. They previously applied for "{showDetail.last_applied_vacancy}" and consented to being contacted for future roles.</p>
+                                    </div>
+                                )}
+
+                                {/* ── TOP INFO ROW: Contact + Profile + Submission in one strip ── */}
+                                <div className="modal-info-grid">
+
+                                    {/* Contact */}
+                                    <div className="modal-info-card">
+                                        <div className="modal-info-card-header">
+                                            <FiUser size={13} /> Contact Protocols
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiMail size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Email</span>
+                                                    <p className="info-item-val">{showDetail.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiPhone size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Phone</span>
+                                                    <p className="info-item-val">{showDetail.contact_number}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Professional Profile */}
+                                    <div className="modal-info-card">
+                                        <div className="modal-info-card-header">
+                                            <FiBriefcase size={13} /> Professional Profile
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiAward size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Overall Exp.</span>
+                                                    <p className="info-item-val">{showDetail.overall_experience}</p>
+                                                </div>
+                                            </div>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiTarget size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Relevant Exp.</span>
+                                                    <p className="info-item-val">{showDetail.relevant_experience}</p>
+                                                </div>
+                                            </div>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiCheckCircle size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Qualification</span>
+                                                    <p className="info-item-val">{showDetail.qualification}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Submission Details */}
+                                    <div className="modal-info-card">
+                                        <div className="modal-info-card-header">
+                                            <FiHome size={13} /> Submission Details
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiHome size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">{showDetail.is_suggestion ? 'Previously Applied to' : 'Company'}</span>
+                                                    <p className="info-item-val">{showDetail.is_suggestion ? showDetail.last_applied_vacancy : showDetail.company_name}</p>
+                                                </div>
+                                            </div>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiTag size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Salary Expectation</span>
+                                                    <p className="info-item-val">{showDetail.salary_expectation || 'Not specified'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="info-item-row">
+                                                <div className="info-item-icon">
+                                                    <FiCalendar size={13} />
+                                                </div>
+                                                <div className="info-item-content">
+                                                    <span className="info-item-label">Applied Date</span>
+                                                    <p className="info-item-val">{formatDateTime(showDetail.applied_at)}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Rejection / Block notices */}
+                                {showDetail.status === 'rejected' && showDetail.rejection_reason && (
+                                    <div className="rejection-reason-box" style={{ marginBottom: '12px' }}>
+                                        <span>Rejection Reason</span>
+                                        <p>{showDetail.rejection_reason}</p>
+                                    </div>
+                                )}
+                                {Boolean(showDetail.is_blocked == 1 || showDetail.is_email_blocked) && (
+                                    <div className="rejection-reason-box" style={{ border: '1px solid #fee2e2', background: '#fef2f2', color: '#991b1b', marginBottom: '12px' }}>
+                                        <span style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}><FiSlash size={14} /> BLOCK REASON (ADMIN ONLY)</span>
+                                        <p style={{ color: '#991b1b', fontWeight: 600 }}>{showDetail.block_reason || 'No reason specified'}</p>
+                                    </div>
+                                )}
+
+                                {/* ── CANDIDATE SKILLS & AI EVALUATION (full width) ── */}
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div className="section-divider-p">
+                                        Candidate Skills &amp; AI Recruiter Evaluation
+                                    </div>
+                                    {(() => {
+                                        const { skills, parsedReport } = getNormalizedSkills(showDetail.skills_metadata, showDetail.tags);
+                                        const tabCategories = ['Relevant Skills', 'Related Skills', 'Additional Skills'];
+                                        const activeSkills = skills.filter(item => item.category === activeAdminTab);
+                                        
+                                        return (
+                                            <div className="admin-recruiter-report">
+                                                <div className="admin-ai-report-header">
+                                                    <div className="admin-ai-badge">
+                                                        <FiCpu size={14} style={{ color: 'var(--gold-accent)' }} />
+                                                        <span>Steuart AI Recruiter Evaluation Report</span>
+                                                    </div>
+                                                </div>
+
+                                                {parsedReport && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
+                                                    <div className="recruiter-report-summary">
+                                                        {parsedReport.experience_summary && (
+                                                            <div className="report-summary-block">
+                                                                <h6>Experience Summary</h6>
+                                                                <p className="summary-text">{parsedReport.experience_summary}</p>
                                                             </div>
-                                                        </div>
-                                                        <div className="validation-col partially-supported">
-                                                            <span className="col-title orange">Partially Demonstrated</span>
-                                                            <div className="badge-list">
-                                                                {Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0 ? (
-                                                                    parsedReport.partially_demonstrated_skills.map((skill, idx) => (
-                                                                        <span key={idx} className="val-badge orange">{skill}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="no-badge">None identified</span>
-                                                                )}
+                                                        )}
+                                                        {Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0 && (
+                                                            <div className="report-insights-block">
+                                                                <h6>Recruiter Insights &amp; Observations</h6>
+                                                                <ul className="insights-list">
+                                                                    {parsedReport.recruiter_insights.map((insight, idx) => (
+                                                                        <li key={idx}>{insight}</li>
+                                                                    ))}
+                                                                </ul>
                                                             </div>
-                                                        </div>
-                                                        <div className="validation-col missing-evidence">
-                                                            <span className="col-title red">No Evidence Found</span>
-                                                            <div className="badge-list">
-                                                                {Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0 ? (
-                                                                    parsedReport.requirements_without_evidence.map((skill, idx) => (
-                                                                        <span key={idx} className="val-badge red">{skill}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="no-badge">None identified</span>
-                                                                )}
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {parsedReport && (
+                                                    (Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0) ||
+                                                    (Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0) ||
+                                                    (Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0)
+                                                ) && (
+                                                    <div className="requirements-validation-panel">
+                                                        <h6>Mandatory Requirements Validation</h6>
+                                                        <div className="validation-grid">
+                                                            <div className="validation-col fully-supported">
+                                                                <span className="col-title green"><FiCheckCircle size={12} /> Fully Demonstrated</span>
+                                                                <div className="badge-list">
+                                                                    {Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0 ? (
+                                                                        parsedReport.fully_demonstrated_skills.map((skill, idx) => (
+                                                                            <span key={idx} className="val-badge green">{skill}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="no-badge">None identified</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="validation-col partially-supported">
+                                                                <span className="col-title orange"><FiAlertCircle size={12} /> Partially Demonstrated</span>
+                                                                <div className="badge-list">
+                                                                    {Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0 ? (
+                                                                        parsedReport.partially_demonstrated_skills.map((skill, idx) => (
+                                                                            <span key={idx} className="val-badge orange">{skill}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="no-badge">None identified</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="validation-col missing-evidence">
+                                                                <span className="col-title red"><FiXCircle size={12} /> No Evidence Found</span>
+                                                                <div className="badge-list">
+                                                                    {Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0 ? (
+                                                                        parsedReport.requirements_without_evidence.map((skill, idx) => (
+                                                                            <span key={idx} className="val-badge red">{skill}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="no-badge">None identified</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
-                                            <div className="skills-analysis-matrix-block">
-                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '14px', gap: '16px', flexWrap: 'wrap' }}>
-                                                    {tabCategories.map(tabName => {
-                                                        const count = skills.filter(item => item.category === tabName).length;
-                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
-                                                        
-                                                        return (
-                                                            <button
-                                                                key={tabName}
-                                                                type="button"
-                                                                className={`apb-tab-btn ${activeAdminTab === tabName ? 'active' : ''}`}
-                                                                onClick={() => setActiveAdminTab(tabName)}
-                                                                style={{
-                                                                    padding: '8px 14px',
-                                                                    background: 'none',
-                                                                    border: 'none',
-                                                                    borderBottom: activeAdminTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
-                                                                    color: activeAdminTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                    fontWeight: 700,
-                                                                    fontSize: '0.85rem',
-                                                                    cursor: 'pointer',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '6px',
-                                                                    transition: 'all 0.2s ease',
-                                                                    marginBottom: '-2px'
-                                                                }}
-                                                            >
-                                                                <span>{emoji} {tabName}</span>
-                                                                <span style={{
-                                                                    fontSize: '0.7rem',
-                                                                    background: activeAdminTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
-                                                                    color: activeAdminTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                    padding: '2px 8px',
-                                                                    borderRadius: '100px',
-                                                                    fontWeight: 800
-                                                                }}>
-                                                                    {count}
-                                                                </span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                {activeSkills.length > 0 ? (
-                                                    <div className="admin-skills-list-grid">
-                                                        {activeSkills.map((item, idx) => {
-                                                            const isMand = parsedReport && (
-                                                                parsedReport.fully_demonstrated_skills?.includes(item.skill) || 
-                                                                parsedReport.partially_demonstrated_skills?.includes(item.skill)
-                                                            );
+                                                <div className="skills-analysis-matrix-block">
+                                                    <div className="apb-skills-tabs">
+                                                        {tabCategories.map(tabName => {
+                                                            const count = skills.filter(item => item.category === tabName).length;
+                                                            const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+                                                            
                                                             return (
-                                                                <div key={idx} className={`admin-skill-card-detailed ${isMand ? 'admin-mandatory-match' : ''}`}>
-                                                                    <div className="admin-skill-card-top">
-                                                                        <span className="admin-skill-name-txt">
-                                                                            {item.skill}
-                                                                            {isMand && (
-                                                                                <span className="admin-mand-pill">Mandatory</span>
-                                                                            )}
-                                                                        </span>
-                                                                        <span className="level-badge" style={{ margin: 0, textTransform: 'capitalize' }}>
-                                                                            {item.experience_level}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="admin-skill-meta-row">
-                                                                        <span className="source-txt" style={{ fontStyle: 'normal', fontWeight: 600 }}>
-                                                                            via {item.evidence_source}
-                                                                        </span>
-                                                                    </div>
-                                                                    <p className="admin-skill-context-txt">{item.context}</p>
-                                                                </div>
+                                                                <button
+                                                                    key={tabName}
+                                                                    type="button"
+                                                                    className={`apb-tab-btn ${activeAdminTab === tabName ? 'active' : ''}`}
+                                                                    onClick={() => setActiveAdminTab(tabName)}
+                                                                >
+                                                                    <span>{emoji} {tabName}</span>
+                                                                    <span style={{
+                                                                        fontSize: '0.7rem',
+                                                                        background: activeAdminTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                        color: activeAdminTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '100px',
+                                                                        fontWeight: 800,
+                                                                        marginLeft: '6px'
+                                                                    }}>
+                                                                        {count}
+                                                                    </span>
+                                                                </button>
                                                             );
                                                         })}
                                                     </div>
-                                                ) : (
-                                                    <div style={{ padding: '20px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.88rem' }}>
-                                                        No skills identified under {activeAdminTab}.
+
+                                                    {activeSkills.length > 0 ? (
+                                                        <div className="admin-skills-list-grid">
+                                                            {activeSkills.map((item, idx) => {
+                                                                const isMand = parsedReport && (
+                                                                    parsedReport.fully_demonstrated_skills?.includes(item.skill) || 
+                                                                    parsedReport.partially_demonstrated_skills?.includes(item.skill)
+                                                                );
+                                                                const isVerified = item.verified !== false;
+                                                                return (
+                                                                    <div key={idx} className={`admin-skill-card-detailed ${isMand ? 'admin-mandatory-match' : ''}`}>
+                                                                        <div className="admin-skill-card-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
+                                                                                <span className="admin-skill-name-txt" style={{ fontWeight: 800 }}>
+                                                                                    {item.skill}
+                                                                                </span>
+                                                                                {isMand && (
+                                                                                    <span className="admin-mand-pill">Mandatory</span>
+                                                                                )}
+                                                                                <span className={`skill-match-status-badge ${isVerified ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                    {isVerified ? (item.category === 'Additional Skills' ? '✓ In CV' : '✓ Verified') : '✗ Not found'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span className="level-badge" style={{ margin: 0, textTransform: 'capitalize' }}>
+                                                                                {item.experience_level}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="admin-skill-meta-row">
+                                                                            <span className="source-txt" style={{ fontStyle: 'normal', fontWeight: 600 }}>
+                                                                                via {item.evidence_source}
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="admin-skill-context-txt">{item.context}</p>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ padding: '20px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.88rem' }}>
+                                                            No skills identified under {activeAdminTab}.
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {parsedReport && (
+                                                    (Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0) ||
+                                                    (Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0)
+                                                ) && (
+                                                    <div className="credentials-validation-panel" style={{ marginTop: '16px' }}>
+                                                        <h6>Credentials &amp; Additional Information</h6>
+                                                        <div className="validation-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                                            <div className="validation-col">
+                                                                <span className="col-title" style={{ color: '#4f46e5' }}><FiAward size={12} /> Qualifications Found</span>
+                                                                <div className="badge-list">
+                                                                    {Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0 ? (
+                                                                        parsedReport.qualifications_found.map((qual, idx) => (
+                                                                            <span key={idx} className="val-badge blue" style={{ background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>{qual}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="no-badge">None identified</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="validation-col">
+                                                                <span className="col-title" style={{ color: '#0891b2' }}><FiCheckCircle size={12} /> Certifications Found</span>
+                                                                <div className="badge-list">
+                                                                    {Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0 ? (
+                                                                        parsedReport.certifications_found.map((cert, idx) => (
+                                                                            <span key={idx} className="val-badge cyan" style={{ background: '#ecfeff', color: '#0e7490', border: '1px solid #c5f2f7' }}>{cert}</span>
+                                                                        ))
+                                                                    ) : (
+                                                                        <span className="no-badge">None identified</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
+                                        );
+                                    })()}
+                                </div>
 
-                                            {parsedReport && (
-                                                (Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0) ||
-                                                (Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0)
-                                            ) && (
-                                                <div className="credentials-validation-panel" style={{ marginTop: '0px' }}>
-                                                    <h6>Credentials &amp; Additional Information</h6>
-                                                    <div className="validation-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                                                        <div className="validation-col">
-                                                            <span className="col-title" style={{ color: '#4f46e5' }}>Qualifications Found</span>
-                                                            <div className="badge-list">
-                                                                {Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0 ? (
-                                                                    parsedReport.qualifications_found.map((qual, idx) => (
-                                                                        <span key={idx} className="val-badge blue" style={{ background: '#e0e7ff', color: '#4338ca', border: '1px solid #c7d2fe' }}>{qual}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="no-badge">None identified</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="validation-col">
-                                                            <span className="col-title" style={{ color: '#0891b2' }}>Certifications Found</span>
-                                                            <div className="badge-list">
-                                                                {Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0 ? (
-                                                                    parsedReport.certifications_found.map((cert, idx) => (
-                                                                        <span key={idx} className="val-badge cyan" style={{ background: '#ecfeff', color: '#0e7490', border: '1px solid #c5f2f7' }}>{cert}</span>
-                                                                    ))
-                                                                ) : (
-                                                                    <span className="no-badge">None identified</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
+                                {/* Interview Schedule (if shortlisted with date) */}
+                                {showDetail.status === 'shortlisted' && showDetail.interview_date && (
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <div className="section-divider-p">
+                                            Confirmed Interview Schedule
                                         </div>
-                                    );
-                                })()}
-                            </div>
-
-                            {/* Interview Schedule (if shortlisted with date) */}
-                            {showDetail.status === 'shortlisted' && showDetail.interview_date && (
-                                <div style={{ marginBottom: '12px' }}>
-                                    <div style={{ fontSize: '0.65rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--ivory-dark)' }}>
-                                        Confirmed Interview Schedule
+                                        <div className="submission-box-p interview-widget-card">
+                                            <div className="sm-item">
+                                                <span>Medium / Type</span>
+                                                <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                                    <FiVideo style={{ color: 'var(--gold-accent)' }} /> {showDetail.interview_type}
+                                                </p>
+                                            </div>
+                                            <div className="sm-item">
+                                                <span>Date &amp; Duration</span>
+                                                <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
+                                                    <FiCalendar style={{ color: 'var(--gold-accent)' }} /> {formatDate(showDetail.interview_date)} at {showDetail.interview_time}
+                                                </p>
+                                            </div>
+                                            <div className="sm-item">
+                                                <span>Location / Resource</span>
+                                                <p style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-primary)' }}>
+                                                    <FiMapPin style={{ color: 'var(--gold-accent)', marginTop: '4px' }} /> {showDetail.interview_location}
+                                                </p>
+                                            </div>
+                                            <div className="sm-item">
+                                                <span>Attendance Status</span>
+                                                <p style={{ marginTop: '4px' }}>
+                                                    {showDetail.interview_confirmed === 'yes' ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#16a34a', background: '#ecfdf5', border: '1px solid #b7f4cf', borderRadius: '100px', padding: '2px 10px' }}>
+                                                            ✅ Confirmed
+                                                        </span>
+                                                    ) : showDetail.interview_confirmed === 'no' ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '100px', padding: '2px 10px' }}>
+                                                            ❌ Declined
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '100px', padding: '2px 10px' }}>
+                                                            📩 Invited (Awaiting RSVP)
+                                                        </span>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="submission-box-p" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', gridTemplateColumns: '1fr 1.2fr 1.2fr 1.2fr', alignItems: 'start' }}>
-                                        <div className="sm-item">
-                                            <span>Medium / Type</span>
-                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                                <FiVideo style={{ color: 'var(--gold-accent)' }} /> {showDetail.interview_type}
-                                            </p>
+                                )}
+
+                                <div className="cv-preview-section-p">
+                                    <div className="cv-banner-p">
+                                        <div className="cb-icon"><FiFileText /></div>
+                                        <div className="cb-text">
+                                            <span>Curriculum Vitae</span>
+                                            <p style={{ margin: 0 }}>{showDetail.first_name}_CV_{showDetail.is_suggestion ? 'Pool' : (showDetail.vacancy_title || 'Document').replace(/\s+/g, '_')}.{(showDetail.cv_path || '').split('.').pop() || 'pdf'}</p>
                                         </div>
-                                        <div className="sm-item">
-                                            <span>Date &amp; Duration</span>
-                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                                                <FiCalendar style={{ color: 'var(--gold-accent)' }} /> {formatDate(showDetail.interview_date)} at {showDetail.interview_time}
-                                            </p>
-                                        </div>
-                                        <div className="sm-item">
-                                            <span>Location / Resource</span>
-                                            <p style={{ fontSize: '0.85rem', wordBreak: 'break-all', display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-primary)' }}>
-                                                <FiMapPin style={{ color: 'var(--gold-accent)', marginTop: '4px' }} /> {showDetail.interview_location}
-                                            </p>
-                                        </div>
-                                        <div className="sm-item">
-                                            <span>Attendance Status</span>
-                                            <p style={{ marginTop: '4px' }}>
-                                                {showDetail.interview_confirmed === 'yes' ? (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#16a34a', background: '#ecfdf5', border: '1px solid #b7f4cf', borderRadius: '100px', padding: '2px 10px' }}>
-                                                        ✅ Confirmed
-                                                    </span>
-                                                ) : showDetail.interview_confirmed === 'no' ? (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '100px', padding: '2px 10px' }}>
-                                                        ❌ Declined
-                                                    </span>
-                                                ) : (
-                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '700', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '100px', padding: '2px 10px' }}>
-                                                        📩 Invited (Awaiting RSVP)
-                                                    </span>
-                                                )}
-                                            </p>
-                                        </div>
+                                        <button
+                                            className="btn btn-gold"
+                                            onClick={() => setViewingCV(showDetail)}
+                                        >
+                                            <FiExternalLink /> View Document
+                                        </button>
                                     </div>
                                 </div>
-                            )}
+                            </div>
 
-
-                            <div className="cv-preview-section-p">
-                                <div className="cv-banner-p">
-                                    <div className="cb-icon"><FiFileText /></div>
-                                    <div className="cb-text">
-                                        <span>Curriculum Vitae</span>
-                                        <p>{showDetail.first_name}_CV_{showDetail.is_suggestion ? 'Pool' : (showDetail.vacancy_title || 'Document').replace(/\s+/g, '_')}.{(showDetail.cv_path || '').split('.').pop() || 'pdf'}</p>
-                                    </div>
-                                    <button
-                                        className="btn btn-gold"
-                                        onClick={() => setViewingCV(showDetail)}
-                                    >
-                                        <FiExternalLink /> View Document
+                            {/* Fixed Actions Footer */}
+                            <div className="modal-actions-footer-p">
+                                {['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? (
+                                    <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
+                                        Close
                                     </button>
-                                </div>
+                                ) : showDetail.status === 'rejected' ? (
+                                    <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
+                                        Close
+                                    </button>
+                                ) : showDetail.status === 'shortlisted' ? (
+                                    <>
+                                        <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>Close</button>
+                                        {!showDetail.interview_date && (
+                                            <button
+                                                className="btn-status-action btn-status-shortlist"
+                                                onClick={() => { setInviteTarget(showDetail); setShowDetail(null); setShowSendInviteModal(true); }}
+                                            >
+                                                📩 Send Interview Invite
+                                            </button>
+                                        )}
+                                        {showDetail.interview_date && (
+                                            <button
+                                                className="btn-status-action btn-status-shortlist"
+                                                onClick={() => { setInviteTarget(showDetail); setShowDetail(null); setShowSendInviteModal(true); }}
+                                            >
+                                                🔁 Re-send Invite
+                                            </button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>Cancel</button>
+                                        <button className="btn-status-action btn-status-pending" onClick={() => handleStatusUpdate(showDetail.id, 'pending')} disabled={processingStatus || showDetail.status === 'pending'}>Mark Pending</button>
+                                        <button className="btn-status-action btn-status-review" onClick={() => handleStatusUpdate(showDetail.id, 'under_review')} disabled={processingStatus || showDetail.status === 'under_review'}>Under Review</button>
+                                        <button className="btn-status-action btn-status-reject" onClick={() => setShowRejectModal(true)} disabled={processingStatus}>Reject Candidacy</button>
+                                        <button className="btn-status-action btn-status-shortlist" onClick={() => setShowConfirmShortlist(true)} disabled={processingStatus}>✓ Shortlist</button>
+                                    </>
+                                )}
                             </div>
-                        </div>
-
-                        {/* Fixed Actions Footer */}
-                        <div className="modal-actions-footer-p" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            {['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? (
-                                <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
-                                    Close
-                                </button>
-                            ) : showDetail.status === 'rejected' ? (
-                                <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>
-                                    Close
-                                </button>
-                            ) : showDetail.status === 'shortlisted' ? (
-                                <>
-                                    <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>Close</button>
-                                    {!showDetail.interview_date && (
-                                        <button
-                                            className="btn-status-action btn-status-shortlist"
-                                            onClick={() => { setInviteTarget(showDetail); setShowDetail(null); setShowSendInviteModal(true); }}
-                                        >
-                                            📩 Send Interview Invite
-                                        </button>
-                                    )}
-                                    {showDetail.interview_date && (
-                                        <button
-                                            className="btn-status-action btn-status-shortlist"
-                                            onClick={() => { setInviteTarget(showDetail); setShowDetail(null); setShowSendInviteModal(true); }}
-                                        >
-                                            🔁 Re-send Invite
-                                        </button>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 24px', fontWeight: 600 }} onClick={() => setShowDetail(null)}>Cancel</button>
-                                    <button className="btn-status-action btn-status-pending" onClick={() => handleStatusUpdate(showDetail.id, 'pending')} disabled={processingStatus || showDetail.status === 'pending'}>Mark Pending</button>
-                                    <button className="btn-status-action btn-status-review" onClick={() => handleStatusUpdate(showDetail.id, 'under_review')} disabled={processingStatus || showDetail.status === 'under_review'}>Under Review</button>
-                                    <button className="btn-status-action btn-status-reject" onClick={() => setShowRejectModal(true)} disabled={processingStatus}>Reject Candidacy</button>
-                                    <button className="btn-status-action btn-status-shortlist" onClick={() => setShowConfirmShortlist(true)} disabled={processingStatus}>✓ Shortlist</button>
-                                </>
-                            )}
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* Reject Reason Modal */}
             {showRejectModal && (

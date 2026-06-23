@@ -123,10 +123,12 @@ function AdminLayout({ admin, children }) {
                         </div>
                         <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
                             <div className="sidebar-title" style={{ whiteSpace: 'normal', lineHeight: '1.3' }}>{admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
-                            <div className="sidebar-role">
-                                <span className="role-dot"></span>
-                                {getRoleDisplayName(admin.role)}
-                            </div>
+                            {admin.role !== 'sub_admin1' && admin.role !== 'sub_admin2' && admin.role !== 'sub_admin' && (
+                                <div className="sidebar-role">
+                                    <span className="role-dot"></span>
+                                    {getRoleDisplayName(admin.role)}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <button 

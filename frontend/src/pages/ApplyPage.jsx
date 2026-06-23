@@ -23,18 +23,18 @@ const isRobustMatch = (skill, requirement) => {
     if (!skill || !requirement) return false;
     const s = skill.toLowerCase().trim();
     const r = requirement.toLowerCase().trim();
-    
+
     if (s === r) return true;
-    
+
     // Boundary check for word matching (avoids false matches like "Java" matching "JavaScript")
     const escapedS = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regexS = new RegExp(`\\b${escapedS}\\b`, 'i');
     if (regexS.test(r)) return true;
-    
+
     const escapedR = r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regexR = new RegExp(`\\b${escapedR}\\b`, 'i');
     if (regexR.test(s)) return true;
-    
+
     // Synonym mapping
     const synonyms = [
         ["gcp", "google cloud", "google cloud platform"],
@@ -56,7 +56,7 @@ const isRobustMatch = (skill, requirement) => {
             if (matched) return true;
         }
     }
-    
+
     return false;
 };
 
@@ -64,9 +64,9 @@ const checkSkillInCvText = (skillName, cvText) => {
     if (!skillName || !cvText) return false;
     const s = skillName.toLowerCase().trim();
     const cv = cvText.toLowerCase();
-    
+
     if (!s) return false;
-    
+
     // Synonym mapping to check if any synonyms match in the CV text
     const synonyms = [
         ["gcp", "google cloud", "google cloud platform"],
@@ -75,14 +75,18 @@ const checkSkillInCvText = (skillName, cvText) => {
         ["ci/cd", "cicd", "continuous integration", "continuous deployment"],
         ["js", "javascript"],
         ["ts", "typescript"],
-        ["kubernetes", "k8s"]
+        ["kubernetes", "k8s"],
+        ["hris", "human resources information system", "hr software", "hr system"],
+        ["payroll", "salary processing"],
+        ["epf", "etf", "epf/etf"]
     ];
 
     // Find if the current skill is part of a synonym group
     const matchGroup = synonyms.find(group => group.some(term => s === term || term.includes(s) || s.includes(term)));
     const searchTerms = matchGroup ? matchGroup : [s];
 
-    return searchTerms.some(term => {
+    // 1. Direct search with word boundary (with synonyms)
+    const isDirectMatch = searchTerms.some(term => {
         const hasSpecial = /[^a-zA-Z0-9\s]/.test(term);
         if (hasSpecial) {
             const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -95,6 +99,93 @@ const checkSkillInCvText = (skillName, cvText) => {
             return regex.test(cv);
         }
     });
+
+    if (isDirectMatch) return true;
+
+    // 2. Soft matching for multi-word skills (e.g. "HRIS Data Management" matches if "hris" is in CV)
+    // Ignore common filler words to check if key phrases are found
+    const fillerWords = ['and', 'the', 'for', 'with', 'job', 'vacancy', 'management', 'administration', 'skills', 'system', 'processing', 'claims', 'relations', 'development', 'operations', 'documentation', 'engagement'];
+    const words = s.split(/[\s/\-_,]+/).filter(w => w.length > 2 && !fillerWords.includes(w));
+
+    if (words.length > 0) {
+        // If all significant words are found in the CV, we consider it a match
+        return words.every(word => {
+            const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+            return regex.test(cv);
+        });
+    }
+
+    return false;
+};
+
+const categorizeSkill = (skillName, rawCvText, requiredSkillsList, vacancy) => {
+    // First, verify if the skill is actually in the CV
+    const inCv = checkSkillInCvText(skillName, rawCvText);
+    if (!inCv) return null; // Discard if not in CV!
+
+    const s = skillName.toLowerCase().trim();
+
+    // Check if in required skills list
+    const isRequired = requiredSkillsList.some(rs => isRobustMatch(skillName, rs));
+
+    const jdText = (
+        (vacancy?.title || '') + ' ' +
+        (vacancy?.description || '') + ' ' +
+        (vacancy?.requirements || '') + ' ' +
+        (vacancy?.required_skills || '')
+    ).toLowerCase();
+
+    // Check if the skill name is explicitly mentioned in the Job Description text
+    const hasJdMention = jdText.includes(s) || checkSkillInCvText(skillName, jdText);
+
+    if (isRequired || hasJdMention) {
+        return 'Relevant Skills';
+    }
+
+    // Comprehensive Domain Keywords
+    const DOMAIN_KEYWORDS = {
+        accounting: ['accountant', 'audit', 'tax', 'ledger', 'invoice', 'payroll', 'finance', 'reconciliation', 'budget', 'tally', 'quickbooks', 'erp', 'casl', 'aat', 'cma', 'acca', 'cfo', 'treasury', 'billing'],
+        it_software: ['software', 'developer', 'engineer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'cloud', 'frontend', 'backend', 'fullstack', 'api', 'git', 'mobile', 'ios', 'android', 'laravel', 'c#', 'dot net', 'ui', 'ux', 'database', 'linux', 'devops', 'cybersecurity', 'networks', 'it', 'docker', 'kubernetes', 'llm', 'llms', 'ai', 'openai', 'claude', 'gemini', 'agents', 'agent'],
+        sales_marketing: ['sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo', 'social media', 'leads', 'conversions', 'customer', 'retail', 'wholesale', 'negotiation', 'promotion', 'crm', 'market research', 'revenue', 'growth', 'client', 'representative', 'merchandiser', 'brand manager', 'distribution'],
+        hr_admin: ['hr', 'human resources', 'recruitment', 'hiring', 'training', 'development', 'administrative', 'office', 'receptionist', 'clerk', 'ops', 'operations', 'clerical', 'data entry', 'policy', 'employee relations', 'attendance', 'secretarial', 'compliance'],
+        engineering: ['mechanical', 'electrical', 'civil', 'production', 'quality', 'qa', 'qc', 'process', 'maintenance', 'structural', 'autocad', 'blueprints', 'manufacturing', 'technician', 'workshop', 'factory', 'project management'],
+        healthcare: ['medical', 'pharma', 'healthcare', 'nurse', 'doctor', 'clinic', 'hospital', 'rehab', 'medicine', 'laboratory', 'pharmaceutical', 'biotech', 'clinical'],
+        hospitality: ['travel', 'tourism', 'hotel', 'resort', 'front office', 'steward', 'chef', 'guest', 'reservation', 'ticketing', 'guides', 'airline'],
+        logistics: ['logistics', 'supply chain', 'warehouse', 'shipping', 'export', 'import', 'procurement', 'inventory', 'transport', 'delivery', 'fleet', 'stores', 'purchasing']
+    };
+
+    // Find the domain of the current job post
+    let jobDomain = '';
+    let maxMatches = 0;
+    for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
+        const matches = keywords.filter(k => jdText.includes(k)).length;
+        if (matches > maxMatches) {
+            maxMatches = matches;
+            jobDomain = domain;
+        }
+    }
+
+    // Check if the skill matches the job's domain
+    if (jobDomain && DOMAIN_KEYWORDS[jobDomain]) {
+        const isRelated = DOMAIN_KEYWORDS[jobDomain].some(keyword => {
+            const hasSpecial = /[^a-zA-Z0-9\s]/.test(keyword);
+            if (hasSpecial) {
+                const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'i');
+                return regex.test(s);
+            } else {
+                const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+                return regex.test(s) || s.includes(keyword);
+            }
+        });
+        if (isRelated) {
+            return 'Related Skills';
+        }
+    }
+
+    return 'Additional Skills';
 };
 
 const normalizeSkills = (skills) => {
@@ -105,12 +196,12 @@ const normalizeSkills = (skills) => {
             if (!item || !item.skill) return null;
             const cleanSkill = item.skill.trim();
             if (!cleanSkill) return null;
-            
+
             let cleanCategory = item.category;
             if (cleanCategory !== 'Relevant Skills' && cleanCategory !== 'Related Skills') {
                 cleanCategory = 'Additional Skills';
             }
-            
+
             return {
                 ...item,
                 skill: cleanSkill,
@@ -253,88 +344,589 @@ Mandatory Skills: ${vacancy?.required_skills || 'No mandatory skills specified'}
 
 ⚙️ PROCESS
 
-Step 1: Extract all CV skills
-Extract all skills from the CV including:
-- Technical skills (programming languages, frameworks, tools)
-- Soft skills
-- Academic or learning skills
-Also identify where each skill is mentioned (projects, experience, education).
+You are an expert CV-to-Job Description skill analysis engine.
 
-Step 2: Analyze Job Description
-Extract and analyze:
-- Mandatory (Must-have) skills
-- Required skills
-- Nice-to-have skills
-- Tools, frameworks, and domain knowledge
+Your task is to analyze the Candidate CV against the Job Description / Job Requirements and classify skills accurately using strict CV evidence, job relevance, and professional-domain alignment.
 
-Step 3: Create Job Skill Matrix
+You must never hallucinate, assume, exaggerate, or invent skills, experience, certifications, tools, or achievements.
+
+==================================================
+PHASE 1 - EXTRACT CV SKILLS
+===========================
+
+Extract skills that are explicitly found in the CV from any of the following sections:
+
+* Skills section
+* Professional experience
+* Internship experience
+* Projects
+* Freelance work
+* Academic work
+* Education
+* Certifications
+* Training
+* Profile / Summary
+* Achievements
+
+Extract skill types including:
+
+* Technical skills
+* Tools and platforms
+* Frameworks and libraries
+* Programming languages
+* Domain-specific skills
+* Administrative / operational skills
+* Soft skills
+* Academic or learning-based skills
+
+For each extracted CV skill, identify:
+
+* skill_name
+* where it appears in the CV
+* evidence_source
+* usage_context
+* evidence strength
+
+Do NOT extract random extra skills.
+
+Do NOT invent missing skills.
+
+Do NOT treat certification names, course names, or training titles as skills.
+
+Example:
+
+* "Python for Beginners" = certification/course name, not a skill.
+* "Python" = skill only if the CV supports it.
+* "Web Design for Beginners" = certification/course name, not a skill.
+* "Web Design" = skill only if the CV supports it.
+
+Certifications, courses, training programs, and credentials must be extracted separately under \`certifications_found\`.
+
+==================================================
+PHASE 2 - ANALYZE JOB DESCRIPTION
+=================================
+
+Analyze the Job Description / Job Requirements and extract:
+
+* Mandatory / must-have skills
+* Required skills
+* Nice-to-have skills
+* Tools, platforms, frameworks, or systems
+* Domain knowledge
+* Responsibilities
+* Professional domain of the job role
+
+Do not assume requirements that are not stated or clearly implied by the job description.
+
+If the job description is vague, infer only broad job-domain expectations that are professionally reasonable, and mark them as inferred from job context.
+
+==================================================
+PHASE 3 - CREATE JOB SKILL MATRIX
+=================================
+
 Create a structured Job Skill Matrix from the job description.
-Group skills into:
-- Core Required Skills
-- Supporting Skills
-- Optional Skills
 
-Step 4: Skill Classification (STRICT PROFESSIONAL DOMAIN RULES)
-For EACH extracted CV skill, compare it with the Job Skill Matrix and classify strictly by professional domain alignment:
+Group job-related skills into:
 
-🟢 RELEVANT SKILLS
-- MUST be directly mentioned in or directly relevant to the Job Description / Job Requirements (e.g., Payroll Administration, HRIS, Talent Development, Employee Records Management, Performance Management, HR Operations, MS Excel, EPF/ETF Claims, HR Correspondence).
-- AND must have clear usage evidence in the CV.
-→ Classify as "Relevant Skills" and output under skills_analysis with category "Relevant Skills".
+1. Core Required Skills
 
-🟡 RELATED SKILLS
-- Must belong to the SAME professional domain (e.g., Human Resources, Payroll, Office Administration, HR compliance, labor relations, employee onboarding, meeting scheduling, documentation).
-- BUT is not explicitly listed in the Job Description (e.g., Labor Law Knowledge, Employee Relations, Document Drafting, Conflict Management, Time Management).
-- Do NOT classify any skills from a completely different professional domain (such as software development, programming languages, web frameworks, IT network engineering) under this category.
-→ Classify as "Related Skills" and output under skills_analysis with category "Related Skills".
+* Skills directly required to perform the main job duties.
+* Usually mandatory or strongly emphasized in the job description.
 
-🔵 ADDITIONAL SKILLS
-- MUST include any skill that belongs to a completely DIFFERENT professional domain (e.g., Software Engineering, Web Development, Programming Languages like Python/JavaScript, Frameworks like Laravel/Flask/React, Network Administration, Cyber Security, Cloud Infrastructure).
-- OR is completely unrelated to the job role.
-- OR is only mentioned in the CV with no usage evidence.
-→ Classify as "Additional Skills" and output in the additional_skills array matching the structured object format.
+2. Supporting Skills
 
-UPDATED CRITICAL RULES (FINAL VERSION)
-- Do NOT extract random extra skills
-- 👉 Only include skills found in CV OR required by job context, FINAL RULES
-- Never hallucinate data
-- Never assume missing skills
-- Always stay CV-grounded
-- Always stay job-relevant
-- Always prioritize accuracy over completeness
-- Never mix skill categories incorrectly
-- NEVER mix Additional/Unrelated Skills with Relevant or Related Skills
-- Under no circumstances should software engineering, IT networks, or technical coding skills (e.g. Python, Laravel, Flask, JavaScript, Linux, AWS, Network Routing, VAPT, Cyber Security) be classified as "Relevant Skills" or "Related Skills" for a non-technical HR/Payroll/Admin role. They must go to "Additional Skills".
-- ALWAYS treat CV-mentioned skills as valid input signals (skills listed in any section: skills, projects, experience, education)
-- DO NOT assume deep expertise unless CV clearly indicates level of usage
-- ALWAYS follow job relevance strictly when categorizing skills
-- NEVER exaggerate candidate experience beyond what is described in CV
-- ALWAYS base classification on job relevance + CV presence + context clarity, not assumptions
-- **usage_context rule**: The 'usage_context' field for each skill MUST be a concise, single-sentence summary (max 20 words) detailing exactly where or how the skill was utilized (e.g. 'Built the frontend of a job portal with React'). NEVER concatenate multiple project descriptions or copy/paste large paragraphs.
-- **certifications exclusion**: Do NOT extract names of certifications, online courses, training courses, or credentials (such as 'Python for Beginners', 'Web Design for Beginners', 'Introduction to Android Studio', etc.) as skills. These MUST be extracted strictly under the 'certifications_found' array. Only extract the underlying skill (e.g., 'Python', 'Web Design', 'Android Studio') if it matches the job relevance criteria.
-- **evidence_source rule**: Classify the 'evidence_source' field strictly based on these guidelines:
-  * 'Professional Experience': Only if the skill is used within permanent full-time/part-time job history.
-  * 'Internship': Only if used in designated student or graduate internships.
-  * 'Project': Only if used in specific individual, personal, or freelance projects.
-  * 'Freelance Work': Only if used in contract or freelance gigs.
-  * 'Academic Work': Only if used during university/school courses or academic degree projects.
-  * 'Certification': Only if verified by professional certification credentials.
-  * 'Training': Only if used during short training programs, workshops, or bootcamps.
-  * 'Skills Section Only': Only if the skill is strictly mentioned in a flat listing of skills without any context, projects, or work history explanation.
+* Skills that support the role but may not be the primary requirement.
+* These may include communication, documentation, reporting, coordination, or domain-adjacent skills.
+
+3. Optional Skills
+
+* Nice-to-have skills, bonus skills, preferred tools, or additional advantages.
+
+Important:
+The Job Skill Matrix should be based on the Job Description / Job Requirements, not on the candidate’s CV.
 
 ==================================================
-PHASE 4 - REQUIREMENT VALIDATION
+PHASE 4 - SKILL CLASSIFICATION
+==============================
+
+For EACH extracted CV skill, compare it against:
+
+* Job Description / Job Requirements
+* Job Skill Matrix
+* Professional domain of the target job role
+* CV evidence and usage context
+
+Classify every CV skill into exactly ONE category only:
+
+1. Relevant Skills
+2. Related Skills
+3. Additional Skills
+
+Never place the same skill in more than one category.
+
+---
+
+## 🟢 RELEVANT SKILLS
+
+Classify a CV skill as "Relevant Skills" only if ALL conditions are satisfied:
+
+1. The skill is directly mentioned in the Job Description / Job Requirements, OR clearly required by the Job Skill Matrix.
+2. The skill is directly useful for performing the target job responsibilities.
+3. The skill belongs to the same professional domain as the target job role.
+4. The CV provides clear usage evidence, learning evidence, work evidence, project evidence, or certification/training evidence.
+
+Examples for an HR / Payroll / Admin role:
+
+* Payroll Administration
+* HR Operations
+* HRIS
+* Employee Records Management
+* Attendance Management
+* Recruitment Support
+* Performance Management
+* Talent Development
+* EPF / ETF Claims
+* MS Excel
+* HR Correspondence
+* Office Administration
+* Documentation
+* Employee Onboarding
+
+Output Relevant Skills under \`skills_analysis\` with category \`"Relevant Skills"\`.
+
+---
+
+## 🟡 RELATED SKILLS
+
+Classify a CV skill as "Related Skills" only if ALL conditions are satisfied:
+
+1. The skill is NOT explicitly listed in the Job Description / Job Requirements.
+2. The skill is NOT a direct/core requirement in the Job Skill Matrix.
+3. The skill belongs to the SAME professional / industry domain as the target job role.
+4. The skill can reasonably support performance in the target job.
+5. The CV provides evidence or context for the skill.
+
+Examples for an HR / Payroll / Admin role:
+
+* Labor Law Knowledge
+* Employee Relations
+* Conflict Management
+* Document Drafting
+* Meeting Scheduling
+* Time Management
+* Internal Communication
+* HR Compliance
+* Staff Coordination
+* Employee Grievance Handling
+* Administrative Coordination
+
+Important:
+Related Skills must be from the same professional domain as the target job role.
+
+Do NOT classify unrelated technical, software, programming, engineering, medical, finance, networking, cybersecurity, or other-domain skills as Related Skills unless the target job role itself belongs to that domain.
+
+Output Related Skills under \`skills_analysis\` with category \`"Related Skills"\`.
+
+---
+
+## 🔵 ADDITIONAL SKILLS
+
+Classify a CV skill as "Additional Skills" if ANY condition is true:
+
+1. The skill belongs to a completely different professional domain from the target job role.
+2. The skill is unrelated to the Job Description / Job Requirements.
+3. The skill is not useful for the target job responsibilities.
+4. The skill is only mentioned in the CV without clear usage evidence.
+5. The skill is a technical/software/IT skill for a non-technical role.
+6. The skill may be valuable generally, but does not support the target role directly or professionally.
+
+For a non-technical HR / Payroll / Admin role, the following must always be Additional Skills:
+
+* Python
+* JavaScript
+* React
+* Laravel
+* Flask
+* PHP
+* HTML
+* CSS
+* Node.js
+* Java
+* C#
+* MySQL
+* MongoDB
+* Linux
+* AWS
+* Azure
+* Cloud Infrastructure
+* Network Routing
+* VAPT
+* Cyber Security
+* Software Engineering
+* Web Development
+* Mobile App Development
+
+Output Additional Skills in the \`additional_skills\` array using the required structured object format.
+
+==================================================
+STRICT PROFESSIONAL DOMAIN RULE
+===============================
+
+The professional domain of the target job must control skill classification.
+
+Examples:
+
+For an HR / Payroll / Admin role:
+
+* HR, payroll, recruitment, employee records, attendance, labor law, office administration, documentation = Relevant or Related
+* Programming, web development, networking, cybersecurity, cloud infrastructure = Additional
+
+For a Software Developer role:
+
+* Programming, frameworks, databases, APIs, Git, cloud, software architecture = Relevant or Related
+* Payroll, HR operations, employee relations, nursing, bookkeeping = Additional
+
+For an Accounting role:
+
+* Bookkeeping, tax, auditing, payroll finance, Excel, financial reporting = Relevant or Related
+* React, Laravel, cybersecurity, nursing, graphic design = Additional
+
+For a Nursing role:
+
+* Patient care, clinical procedures, medication administration, ward management = Relevant or Related
+* Laravel, React, payroll, digital marketing, network routing = Additional
+
+Under no circumstances should skills from a completely different professional domain than the target job be classified as Relevant Skills or Related Skills.
+
+They must go to Additional Skills.
+
+==================================================
+DECISION PRIORITY
+=================
+
+Use this decision order for every CV skill:
+
+Step 1:
+Check whether the skill is directly mentioned in the Job Description / Job Requirements or clearly required by the Job Skill Matrix.
+
+* If yes, and CV evidence exists, classify as Relevant Skills.
+
+Step 2:
+If not directly listed, check whether the skill belongs to the same professional domain as the target job role.
+
+* If yes, and it supports the role, classify as Related Skills.
+
+Step 3:
+If the skill belongs to a different professional domain, is unrelated, or has weak/no evidence:
+
+* Classify as Additional Skills.
+
+Conservative fallback rules:
+
+* If uncertain between Relevant Skills and Related Skills, choose Related Skills.
+* If uncertain between Related Skills and Additional Skills, choose Additional Skills.
+* If the skill is impressive but unrelated to the role, choose Additional Skills.
+* If the skill is only listed without context and not required by the JD, choose Additional Skills.
+* If the skill is directly required by the JD but only listed in the CV skills section, it may be Relevant Skills with low/medium confidence, but do not exaggerate proficiency.
+
+==================================================
+CRITICAL RULES
+==============
+
+* Do NOT extract random extra skills.
+* Only include skills found in the CV when classifying candidate skills.
+* Job-required skills that are not found in the CV may appear only in requirement validation, not as candidate skills.
+* Never hallucinate data.
+* Never assume missing skills.
+* Always stay CV-grounded.
+* Always stay job-relevant.
+* Always prioritize accuracy over completeness.
+* Never mix skill categories incorrectly.
+* Never mix Additional / Unrelated Skills with Relevant Skills or Related Skills.
+* Always treat CV-mentioned skills as valid input signals.
+* Consider skills from skills, projects, experience, education, certifications, training, and profile sections.
+* Do NOT assume deep expertise unless the CV clearly indicates strong usage.
+* Never exaggerate candidate experience beyond what is described in the CV.
+* Always base classification on job relevance + CV presence + context clarity.
+* Never invent years of experience.
+* Never invent proficiency levels.
+* Never create responsibilities that are not in the CV.
+* Never promote a skill to Relevant only because it sounds valuable.
+* Never promote a different-domain skill to Related only because it shows general ability.
+* All classification must be explainable using CV evidence and job relevance.
+
+==================================================
+USAGE_CONTEXT RULE
+==================
+
+The \`usage_context\` field for each skill must be:
+
+* A concise single sentence
+* Maximum 20 words
+* Based only on CV evidence
+* Specific to where or how the skill was used
+
+Do NOT concatenate multiple project descriptions.
+
+Do NOT copy/paste large paragraphs from the CV.
+
+Good examples:
+
+* "Built the frontend of a job portal using React."
+* "Used Excel to maintain payroll and attendance records."
+* "Applied communication skills while coordinating employee documentation."
+
+Bad examples:
+
+* "Worked on many projects including project A, project B, project C, and also used many tools..."
+* Full paragraphs copied from the CV.
+* Generic statements such as "Has good skills."
+
+==================================================
+EVIDENCE_SOURCE RULE
+====================
+
+Classify the \`evidence_source\` field strictly using only the following values:
+
+1. Professional Experience
+   Use only if the skill is used within permanent full-time or part-time job history.
+
+2. Internship
+   Use only if the skill is used in a designated student, graduate, industrial, or professional internship.
+
+3. Project
+   Use only if the skill is used in a specific individual, academic, personal, portfolio, or development project.
+
+4. Freelance Work
+   Use only if the skill is used in contract, freelance, client, or gig-based work.
+
+5. Academic Work
+   Use only if the skill is used during university, school, coursework, assignments, or degree-related academic work.
+
+6. Certification
+   Use only if the skill is supported by a certification credential.
+
+7. Training
+   Use only if the skill is supported by a short training program, workshop, bootcamp, or practical training.
+
+8. Skills Section Only
+   Use only if the skill is mentioned in a flat skills list without project, work, education, training, or certification context.
+
+Do not misuse evidence_source.
+
+If the skill appears in multiple places, choose the strongest evidence source using this priority:
+
+Professional Experience > Internship > Freelance Work > Project > Academic Work > Certification > Training > Skills Section Only
+
+==================================================
+CERTIFICATIONS EXCLUSION RULE
+=============================
+
+Do NOT extract names of certifications, online courses, training courses, or credentials as skills.
+
+Examples that must NOT be extracted as skills:
+
+* Python for Beginners
+* Web Design for Beginners
+* Introduction to Android Studio
+* Advanced Excel Course
+* Cyber Security Fundamentals
+* HR Management Certificate
+
+These must be extracted under \`certifications_found\`.
+
+Only extract the underlying skill separately if the CV supports it as a skill.
+
+Examples:
+
+* Certification: "Python for Beginners"
+
+* Skill: "Python", only if CV evidence supports Python knowledge or usage.
+
+* Certification: "Advanced Excel Course"
+
+* Skill: "MS Excel", only if CV evidence supports Excel knowledge or usage.
+
+==================================================
+PHASE 5 - REQUIREMENT VALIDATION
 ================================
-For each mandatory job requirement (if any are specified in Mandatory Skills or requirements), determine if they are:
-- "Fully Demonstrated" (Evidence must exist in work experience, projects, certifications, etc.)
-- "Partially Demonstrated"
-- "No Evidence Found"
-Compare and list their names under the matching demonstration lists.
+
+For each mandatory job requirement from the Job Description / Job Requirements, determine whether the candidate demonstrates it.
+
+Classify each mandatory requirement as one of:
+
+1. Fully Demonstrated
+   Evidence exists in professional experience, internship, projects, freelance work, academic work, certification, training, or strong CV context.
+
+2. Partially Demonstrated
+   Some related evidence exists, but it is incomplete, indirect, weak, or not clearly proven.
+
+3. No Evidence Found
+   No clear CV evidence supports the requirement.
+
+Important:
+
+* Do not mark a requirement as Fully Demonstrated if it is only weakly implied.
+* Do not invent evidence.
+* Do not use unrelated skills as evidence.
+* Do not count additional skills as evidence for unrelated job requirements.
+* If evidence is only from Skills Section Only, classify carefully and usually mark as Partially Demonstrated unless the requirement is simple and directly listed.
+
+Output mandatory requirement validation with:
+
+* fully_demonstrated_requirements
+* partially_demonstrated_requirements
+* no_evidence_found_requirements
+
+Each item should include:
+
+* requirement_name
+* evidence_summary
+* evidence_source
+* confidence_level
 
 ==================================================
-PHASE 5 - RECRUITER INSIGHTS
+PHASE 6 - RECRUITER INSIGHTS
 ============================
-Generate practical recruiter observations/insights.
+
+Generate practical recruiter insights based only on the CV and Job Description comparison.
+
+Recruiter insights should include:
+
+1. Overall Match Summary
+   A short summary of how well the candidate matches the role.
+
+2. Key Strengths
+   Mention the strongest CV-backed skills or experiences relevant to the job.
+
+3. Related Value
+   Mention same-domain skills that may support the role even if not directly required.
+
+4. Skill Gaps
+   Mention mandatory or important job requirements with partial or no evidence.
+
+5. Additional Skills Observation
+   Mention unrelated/different-domain skills only as additional value, not as job-role strengths.
+
+6. Risk Notes
+   Mention concerns such as weak evidence, skills only listed without usage, missing mandatory requirements, or domain mismatch.
+
+7. Recruiter Recommendation
+   Give a practical recommendation such as:
+
+* Strong Match
+* Good Match
+* Moderate Match
+* Weak Match
+* Not Suitable
+
+Recommendation must be based on:
+
+* Mandatory requirement coverage
+* Relevant Skills strength
+* Related Skills support
+* Additional Skills separation
+* Evidence quality
+* Professional-domain alignment
+
+Do not overpraise the candidate.
+
+Do not penalize unrelated additional skills unless they create a domain mismatch or distract from the target role.
+
+==================================================
+FINAL QUALITY CONTROL
+=====================
+
+Before returning the final output, verify:
+
+1. Every extracted CV skill is classified into exactly one category.
+2. No skill appears in more than one category.
+3. Relevant Skills are directly aligned with the JD or Job Skill Matrix.
+4. Related Skills belong to the same professional domain but are not directly listed in the JD.
+5. Additional Skills contain unrelated, different-domain, weak-evidence, or non-role skills.
+6. Software engineering / IT / coding skills are not mixed into Relevant or Related Skills for non-technical roles.
+7. Certification names are not extracted as skills.
+8. Certifications are listed only under \`certifications_found\`.
+9. Usage context is concise and maximum 20 words.
+10. Evidence source uses only the approved evidence_source values.
+11. No invented data is included.
+12. No missing job requirement is falsely marked as demonstrated.
+13. No candidate skill is exaggerated beyond CV evidence.
+14. The final result is accurate, conservative, CV-grounded, and job-relevant.
+
+==================================================
+OUTPUT REQUIREMENTS
+===================
+
+Return the result using the existing structured output format.
+
+The output must include:
+
+1. \`cv_skills_extracted\`
+   All skills explicitly found in the CV with evidence details.
+
+2. \`job_skill_matrix\`
+   Grouped into:
+
+* core_required_skills
+* supporting_skills
+* optional_skills
+
+3. \`skills_analysis\`
+   Only Relevant Skills and Related Skills.
+
+Each item must include:
+
+* skill_name
+* category
+* evidence_source
+* usage_context
+* relevance_reason
+* confidence_level
+
+4. \`additional_skills\`
+   Only Additional Skills.
+
+Each item must include:
+
+* skill_name
+* evidence_source
+* usage_context
+* reason_why_additional
+* confidence_level
+
+5. \`certifications_found\`
+   Certification, course, training, or credential names found in the CV.
+
+Each item must include:
+
+* certification_name
+* provider_or_source if available
+* related_underlying_skill if clearly supported
+* evidence_summary
+
+6. \`mandatory_requirement_validation\`
+   Grouped into:
+
+* fully_demonstrated_requirements
+* partially_demonstrated_requirements
+* no_evidence_found_requirements
+
+7. \`recruiter_insights\`
+   Include:
+
+* overall_match_summary
+* key_strengths
+* related_value
+* skill_gaps
+* additional_skills_observation
+* risk_notes
+* recruiter_recommendation
+
+Final instruction:
+Return only the structured analysis.
+Do not include unnecessary explanations outside the output structure.
+Accuracy, CV evidence, job relevance, and professional-domain alignment are more important than completeness.
 
 ==================================================
 PERSONAL PROFILE EXTRACTION
@@ -379,20 +971,20 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                             last_name: { type: "STRING" },
                                             email: { type: "STRING" },
                                             contact_number: { type: "STRING" },
-                                            qualification: { 
-                                                type: "STRING", 
+                                            qualification: {
+                                                type: "STRING",
                                                 enum: ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification']
                                             },
-                                            overall_experience: { 
-                                                type: "STRING", 
+                                            overall_experience: {
+                                                type: "STRING",
                                                 enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
                                             },
-                                            relevant_experience: { 
-                                                type: "STRING", 
+                                            relevant_experience: {
+                                                type: "STRING",
                                                 enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
                                             },
                                             salary_expectation: { type: "STRING" },
-                                            
+
                                             // Advanced Recruiter Analysis
                                             skills_analysis: {
                                                 type: "ARRAY",
@@ -476,7 +1068,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             if (errorJson?.error?.message) {
                                 errorMsg += `: ${errorJson.error.message}`;
                             }
-                        } catch (_) {}
+                        } catch (_) { }
                         console.warn(`Model ${model} failed: ${errorMsg}`);
                         lastError = new Error(errorMsg);
                     }
@@ -511,49 +1103,48 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 salary_expectation: parsed.salary_expectation || prev.salary_expectation || ''
             }));
 
-            // Extract skills_metadata for local display mapping
+            // Extract skills_metadata for local display mapping with strict CV grounding and dynamic classification
             let parsedMetadata = [];
-            if (Array.isArray(parsed.skills_analysis)) {
-                parsedMetadata = parsed.skills_analysis.map(item => ({
-                    skill: item.skill,
-                    experience: item.estimated_duration,
-                    context: item.usage_context,
-                    category: item.category,
-                    evidence_source: item.evidence_source || 'Skills Section Only',
-                    evidence_strength: item.evidence_strength || 'Mentioned Only',
-                    experience_level: item.experience_level || 'Basic',
-                    is_mandatory: parsed.fully_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) || 
-                                  parsed.partially_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) ||
-                                  requiredSkillsList.some(rs => isRobustMatch(item.skill, rs)),
+
+            const processParsedSkill = (item) => {
+                if (!item) return;
+                const isObj = typeof item === 'object' && item !== null;
+                const skillName = isObj ? item.skill : item;
+                if (!skillName) return;
+
+                const category = categorizeSkill(skillName, text, requiredSkillsList, vacancy);
+                if (!category) return; // Discard completely if not found in CV!
+
+                // Skip duplicates
+                if (parsedMetadata.some(x => x.skill.toLowerCase() === skillName.toLowerCase())) return;
+
+                parsedMetadata.push({
+                    skill: skillName,
+                    experience: isObj ? (item.estimated_duration || "Mentioned Only") : "Mentioned Only",
+                    context: isObj ? (item.usage_context || "Mentioned in CV.") : "Mentioned in CV.",
+                    category: category,
+                    evidence_source: isObj ? (item.evidence_source || "Skills Section Only") : "Skills Section Only",
+                    evidence_strength: isObj ? (item.evidence_strength || "Mentioned Only") : "Mentioned Only",
+                    experience_level: isObj ? (item.experience_level || "Basic") : "Basic",
+                    is_mandatory: requiredSkillsList.some(rs => isRobustMatch(skillName, rs)),
                     is_ai_extracted: true
-                }));
+                });
+            };
+
+            if (Array.isArray(parsed.skills_analysis)) {
+                parsed.skills_analysis.forEach(item => processParsedSkill(item));
             }
             if (Array.isArray(parsed.additional_skills)) {
-                parsed.additional_skills.forEach(item => {
-                    const isObj = typeof item === 'object' && item !== null;
-                    const skillName = isObj ? item.skill : item;
-                    if (skillName && !parsedMetadata.some(x => x.skill.toLowerCase() === skillName.toLowerCase())) {
-                        parsedMetadata.push({
-                            skill: skillName,
-                            experience: isObj ? (item.estimated_duration || "Mentioned Only") : "Mentioned Only",
-                            context: isObj ? (item.usage_context || "Mentioned in CV with no specific project/experience context.") : "Mentioned in CV with no specific project/experience context.",
-                            category: "Additional Skills",
-                            evidence_source: isObj ? (item.evidence_source || "Skills Section Only") : "Skills Section Only",
-                            evidence_strength: isObj ? (item.evidence_strength || "Mentioned Only") : "Mentioned Only",
-                            experience_level: isObj ? (item.experience_level || "Basic") : "Basic",
-                            is_mandatory: false,
-                            is_ai_extracted: true
-                        });
-                    }
-                });
+                parsed.additional_skills.forEach(item => processParsedSkill(item));
             }
+
             const normalized = normalizeSkills(parsedMetadata);
             setSkillsMetadata(normalized);
             setAiAnalysis(parsed);
             setSkillsPanelExpanded(false);
 
-            // Auto-detect matched mandatory skills
-            const detected = normalized.filter(item => item.is_mandatory).map(item => item.skill);
+            // Auto-detect matched mandatory skills (only counts if actually present in CV)
+            const detected = normalized.filter(item => item.is_mandatory && checkSkillInCvText(item.skill, text)).map(item => item.skill);
             setMatchedSkills(detected);
 
             // Pre-fill all general skills from CV
@@ -589,7 +1180,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
         const file = e.target.files[0];
         if (!file) return;
         if (file.size > 5 * 1024 * 1024) { toast.error('File too large (max 5MB).'); return; }
-        
+
         setForm(prev => ({ ...prev, cv: file }));
 
         // Clear any previous AI parsing results when a new file is uploaded
@@ -628,7 +1219,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 return {
                     ...item,
                     skill: trimmed,
-                    context: isMatched 
+                    context: isMatched
                         ? (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Verified in CV.` : item.context)
                         : (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Not matched in CV.` : item.context),
                     is_mandatory: requiredSkillsList.some(rs => isRobustMatch(trimmed, rs)),
@@ -699,7 +1290,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
     const handleReview = (e) => {
         e.preventDefault();
         if (!form.cv) { toast.error('Please upload your CV.'); return; }
-        
+
         // Validate Salary Expectation (LKR)
         const salary = form.salary_expectation?.toString().trim();
         if (!salary) {
@@ -733,7 +1324,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             });
             formData.append('vacancy_id', id);
             formData.append('tags', userSkills.join(', '));
-            
+
             let finalAnalysis = aiAnalysis;
             if (!finalAnalysis) {
                 // Construct a fallback analysis object using the current skillsMetadata state
@@ -747,14 +1338,23 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             estimated_duration: item.experience || '1-2 Years',
                             evidence_strength: 'Mentioned Only',
                             evidence_source: 'Skills Section Only',
-                            usage_context: item.context || 'Manually added by candidate'
+                            usage_context: item.context || 'Manually added by candidate',
+                            verified: checkSkillInCvText(item.skill, rawCvText)
                         })),
-                    fully_demonstrated_skills: skillsMetadata.filter(item => item.is_mandatory).map(item => item.skill),
+                    fully_demonstrated_skills: skillsMetadata.filter(item => item.is_mandatory && checkSkillInCvText(item.skill, rawCvText)).map(item => item.skill),
                     partially_demonstrated_skills: [],
-                    requirements_without_evidence: [],
+                    requirements_without_evidence: skillsMetadata.filter(item => item.is_mandatory && !checkSkillInCvText(item.skill, rawCvText)).map(item => item.skill),
                     additional_skills: skillsMetadata
                         .filter(item => item.category === 'Additional Skills')
-                        .map(item => item.skill),
+                        .map(item => ({
+                            skill: item.skill,
+                            experience_level: item.experience_level || 'Basic',
+                            estimated_duration: item.experience || '1-2 Years',
+                            evidence_strength: item.evidence_strength || 'Mentioned Only',
+                            evidence_source: item.evidence_source || 'Skills Section Only',
+                            usage_context: item.context || 'Mentioned in CV.',
+                            verified: checkSkillInCvText(item.skill, rawCvText)
+                        })),
                     qualifications_found: [form.qualification].filter(Boolean),
                     certifications_found: [],
                     experience_summary: `Candidate has ${form.overall_experience} of total experience.`,
@@ -772,15 +1372,27 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             estimated_duration: item.experience || '1-2 Years',
                             evidence_strength: item.evidence_strength || 'Mentioned Only',
                             evidence_source: item.evidence_source || 'Skills Section Only',
-                            usage_context: item.context || 'Manually added by candidate'
+                            usage_context: item.context || 'Manually added by candidate',
+                            verified: checkSkillInCvText(item.skill, rawCvText)
                         };
                     });
-                
+
                 finalAnalysis.additional_skills = skillsMetadata
                     .filter(item => item.category === 'Additional Skills')
-                    .map(item => item.skill);
+                    .map(item => {
+                        return {
+                            skill: item.skill,
+                            experience_level: item.experience_level || 'Basic',
+                            estimated_duration: item.experience || '1-2 Years',
+                            evidence_strength: item.evidence_strength || 'Mentioned Only',
+                            evidence_source: item.evidence_source || 'Skills Section Only',
+                            usage_context: item.context || 'Mentioned in CV.',
+                            verified: checkSkillInCvText(item.skill, rawCvText)
+                        };
+                    });
 
-                finalAnalysis.fully_demonstrated_skills = skillsMetadata.filter(item => item.is_mandatory).map(item => item.skill);
+                finalAnalysis.fully_demonstrated_skills = skillsMetadata.filter(item => item.is_mandatory && checkSkillInCvText(item.skill, rawCvText)).map(item => item.skill);
+                finalAnalysis.requirements_without_evidence = skillsMetadata.filter(item => item.is_mandatory && !checkSkillInCvText(item.skill, rawCvText)).map(item => item.skill);
             }
             formData.append('skills_metadata', JSON.stringify(finalAnalysis));
 
@@ -1044,7 +1656,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                     <div className="apb-upload" style={{ position: 'relative', border: parsing ? '2px dashed var(--gold-accent)' : '2px dashed var(--border-light)', cursor: parsing ? 'not-allowed' : 'pointer' }} onClick={() => !parsing && document.getElementById('cv-file').click()}>
                                         <input id="cv-file" type="file" accept=".pdf"
                                             style={{ display: 'none' }} onChange={handleFileChange} disabled={parsing} />
-                                        
+
                                         {parsing ? (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', padding: '4px 0' }}>
                                                 <div className="spinner-small" style={{ flexShrink: 0 }}></div>
@@ -1181,7 +1793,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                     {skillsPanelExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
                                                 </span>
                                             </div>
-                                            
+
                                             {skillsPanelExpanded && (
                                                 <>
                                                     {form.cv && !parsing && (
@@ -1194,16 +1806,16 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                     )}
 
                                                     {skillsMetadata.length > 0 && skillsMetadata.filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills').length === 0 && (
-                                                         <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                             <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
-                                                             <div>
-                                                                 <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
-                                                                 <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
-                                                                     Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
-                                                                 </p>
-                                                             </div>
-                                                         </div>
-                                                     )}
+                                                        <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                            <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
+                                                            <div>
+                                                                <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
+                                                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
+                                                                    Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
                                                     {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
@@ -1215,8 +1827,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                             <div className="apb-smp-skills">
                                                                 {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
                                                                     const skillName = skill.trim();
-                                                                    const isMatched = skillsMetadata.some(item => isRobustMatch(item.skill, skillName));
-                                                                    
+                                                                    const isMatched = checkSkillInCvText(skillName, rawCvText);
+
                                                                     return (
                                                                         <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
                                                                             <span className={`apb-smp-check-icon ${isMatched ? 'on' : 'off'}`}>
@@ -1244,9 +1856,9 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                             <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
                                                                 {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
                                                                     const count = skillsMetadata.filter(item => item.category === tabName).length;
-                                                                    
+
                                                                     const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
-                                                                    
+
                                                                     return (
                                                                         <button
                                                                             key={tabName}
@@ -1299,8 +1911,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                         <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
                                                                             {activeSkills.map((item, idx) => {
                                                                                 const isEditing = editingSkillName === item.skill;
-                                                                                const isMatched = item.is_ai_extracted ? true : checkSkillInCvText(item.skill, rawCvText);
-                                                                                
+                                                                                const isMatched = checkSkillInCvText(item.skill, rawCvText);
+
                                                                                 if (isEditing) {
                                                                                     const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
                                                                                     return (
@@ -1308,11 +1920,11 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                                                                 <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold-accent)' }}>Edit Skill Name</label>
                                                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                    <input 
-                                                                                                        type="text" 
-                                                                                                        value={editingSkillValue} 
-                                                                                                        onChange={(e) => setEditingSkillValue(e.target.value)} 
-                                                                                                        className="apb-input" 
+                                                                                                    <input
+                                                                                                        type="text"
+                                                                                                        value={editingSkillValue}
+                                                                                                        onChange={(e) => setEditingSkillValue(e.target.value)}
+                                                                                                        className="apb-input"
                                                                                                         style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
                                                                                                         autoFocus
                                                                                                         onKeyDown={(e) => {
@@ -1325,15 +1937,15 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                         }}
                                                                                                     />
                                                                                                     {rawCvText && (
-                                                                        <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                            {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                        </span>
-                                                                    )}
+                                                                                                        <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                            {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                                                        </span>
+                                                                                                    )}
                                                                                                 </div>
                                                                                             </div>
                                                                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
-                                                                                                <button 
-                                                                                                    type="button" 
+                                                                                                <button
+                                                                                                    type="button"
                                                                                                     className="btn-secondary-small"
                                                                                                     onClick={() => {
                                                                                                         setEditingSkillName(null);
@@ -1343,8 +1955,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                 >
                                                                                                     <FiX size={12} /> Cancel
                                                                                                 </button>
-                                                                                                <button 
-                                                                                                    type="button" 
+                                                                                                <button
+                                                                                                    type="button"
                                                                                                     className="btn-primary-small"
                                                                                                     onClick={() => handleSaveSkill(item.skill, editingSkillValue)}
                                                                                                     style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
@@ -1364,14 +1976,14 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                     {item.skill}
                                                                                                 </span>
                                                                                                 {rawCvText && (
-                                                                      <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                          {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                      </span>
-                                                                  )}
+                                                                                                    <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                                        {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                                                    </span>
+                                                                                                )}
                                                                                             </div>
                                                                                             <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                <button 
-                                                                                                    type="button" 
+                                                                                                <button
+                                                                                                    type="button"
                                                                                                     className="skill-edit-btn-trigger"
                                                                                                     onClick={() => {
                                                                                                         setEditingSkillName(item.skill);
@@ -1381,8 +1993,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                                 >
                                                                                                     <FiEdit2 size={12} />
                                                                                                 </button>
-                                                                                                <button 
-                                                                                                    type="button" 
+                                                                                                <button
+                                                                                                    type="button"
                                                                                                     className="skill-delete-btn"
                                                                                                     onClick={() => {
                                                                                                         setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
@@ -1418,12 +2030,12 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                         ✨ Add New Skill to {activeTab.replace(' Skills', '')}
                                                                                     </span>
                                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                        <input 
-                                                                                            type="text" 
-                                                                                            placeholder="e.g. Docker, Python" 
-                                                                                            value={newSkillName} 
-                                                                                            onChange={(e) => setNewSkillName(e.target.value)} 
-                                                                                            className="apb-input" 
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="e.g. Docker, Python"
+                                                                                            value={newSkillName}
+                                                                                            onChange={(e) => setNewSkillName(e.target.value)}
+                                                                                            className="apb-input"
                                                                                             style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
                                                                                             onKeyDown={(e) => {
                                                                                                 if (e.key === 'Enter') {
@@ -1437,9 +2049,9 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                                             </span>
                                                                                         )}
                                                                                     </div>
-                                                                                    <button 
-                                                                                        type="button" 
-                                                                                        className="btn-primary-small" 
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="btn-primary-small"
                                                                                         onClick={() => handleAddSkill()}
                                                                                         style={{ padding: '4px 12px', fontSize: '0.78rem', alignSelf: 'flex-end', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                                                                     >
@@ -1568,13 +2180,13 @@ Analyze the candidate and return the output matching the requested JSON schema.`
 
                                 {skillsMetadata.length > 0 && (
                                     <div className="apb-review-block">
-                                        <div 
-                                            className="apb-rev-section" 
+                                        <div
+                                            className="apb-rev-section"
                                             onClick={() => setReviewSkillsExpanded(v => !v)}
-                                            style={{ 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'space-between', 
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
                                                 cursor: 'pointer',
                                                 userSelect: 'none'
                                             }}
@@ -1590,9 +2202,9 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                 <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '8px', gap: '16px', flexWrap: 'wrap' }}>
                                                     {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
                                                         const count = skillsMetadata.filter(item => item.category === tabName).length;
-                                                        
+
                                                         const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
-                                                        
+
                                                         return (
                                                             <button
                                                                 key={tabName}
@@ -1649,31 +2261,31 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                     return (
                                                         <div className="review-category-group" style={{ padding: '12px 16px', background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '12px' }}>
                                                             <div style={{ display: 'grid', gap: '10px' }}>
-                                                                    {activeSkills.map((item, idx) => {
-                                                                        const isMatched = item.is_ai_extracted ? true : checkSkillInCvText(item.skill, rawCvText);
-                                                                        return (
-                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
-                                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                                                                            {item.skill}
+                                                                {activeSkills.map((item, idx) => {
+                                                                    const isMatched = checkSkillInCvText(item.skill, rawCvText);
+                                                                    return (
+                                                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
+                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                                                        {item.skill}
+                                                                                    </span>
+                                                                                    {rawCvText && (
+                                                                                        <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                            {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
                                                                                         </span>
-                                                                                        {rawCvText && (
-                                                                                            <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                                                {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                            {item.evidence_source && (
-                                                                                <span className="skill-source-badge">
-                                                                                    via {item.evidence_source}
-                                                                                </span>
-                                                                            )}
+                                                                                    )}
+                                                                                </div>
+                                                                                {item.evidence_source && (
+                                                                                    <span className="skill-source-badge">
+                                                                                        via {item.evidence_source}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.45' }}>{item.context}</p>
                                                                         </div>
-                                                                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.45' }}>{item.context}</p>
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </div>
                                                     );

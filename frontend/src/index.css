@@ -8145,7 +8145,95 @@ body::before {
 .invite-invite-modal {
     max-width: 560px;
     width: 92%;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+}
+
+.invite-invite-modal .modal-body-p {
+    overflow-y: auto;
+    flex: 1;
+    padding: 28px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Styled Inputs, Dropdowns, Date/Time pickers within the modal */
+.invite-invite-modal .styled-input {
+    font-family: var(--font-body) !important;
+    font-size: 0.95rem !important;
+    color: var(--text-primary) !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    background-color: #fafbfc !important;
+    transition: all 0.3s var(--transition-smooth) !important;
+    width: 100% !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.invite-invite-modal .styled-input:focus {
+    border-color: var(--crimson) !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.1), inset 0 2px 4px rgba(0,0,0,0.01) !important;
+}
+
+.invite-invite-modal .styled-input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.7;
+}
+
+/* Premium Buttons inside Interview Modal */
+.invite-invite-modal .btn-status-shortlist {
+    background: var(--crimson) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 12px 24px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    transition: all 0.3s var(--transition-smooth) !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.2) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    height: auto !important;
+}
+
+.invite-invite-modal .btn-status-shortlist:hover:not(:disabled) {
+    background: var(--crimson-dark) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(139, 26, 43, 0.3) !important;
+}
+
+.invite-invite-modal .btn-status-shortlist:disabled {
+    background: #cbd5e1 !important;
+    color: #94a3b8 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.invite-invite-modal .invite-modal-cancel-btn {
+    border-radius: 12px !important;
+    padding: 12px 24px !important;
+    font-weight: 600 !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: var(--text-secondary) !important;
+    transition: all 0.3s var(--transition-smooth) !important;
+}
+
+.invite-invite-modal .invite-modal-cancel-btn:hover {
+    background: #f1f5f9 !important;
+    color: var(--text-primary) !important;
+    border-color: #94a3b8 !important;
 }
 
 /* ── Header wrapper: relative so close btn can be absolute ── */
@@ -8375,6 +8463,186 @@ body::before {
     .invite-modal-footer {
         margin-top: 18px;
         padding-top: 14px;
+    }
+}
+
+/* ============================================
+   PREMIUM REACT-TOASTIFY NOTIFICATIONS
+   ============================================ */
+
+/* Toast Container Wrapper */
+.Toastify__toast-container {
+    padding: 20px;
+    width: 400px;
+    max-width: 95vw;
+    z-index: 999999;
+}
+
+/* Toast Cards - Glassmorphism, Rounded, Border Accent */
+.Toastify__toast {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.5;
+    border-radius: 16px !important;
+    padding: 16px 20px !important;
+    min-height: 76px !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    margin-bottom: 16px !important;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    display: flex;
+    align-items: center;
+}
+
+/* Interactive Hover Lift & Scale */
+.Toastify__toast:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 24px 54px rgba(0, 0, 0, 0.36), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Reset standard themes to prevent overrides */
+.Toastify__toast-theme--dark,
+.Toastify__toast-theme--light,
+.Toastify__toast-theme--colored {
+    background: transparent !important;
+}
+
+/* SUCCESS STATUS (Green Glossy Glow) */
+.Toastify__toast--success {
+    background: rgba(14, 24, 18, 0.9) !important;
+    border: 1px solid rgba(34, 197, 94, 0.35) !important;
+    border-left: 6px solid #22c55e !important;
+    color: #f0fdf4 !important;
+}
+.Toastify__toast--success .Toastify__toast-icon svg {
+    fill: #22c55e !important;
+    filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.6));
+}
+.Toastify__progress-bar--success {
+    background: linear-gradient(to right, #22c55e, #4ade80, #22c55e) !important;
+    height: 4px !important;
+}
+
+/* ERROR STATUS (Red Glossy Glow) */
+.Toastify__toast--error {
+    background: rgba(28, 14, 16, 0.9) !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    border-left: 6px solid #ef4444 !important;
+    color: #fef2f2 !important;
+}
+.Toastify__toast--error .Toastify__toast-icon svg {
+    fill: #ef4444 !important;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+.Toastify__progress-bar--error {
+    background: linear-gradient(to right, #ef4444, #f87171, #ef4444) !important;
+    height: 4px !important;
+}
+
+/* WARNING STATUS (Amber Glossy Glow) */
+.Toastify__toast--warning {
+    background: rgba(28, 20, 12, 0.9) !important;
+    border: 1px solid rgba(245, 158, 11, 0.35) !important;
+    border-left: 6px solid #f59e0b !important;
+    color: #fffbeb !important;
+}
+.Toastify__toast--warning .Toastify__toast-icon svg {
+    fill: #f59e0b !important;
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6));
+}
+.Toastify__progress-bar--warning {
+    background: linear-gradient(to right, #f59e0b, #fbbf24, #f59e0b) !important;
+    height: 4px !important;
+}
+
+/* INFO STATUS (Blue Heritage Glow) */
+.Toastify__toast--info {
+    background: rgba(12, 19, 28, 0.9) !important;
+    border: 1px solid rgba(59, 130, 246, 0.35) !important;
+    border-left: 6px solid #3b82f6 !important;
+    color: #eff6ff !important;
+}
+.Toastify__toast--info .Toastify__toast-icon svg {
+    fill: #3b82f6 !important;
+    filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+}
+.Toastify__progress-bar--info {
+    background: linear-gradient(to right, #3b82f6, #60a5fa, #3b82f6) !important;
+    height: 4px !important;
+}
+
+/* Toast Inner Content Layout */
+.Toastify__toast-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex;
+    align-items: center;
+}
+
+/* Custom Icon Alignments & Interactions */
+.Toastify__toast-icon {
+    width: 24px !important;
+    height: 24px !important;
+    margin-right: 14px !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.Toastify__toast-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.Toastify__toast:hover .Toastify__toast-icon svg {
+    transform: scale(1.2) rotate(6deg);
+}
+
+/* Premium Close Button */
+.Toastify__close-button {
+    color: rgba(255, 255, 255, 0.4) !important;
+    opacity: 0.8 !important;
+    transition: all 0.2s ease !important;
+    align-self: center !important;
+    margin-left: 12px !important;
+}
+
+.Toastify__close-button:hover {
+    color: #ffffff !important;
+    opacity: 1 !important;
+    transform: scale(1.2) rotate(90deg);
+}
+
+/* Progress Bar Height & Curvature */
+.Toastify__progress-bar {
+    opacity: 0.9 !important;
+    border-bottom-left-radius: 16px;
+    height: 4px !important;
+}
+
+/* Responsive adjustment for Mobile */
+@media (max-width: 480px) {
+    .Toastify__toast-container {
+        padding: 10px;
+        width: 100vw;
+    }
+    .Toastify__toast {
+        margin-bottom: 8px !important;
+        border-radius: 12px !important;
+        padding: 14px 16px !important;
+        min-height: 64px !important;
+    }
+    .Toastify__progress-bar {
+        border-bottom-left-radius: 12px;
     }
 }
 
