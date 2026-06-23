@@ -274,30 +274,24 @@ Group skills into:
 - Supporting Skills
 - Optional Skills
 
-Step 4: Skill Classification (STRICT RULES)
-For EACH extracted CV skill, compare it with the Job Skill Matrix and classify as follows:
+Step 4: Skill Classification (STRICT PROFESSIONAL DOMAIN RULES)
+For EACH extracted CV skill, compare it with the Job Skill Matrix and classify strictly by professional domain alignment:
 
 🟢 RELEVANT SKILLS
-IF:
-Skill is directly related to Job Skill Matrix
-AND
-There is clear usage evidence in CV (project/work/internship)
+- MUST be directly mentioned in or directly relevant to the Job Description / Job Requirements (e.g., Payroll Administration, HRIS, Talent Development, Employee Records Management, Performance Management, HR Operations, MS Excel, EPF/ETF Claims, HR Correspondence).
+- AND must have clear usage evidence in the CV.
 → Classify as "Relevant Skills" and output under skills_analysis with category "Relevant Skills".
 
 🟡 RELATED SKILLS
-IF:
-Skill is supporting or adjacent to Job Skill Matrix
-OR
-Skill has partial/basic usage
+- Must belong to the SAME professional domain (e.g., Human Resources, Payroll, Office Administration, HR compliance, labor relations, employee onboarding, meeting scheduling, documentation).
+- BUT is not explicitly listed in the Job Description (e.g., Labor Law Knowledge, Employee Relations, Document Drafting, Conflict Management, Time Management).
+- Do NOT classify any skills from a completely different professional domain (such as software development, programming languages, web frameworks, IT network engineering) under this category.
 → Classify as "Related Skills" and output under skills_analysis with category "Related Skills".
 
 🔵 ADDITIONAL SKILLS
-IF:
-Skill is NOT related to Job Skill Matrix
-OR
-Skill is only mentioned with no usage evidence
-OR
-Skill is irrelevant to the job role
+- MUST include any skill that belongs to a completely DIFFERENT professional domain (e.g., Software Engineering, Web Development, Programming Languages like Python/JavaScript, Frameworks like Laravel/Flask/React, Network Administration, Cyber Security, Cloud Infrastructure).
+- OR is completely unrelated to the job role.
+- OR is only mentioned in the CV with no usage evidence.
 → Classify as "Additional Skills" and output in the additional_skills array matching the structured object format.
 
 UPDATED CRITICAL RULES (FINAL VERSION)
@@ -309,7 +303,8 @@ UPDATED CRITICAL RULES (FINAL VERSION)
 - Always stay job-relevant
 - Always prioritize accuracy over completeness
 - Never mix skill categories incorrectly
-- NEVER mix Additional Skills with Relevant Skills
+- NEVER mix Additional/Unrelated Skills with Relevant or Related Skills
+- Under no circumstances should software engineering, IT networks, or technical coding skills (e.g. Python, Laravel, Flask, JavaScript, Linux, AWS, Network Routing, VAPT, Cyber Security) be classified as "Relevant Skills" or "Related Skills" for a non-technical HR/Payroll/Admin role. They must go to "Additional Skills".
 - ALWAYS treat CV-mentioned skills as valid input signals (skills listed in any section: skills, projects, experience, education)
 - DO NOT assume deep expertise unless CV clearly indicates level of usage
 - ALWAYS follow job relevance strictly when categorizing skills
@@ -529,7 +524,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     experience_level: item.experience_level || 'Basic',
                     is_mandatory: parsed.fully_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) || 
                                   parsed.partially_demonstrated_skills?.some(s => isRobustMatch(item.skill, s)) ||
-                                  requiredSkillsList.some(rs => isRobustMatch(item.skill, rs))
+                                  requiredSkillsList.some(rs => isRobustMatch(item.skill, rs)),
+                    is_ai_extracted: true
                 }));
             }
             if (Array.isArray(parsed.additional_skills)) {
@@ -545,7 +541,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             evidence_source: isObj ? (item.evidence_source || "Skills Section Only") : "Skills Section Only",
                             evidence_strength: isObj ? (item.evidence_strength || "Mentioned Only") : "Mentioned Only",
                             experience_level: isObj ? (item.experience_level || "Basic") : "Basic",
-                            is_mandatory: false
+                            is_mandatory: false,
+                            is_ai_extracted: true
                         });
                     }
                 });
@@ -634,7 +631,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     context: isMatched 
                         ? (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Verified in CV.` : item.context)
                         : (item.context.includes("Manually") || item.context === 'No usage context provided.' ? `Not matched in CV.` : item.context),
-                    is_mandatory: requiredSkillsList.some(rs => isRobustMatch(trimmed, rs))
+                    is_mandatory: requiredSkillsList.some(rs => isRobustMatch(trimmed, rs)),
+                    is_ai_extracted: isMatched
                 };
             }
             return item;
@@ -684,7 +682,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             evidence_source: isMatched ? 'Project' : 'Skills Section Only',
             evidence_strength: isMatched ? 'Moderate Evidence' : 'Mentioned Only',
             experience_level: 'Intermediate',
-            is_mandatory: isMandatory
+            is_mandatory: isMandatory,
+            is_ai_extracted: isMatched
         };
 
         setSkillsMetadata(prev => [...prev, newSkillObj]);
@@ -1300,7 +1299,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                         <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
                                                                             {activeSkills.map((item, idx) => {
                                                                                 const isEditing = editingSkillName === item.skill;
-                                                                                const isMatched = checkSkillInCvText(item.skill, rawCvText);
+                                                                                const isMatched = item.is_ai_extracted ? true : checkSkillInCvText(item.skill, rawCvText);
                                                                                 
                                                                                 if (isEditing) {
                                                                                     const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
@@ -1650,19 +1649,21 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                     return (
                                                         <div className="review-category-group" style={{ padding: '12px 16px', background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '12px' }}>
                                                             <div style={{ display: 'grid', gap: '10px' }}>
-                                                                {activeSkills.map((item, idx) => (
-                                                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
-                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                                                                    {item.skill}
-                                                                                </span>
-                                                                                {rawCvText && (
-                                                                                    <span className={`skill-match-status-badge ${checkSkillInCvText(item.skill, rawCvText) ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                                        {checkSkillInCvText(item.skill, rawCvText) ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
+                                                                    {activeSkills.map((item, idx) => {
+                                                                        const isMatched = item.is_ai_extracted ? true : checkSkillInCvText(item.skill, rawCvText);
+                                                                        return (
+                                                                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                                                            {item.skill}
+                                                                                        </span>
+                                                                                        {rawCvText && (
+                                                                                            <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                                {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
                                                                             {item.evidence_source && (
                                                                                 <span className="skill-source-badge">
                                                                                     via {item.evidence_source}
@@ -1671,7 +1672,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                         </div>
                                                                         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.45' }}>{item.context}</p>
                                                                     </div>
-                                                                ))}
+                                                                );
+                                                            })}
                                                             </div>
                                                         </div>
                                                     );

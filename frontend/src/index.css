@@ -8138,4 +8138,243 @@ body::before {
     text-align: center;
   }
 }
+
+/* ============================================================
+   SEND INTERVIEW INVITATION MODAL — redesigned header
+   ============================================================ */
+.invite-invite-modal {
+    max-width: 560px;
+    width: 92%;
+    overflow: hidden;
+}
+
+/* ── Header wrapper: relative so close btn can be absolute ── */
+.invite-modal-header-wrap {
+    position: relative !important;
+    isolation: isolate;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-bottom: 1px solid #bfdbfe;
+    padding: 28px 28px 22px;
+    text-align: center;
+}
+
+/* ── Close button: top-right corner ── */
+.invite-modal-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+.invite-modal-close-btn:hover {
+    background: #fff;
+    color: #1e3a8a;
+    transform: rotate(90deg) scale(1.1);
+}
+
+/* ── Title row: icon + heading ── */
+.invite-modal-title-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.invite-modal-icon-lg {
+    width: 52px;
+    height: 52px;
+    background: #fff;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #2563eb;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.15);
+}
+
+.invite-modal-title-text {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #1e3a8a;
+    letter-spacing: -0.3px;
+}
+
+/* ── Meta info table ── */
+.invite-modal-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(4px);
+    border-radius: 12px;
+    padding: 14px 18px;
+    border: 1px solid rgba(191,219,254,0.6);
+    text-align: left;
+}
+
+.invite-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+/* Inline row: label + value side-by-side (Candidate, Telephone) */
+.invite-meta-row--inline {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Block row: label on top, value below (Position — can be long) */
+.invite-meta-row--block {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+.invite-meta-row--block .invite-meta-label {
+    margin-bottom: 1px;
+}
+
+.invite-meta-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 72px;
+    flex-shrink: 0;
+}
+
+.invite-meta-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.invite-meta-position {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* ── Phone badge ── */
+.invite-phone-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+    color: #fff;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+    box-shadow: 0 3px 10px rgba(37,99,235,0.25);
+}
+
+/* Date / Time two-column grid */
+.invite-modal-date-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* Footer action row */
+.invite-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 20px;
+    flex-wrap: wrap;
+}
+
+.invite-modal-cancel-btn {
+    border-radius: 12px !important;
+    padding: 12px 24px !important;
+    font-weight: 600 !important;
+}
+
+/* ── 768 px and below ── */
+@media (max-width: 768px) {
+    .invite-invite-modal {
+        width: 96% !important;
+        max-width: 100% !important;
+    }
+
+    .invite-modal-header-wrap {
+        padding: 24px 20px 18px !important;
+    }
+
+    .invite-modal-date-grid {
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+    }
+
+    .invite-modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .invite-modal-footer .btn,
+    .invite-modal-footer .btn-status-action {
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    .invite-modal-cancel-btn { order: 2; }
+    .invite-modal-footer .btn-status-shortlist { order: 1; }
+}
+
+/* ── 480 px and below ── */
+@media (max-width: 480px) {
+    .invite-invite-modal {
+        width: 99% !important;
+        border-radius: 18px !important;
+    }
+
+    .invite-modal-header-wrap {
+        padding: 20px 16px 16px !important;
+    }
+
+    .invite-modal-close-btn {
+        top: 12px;
+        right: 12px;
+    }
+
+    .invite-modal-icon-lg {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+    }
+
+    .invite-modal-title-text {
+        font-size: 1.1rem !important;
+    }
+
+    .invite-invite-modal .modal-body-p {
+        padding: 16px !important;
+    }
+
+    .invite-modal-footer {
+        margin-top: 18px;
+        padding-top: 14px;
+    }
+}
 

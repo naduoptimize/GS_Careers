@@ -2061,38 +2061,39 @@ function Applicants({ admin }) {
             {/* ── Step 2: Send Interview Invite Modal ── */}
             {showSendInviteModal && inviteTarget && (
                 <div className="confirm-overlay" style={{ zIndex: 1100 }} onClick={closeInviteModal}>
-                    <div className="confirm-modal card-p animated-zoom" style={{ maxWidth: '550px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header-p" style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ background: '#ebf8ff', color: '#3182ce', padding: '8px', borderRadius: '8px', display: 'flex' }}><FiMail size={20} /></div>
-                                <div>
-                                    <h2 style={{ margin: 0 }}>Send Interview Invitation</h2>
-                                    <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                                        <span>To:</span>
-                                        <strong style={{ color: 'var(--text-primary)' }}>{inviteTarget.first_name} {inviteTarget.last_name}</strong>
-                                        {inviteTarget.contact_number && (
-                                            <span style={{
-                                                background: '#ebf8ff',
-                                                color: '#2b6cb0',
-                                                padding: '2px 8px',
-                                                borderRadius: '6px',
-                                                fontWeight: '700',
-                                                fontSize: '0.78rem',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                border: '1px solid #cee0f5',
-                                                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
-                                            }}>
-                                                <FiPhone size={12} style={{ color: '#3182ce' }} /> {inviteTarget.contact_number}
-                                            </span>
-                                        )}
-                                        <span style={{ color: '#cbd5e1', margin: '0 2px' }}>—</span>
-                                        <span>{inviteTarget.vacancy_title}</span>
-                                    </p>
-                                </div>
+                    <div className="confirm-modal card-p animated-zoom invite-invite-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="invite-modal-header-wrap" style={{ position: 'relative' }}>
+                            {/* Close button — pinned top-right inside gradient header */}
+                            <button className="invite-modal-close-btn" onClick={closeInviteModal} aria-label="Close">
+                                <FiX size={18} />
+                            </button>
+
+                            {/* Icon + Title */}
+                            <div className="invite-modal-title-row">
+                                <div className="invite-modal-icon-lg"><FiMail size={24} /></div>
+                                <h2 className="invite-modal-title-text">Send Interview Invitation</h2>
                             </div>
-                            <button className="close-btn-p" onClick={closeInviteModal}><FiX /></button>
+
+                            {/* Candidate info rows */}
+                            <div className="invite-modal-meta">
+                                <div className="invite-meta-row invite-meta-row--inline">
+                                    <span className="invite-meta-label">Candidate</span>
+                                    <strong className="invite-meta-name">{inviteTarget.first_name} {inviteTarget.last_name}</strong>
+                                </div>
+                                <div className="invite-meta-row invite-meta-row--block">
+                                    <span className="invite-meta-label">Position</span>
+                                    <span className="invite-meta-position">{inviteTarget.vacancy_title}</span>
+                                </div>
+                                {inviteTarget.contact_number && (
+                                    <div className="invite-meta-row invite-meta-row--inline">
+                                        <span className="invite-meta-label">Telephone</span>
+                                        <span className="invite-phone-badge">
+                                            <FiPhone size={13} strokeWidth={2.5} />
+                                            {inviteTarget.contact_number}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="modal-body-p">
                             <div style={{ gap: '16px', display: 'flex', flexDirection: 'column' }}>
@@ -2107,7 +2108,7 @@ function Applicants({ admin }) {
                                         <option value="On-site">On-site / Physical</option>
                                     </select>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div className="invite-modal-date-grid">
                                     <div className="form-group-p">
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Interview Date</label>
                                         <input type="date" className="styled-input" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
@@ -2209,8 +2210,8 @@ function Applicants({ admin }) {
                                     )}
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '32px', borderTop: '1px solid #f1f5f9', paddingTop: '24px' }}>
-                                <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '12px 24px', fontWeight: 600 }} onClick={closeInviteModal}>Cancel</button>
+                            <div className="invite-modal-footer">
+                                <button className="btn btn-outline invite-modal-cancel-btn" onClick={closeInviteModal}>Cancel</button>
                                 <button
                                     className="btn-status-action btn-status-shortlist"
                                     onClick={handleSendInterview}
