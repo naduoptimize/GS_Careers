@@ -134,4 +134,9 @@ export const updateAdmin = (data) => api.post('/admins.php?action=update', data)
 export const deleteAdmin = (data) => api.post('/admins.php?action=delete', data);
 export const resetAdminPassword = (data) => api.post('/admins.php?action=reset-password', data);
 
+// Settings
+export const getSettings = () => api.get('/settings.php');
+export const saveSettings = (data) => api.post('/settings.php', data);
+export const testSmtpSettings = (data) => api.post('/settings.php?action=test', data);
+
 export default api;

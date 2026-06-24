@@ -62,14 +62,13 @@ function getDB()
                 "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
                 DB_USER,
                 DB_PASS,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false
-            ]
-                );
-        }
-        catch (PDOException $e) {
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
+                ]
+            );
+        } catch (PDOException $e) {
             jsonResponse(500, 'Database connection failed');
         }
     }
@@ -88,9 +87,9 @@ function jsonResponse($code, $message, $data = null, $continue = false)
     $resp = ['message' => $message];
     if ($data !== null)
         $resp['data'] = $data;
-    
+
     $output = json_encode($resp);
-    
+
     if ($continue) {
         // For non-blocking response, we MUST set Content-Length accurately
         header('Connection: close');
@@ -187,29 +186,72 @@ if (!is_dir(UPLOAD_DIR)) {
 // ---- EMAIL UTILITY ----
 function sendEmail($to, $toName, $subject, $body)
 {
-    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED) return true;
+    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
+        return true;
 
     $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
 
     try {
+        $smtp_host = SMTP_HOST;
+        $smtp_port = SMTP_PORT;
+        $smtp_secure = SMTP_SECURE;
+        $smtp_user = SMTP_USER;
+        $smtp_pass = SMTP_PASS;
+        $smtp_from_name = SMTP_FROM_NAME;
+        $system_email = SMTP_USER;
+
+        try {
+            $db = getDB();
+            $stmt = $db->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from_name', 'system_email')");
+            $stmt->execute();
+            $results = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+            if (!empty($results['smtp_host']))
+                $smtp_host = $results['smtp_host'];
+            if (!empty($results['smtp_port']))
+                $smtp_port = (int) $results['smtp_port'];
+            if (!empty($results['smtp_secure']))
+                $smtp_secure = $results['smtp_secure'];
+            if (!empty($results['smtp_user']))
+                $smtp_user = $results['smtp_user'];
+            if (!empty($results['smtp_pass']))
+                $smtp_pass = $results['smtp_pass'];
+            if (!empty($results['smtp_from_name']))
+                $smtp_from_name = $results['smtp_from_name'];
+            if (!empty($results['system_email']))
+                $system_email = $results['system_email'];
+            else if (!empty($smtp_user))
+                $system_email = $smtp_user;
+        } catch (\Exception $dbEx) {
+            // Fallback to config constants on DB failure
+        }
+
         // Server settings
         $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USER;
-        $mail->Password   = SMTP_PASS;
-        $mail->SMTPSecure = SMTP_SECURE;
-        $mail->Port       = SMTP_PORT;
+        $mail->Host = $smtp_host;
+        $mail->SMTPAuth = true;
+        $mail->Username = $smtp_user;
+        $mail->Password = $smtp_pass;
+        $mail->SMTPSecure = $smtp_secure;
+        $mail->Port = $smtp_port;
 
-        // Recipients
-        $mail->setFrom(SMTP_USER, SMTP_FROM_NAME);
+        // SSL Bypass for local environments
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
+
+        $mail->setFrom($system_email, $smtp_from_name);
         $mail->addAddress($to, $toName);
         $mail->addReplyTo(SMTP_REPLY_TO, 'Support');
 
         // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
-        $mail->Body    = $body;
+        $mail->Body = $body;
         $mail->AltBody = strip_tags(str_replace('<br>', "\n", $body));
 
         $mail->send();
@@ -222,13 +264,14 @@ function sendEmail($to, $toName, $subject, $body)
 
 function queueEmail($to, $toName, $subject, $body)
 {
-    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED) return true;
+    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
+        return true;
 
     try {
         $db = getDB();
         $stmt = $db->prepare("INSERT INTO email_queue (recipient_email, recipient_name, subject, body, status, attempts) VALUES (?, ?, ?, ?, 'pending', 0)");
         $stmt->execute([$to, $toName, $subject, $body]);
-        
+
         // Asynchronously trigger the email queue processor script
         $scriptPath = __DIR__ . '/scripts/process_queue.php';
         if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {

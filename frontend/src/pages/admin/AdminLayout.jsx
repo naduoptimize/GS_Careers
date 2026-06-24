@@ -77,6 +77,10 @@ function AdminLayout({ admin, children }) {
         navItems.push({ to: '/admin/admins', icon: <FiUserPlus />, label: 'Manage Admins', badge: null });
     }
 
+    if (admin.role === 'super_admin') {
+        navItems.push({ to: '/admin/settings', icon: <FiSettings />, label: 'Settings', badge: null });
+    }
+
     const currentPage = navItems.find(item => {
         if (item.end) return location.pathname === '/admin';
         return location.pathname.startsWith(item.to);

@@ -302,7 +302,6 @@ function ApplyPage() {
 
     const parseResumeWithAI = async (file) => {
         setParsing(true);
-        const toastId = toast.info("✨ Steuart AI is analyzing your CV...", { autoClose: false });
         try {
             const text = await extractTextFromPdf(file);
             if (!text || text.trim().length === 0) {
@@ -1151,26 +1150,16 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             const cleanedSkills = [...new Set(normalized.map(item => item.skill))];
             setUserSkills(cleanedSkills);
 
-            toast.update(toastId, {
-                render: requiredSkillsList.length > 0
-                    ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
-                    : "🎉 Steuart AI successfully parsed your CV and auto-filled the form!",
-                type: "success",
-                autoClose: 5000,
-                isLoading: false
-            });
+            toast.success(requiredSkillsList.length > 0
+                ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
+                : "🎉 Steuart AI successfully parsed your CV and auto-filled the form!", { autoClose: 5000 });
         } catch (err) {
             console.error("CV parsing error:", err);
             let userFriendlyMessage = err.message || 'Please enter details manually.';
             if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
                 userFriendlyMessage = "Gemini API key quota exceeded (status 429). Please update your VITE_GEMINI_API_KEY in the frontend/.env file, or wait for the quota to reset. You can still fill out the form manually.";
             }
-            toast.update(toastId, {
-                render: `⚠️ AI auto-fill failed: ${userFriendlyMessage}`,
-                type: "warning",
-                autoClose: 10000,
-                isLoading: false
-            });
+            toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 10000 });
         } finally {
             setParsing(false);
         }
@@ -1427,8 +1416,59 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     border-radius: 50%;
                     animation: spin-cv 0.8s linear infinite;
                 }
+                .spinner-large {
+                    width: 56px;
+                    height: 56px;
+                    border: 4px solid rgba(139, 26, 43, 0.1);
+                    border-top-color: var(--crimson, #8b1a2b);
+                    border-right-color: var(--gold-accent, #c8a951);
+                    border-radius: 50%;
+                    animation: spin-cv 1s linear infinite;
+                    margin: 0 auto 20px;
+                }
+                .parsing-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(255, 255, 255, 0.75);
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 999999;
+                    animation: fadeIn-cv 0.3s ease-out;
+                }
+                .parsing-popup {
+                    background: #ffffff;
+                    border-radius: 24px;
+                    padding: 36px 30px;
+                    width: 90%;
+                    max-width: 460px;
+                    text-align: center;
+                    box-shadow: 0 20px 40px rgba(139, 26, 43, 0.1);
+                    border: 1px solid rgba(200, 169, 81, 0.2);
+                    animation: scaleUp-cv 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+                @keyframes fadeIn-cv {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes scaleUp-cv {
+                    from { opacity: 0; transform: scale(0.9); }
+                    to { opacity: 1; transform: scale(1); }
+                }
                 @keyframes spin-cv {
                     to { transform: rotate(360deg); }
+                }
+                .apb-form-parsing-active .apb-fieldset-label,
+                .apb-form-parsing-active .apb-grid2,
+                .apb-form-parsing-active .apb-consent,
+                .apb-form-parsing-active .apb-talent-pool,
+                .apb-form-parsing-active .apb-submit,
+                .apb-form-parsing-active .apb-disclosure,
+                .apb-form-parsing-active .apb-skill-match-panel,
+                .apb-form-parsing-active .premium-skills-container {
+                    display: none !important;
                 }
                 .skill-source-badge {
                     font-size: 0.65rem;
@@ -1642,7 +1682,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             <div className="apb-card">
                                 <h2 className="apb-card-title">Your Application</h2>
 
-                                <form onSubmit={handleReview}>
+                                <form onSubmit={handleReview} className={parsing ? "apb-form-parsing-active" : ""}>
 
 
                                     {/* CV Upload at the TOP */}
@@ -1678,8 +1718,9 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                         )}
                                     </div>
 
-                                    {/* Personal Info */}
-                                    <div className="apb-fieldset-label">Personal Information</div>
+                                    <div style={{ display: parsing ? 'none' : 'block' }}>
+                                        {/* Personal Info */}
+                                        <div className="apb-fieldset-label">Personal Information</div>
                                     <div className="apb-grid2">
                                         <div className="apb-field">
                                             <label>First Name <span className="req">*</span></label>
@@ -2130,6 +2171,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                     >
                                         Review Application <FiChevronRight />
                                     </button>
+                                    </div>
                                 </form>
                             </div>
                         )}
@@ -2233,7 +2275,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                 <span>{emoji} {tabName}</span>
                                                                 <span style={{
                                                                     fontSize: '0.68rem',
-                                                                    background: activeReviewReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                    background: activeReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
                                                                     color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
                                                                     padding: '1px 6px',
                                                                     borderRadius: '100px',
@@ -2352,6 +2394,18 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     </div>
                 </div>
             </footer>
+
+            {parsing && (
+                <div className="parsing-overlay">
+                    <div className="parsing-popup">
+                        <div className="spinner-large"></div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>Steuart AI is parsing your CV...</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
+                            Extracting contact details, qualifications, experience, and skill matches. Please wait.
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -26,6 +26,7 @@ import ForgotPasswordPage from './pages/admin/ForgotPasswordPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
 import VacancyApprovals from './pages/admin/VacancyApprovals';
 import AuditLog from './pages/admin/AuditLog';
+import SettingsPage from './pages/admin/SettingsPage';
 
 function ProtectedRoute({ children }) {
     const [auth, setAuth] = useState(null);
@@ -101,6 +102,9 @@ function App() {
                                         <Route path="/companies" element={<ManageCompanies admin={admin} />} />
                                         <Route path="/admins" element={<ManageAdmins admin={admin} />} />
                                     </>
+                                )}
+                                {admin.role === 'super_admin' && (
+                                    <Route path="/settings" element={<SettingsPage admin={admin} />} />
                                 )}
                                 <Route path="*" element={<Navigate to="/admin" />} />
                             </Routes>
