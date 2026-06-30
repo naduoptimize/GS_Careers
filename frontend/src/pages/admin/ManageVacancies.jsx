@@ -8,7 +8,8 @@ import { toast } from 'react-toastify';
 import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
-    FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity
+    FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity,
+    FiUser, FiMail, FiPhone
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 
@@ -118,7 +119,7 @@ const renderApprovalTimeline = (v) => {
         });
     }
 
-    // Step 3: Global Admin Approval
+    // Step 3: GS Admin Approval
     let step3Status = 'pending';
     let step3Detail = 'Awaiting previous step';
     let step3Time = '';
@@ -133,7 +134,7 @@ const renderApprovalTimeline = (v) => {
         step3Color = '#16a34a';
     } else if (v.approval_status === 'pending_global') {
         step3Status = 'active';
-        step3Detail = 'Awaiting review by Global Admin';
+        step3Detail = 'Awaiting review by GS Admin';
         step3Color = '#2563eb';
     } else if (v.approval_status === 'rejected' && v.rejected_by_name && (v.global_approved_by_name || !requiresSub1 || v.sub1_approved_by_name)) {
         step3Status = 'rejected';
@@ -142,11 +143,11 @@ const renderApprovalTimeline = (v) => {
         step3Color = '#dc2626';
     } else if (isSub1Done && v.approval_status !== 'draft') {
         step3Status = 'pending';
-        step3Detail = 'Pending review by Global Admin';
+        step3Detail = 'Pending review by GS Admin';
     }
 
     steps.push({
-        label: 'Global Admin Approval',
+        label: 'GS Admin Approval',
         status: step3Status,
         icon: 'FiCheckCircle',
         color: step3Color,
@@ -392,6 +393,25 @@ function ManageVacancies({ admin }) {
         loadData();
     }, [companyFilter]);
 
+    useEffect(() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        const highlightId = searchParams.get('highlight');
+        if (highlightId && !loading && vacancies.length > 0) {
+            const targetVac = vacancies.find(v => v.id == highlightId);
+            if (targetVac) {
+                setViewDetail(targetVac);
+                setModalTab('details');
+            }
+            setTimeout(() => {
+                const el = document.getElementById(`vacancy-card-${highlightId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('highlighted-card-active');
+                }
+            }, 300);
+        }
+    }, [loading, vacancies]);
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -610,7 +630,7 @@ function ManageVacancies({ admin }) {
                     </div>
                 ) : (
                     <div className="premium-table-container">
-                        <table className="premium-table">
+                        <table className="premium-table vacancies-table">
                             <colgroup>
                                 <col />
                                 <col />
@@ -730,7 +750,7 @@ function ManageVacancies({ admin }) {
                                                     </div>
                                                 )}
                                                 {v.approval_status === 'pending_global' && (
-                                                    <div className="status-orb-p info" title="Pending Global Admin Approval">
+                                                    <div className="status-orb-p info" title="Pending GS Admin Approval">
                                                         <span className="orb" style={{ background: '#2563eb', boxShadow: '0 0 8px rgba(37,99,235,0.5)' }}></span>
                                                         <span className="orb-text" style={{ color: '#2563eb' }}>Pending Global</span>
                                                     </div>
@@ -926,19 +946,28 @@ function ManageVacancies({ admin }) {
                                             {viewDetail.selected_first_name ? (
                                                 <div className="vd-form-grid">
                                                     <div className="vd-form-field">
-                                                        <span className="vd-form-label">Selected Employee</span>
-                                                        <div className="vd-form-value">{viewDetail.selected_first_name} {viewDetail.selected_last_name}</div>
+                                                        <div className="vd-field-icon"><FiUser /></div>
+                                                        <div className="vd-field-content">
+                                                            <span className="vd-form-label">Selected Employee</span>
+                                                            <div className="vd-form-value">{viewDetail.selected_first_name} {viewDetail.selected_last_name}</div>
+                                                        </div>
                                                     </div>
                                                     <div className="vd-form-field">
-                                                        <span className="vd-form-label">Email Address</span>
-                                                        <div className="vd-form-value">{viewDetail.selected_email}</div>
+                                                        <div className="vd-field-icon"><FiMail /></div>
+                                                        <div className="vd-field-content">
+                                                            <span className="vd-form-label">Email Address</span>
+                                                            <div className="vd-form-value">{viewDetail.selected_email}</div>
+                                                        </div>
                                                     </div>
                                                     <div className="vd-form-field">
-                                                        <span className="vd-form-label">Contact Number</span>
-                                                        <div className="vd-form-value">{viewDetail.selected_contact_number || 'N/A'}</div>
+                                                        <div className="vd-field-icon"><FiPhone /></div>
+                                                        <div className="vd-field-content">
+                                                            <span className="vd-form-label">Contact Number</span>
+                                                            <div className="vd-form-value">{viewDetail.selected_contact_number || 'N/A'}</div>
+                                                        </div>
                                                     </div>
                                                     {admin.role !== 'super_admin' && (
-                                                        <div className="vd-form-field" style={{ justifyContent: 'center' }}>
+                                                        <div className="vd-form-field-action" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                                             <button className="vd-emp-btn change" onClick={handleOpenAssignModal} style={{ width: 'fit-content', height: 'fit-content', marginTop: '6px' }}>
                                                                 Change Employee
                                                             </button>
@@ -947,7 +976,7 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             ) : (
                                                 <div className="vd-form-grid">
-                                                    <div className="vd-form-field" style={{ gridColumn: 'span 2' }}>
+                                                    <div className="vd-form-field-empty" style={{ gridColumn: 'span 2' }}>
                                                         <div className="vd-form-value" style={{ background: '#f8fafc', borderStyle: 'dashed', justifyContent: 'space-between', padding: '16px 20px', height: 'auto', minHeight: '52px' }}>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
                                                                 <span style={{ fontWeight: 800, color: '#64748b', fontSize: '0.85rem' }}>No Employee Assigned Yet</span>
@@ -968,20 +997,32 @@ function ManageVacancies({ admin }) {
                                             <h3 className="vd-form-section-title">General Information</h3>
                                             <div className="vd-form-grid">
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Position / Job Title</span>
-                                                    <div className="vd-form-value">{viewDetail.title}</div>
+                                                    <div className="vd-field-icon"><FiBriefcase /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Position / Job Title</span>
+                                                        <div className="vd-form-value">{viewDetail.title}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Reference Number</span>
-                                                    <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiInfo /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Reference Number</span>
+                                                        <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Establishment Entity</span>
-                                                    <div className="vd-form-value">{viewDetail.company_name}</div>
+                                                    <div className="vd-field-icon"><FiUsers /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Establishment Entity</span>
+                                                        <div className="vd-form-value">{viewDetail.company_name}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Designation Class</span>
-                                                    <div className="vd-form-value">{viewDetail.designation || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiTarget /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Designation Class</span>
+                                                        <div className="vd-form-value">{viewDetail.designation || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -990,23 +1031,35 @@ function ManageVacancies({ admin }) {
                                             <h3 className="vd-form-section-title">Operational Details</h3>
                                             <div className="vd-form-grid">
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Employment Classification</span>
-                                                    <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                                    <div className="vd-field-icon"><FiClock /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Employment Classification</span>
+                                                        <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Work Location</span>
-                                                    <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiMapPin /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Work Location</span>
+                                                        <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Experience Tier Required</span>
-                                                    <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                                    <div className="vd-field-icon"><FiTrendingUp /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Experience Tier Required</span>
+                                                        <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="vd-form-field">
-                                                    <span className="vd-form-label">Active Listing Period</span>
-                                                    <div className="vd-form-value">
-                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {formatDate(viewDetail.publish_date)}</span>
-                                                        <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
-                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {formatDate(viewDetail.expire_date)}</span>
+                                                <div className="vd-form-field col-span-2">
+                                                    <div className="vd-field-icon"><FiCalendar /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Active Listing Period</span>
+                                                        <div className="vd-form-value">
+                                                            <span className="vd-period-date"><FiCalendar className="inline-icon" /> {formatDate(viewDetail.publish_date)}</span>
+                                                            <span className="vd-period-arrow">&rarr;</span>
+                                                            <span className="vd-period-date"><FiClock className="inline-icon" /> {formatDate(viewDetail.expire_date)}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1024,9 +1077,9 @@ function ManageVacancies({ admin }) {
                                                     </div>
                                                 </div>
                                                 {viewDetail.requirements && (
-                                                    <div className="vd-form-field full-width">
+                                                    <div className="vd-form-field full-width requirements-card">
                                                         <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
-                                                        <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
+                                                        <div className="vd-form-value-textarea">
                                                             {renderFormattedText(viewDetail.requirements)}
                                                         </div>
                                                     </div>
@@ -1080,7 +1133,7 @@ function ManageVacancies({ admin }) {
                                                                 submitted: 'Requisition Submitted',
                                                                 edited: 'Details Revised',
                                                                 sub1_approved: 'Approved by Tier-1 Reviewer',
-                                                                global_approved: 'Authorized by Global Admin',
+                                                                global_approved: 'Authorized by GS Admin',
                                                                 rejected: 'Requisition Rejected'
                                                             };
                                                             const actionColors = {
@@ -1103,7 +1156,7 @@ function ManageVacancies({ admin }) {
                                                                             </span>
                                                                         </div>
                                                                         <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
-                                                                            By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                                            By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'GS Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
                                                                         </div>
                                                                         {log.old_status && log.new_status && (
                                                                             <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -1327,33 +1380,41 @@ function ManageVacancies({ admin }) {
                 }
 
                 .vd-form-section {
-                    margin-bottom: 16px;
+                    margin-bottom: 24px;
                     background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 12px;
-                    padding: 16px 20px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.01);
+                    border: 1px solid #f1f5f9;
+                    border-radius: 16px;
+                    padding: 24px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.01);
                 }
 
                 .vd-form-section-title {
                     font-family: var(--font-heading);
-                    font-size: 0.85rem;
+                    font-size: 0.95rem;
                     font-weight: 800;
-                    color: var(--text-primary);
-                    margin: 0 0 12px 0;
+                    color: #0f172a;
+                    margin: 0 0 18px 0;
                     text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    border-bottom: 1.5px solid #f1f5f9;
-                    padding-bottom: 6px;
+                    letter-spacing: 0.8px;
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 10px;
+                    position: relative;
+                }
+
+                .vd-form-section-title::before {
+                    content: "";
+                    display: inline-block;
+                    width: 3px;
+                    height: 14px;
+                    background: var(--crimson);
+                    border-radius: 1.5px;
                 }
 
                 .vd-form-grid {
                     display: grid;
                     grid-template-columns: repeat(2, 1fr);
-                    gap: 12px;
+                    gap: 16px 20px;
                 }
 
                 @media (max-width: 600px) {
@@ -1364,12 +1425,108 @@ function ManageVacancies({ admin }) {
 
                 .vd-form-field {
                     display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    gap: 14px;
+                    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+                    border: 1.5px solid #f1f5f9;
+                    border-radius: 14px;
+                    padding: 12px 16px 12px 20px;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
+                    position: relative;
+                    overflow: hidden;
+                }
+
+                .vd-form-field:hover {
+                    border-color: rgba(139, 26, 43, 0.15);
+                    box-shadow: 0 12px 24px rgba(139, 26, 43, 0.05), 0 2px 4px rgba(139, 26, 43, 0.02);
+                    transform: translateY(-3px);
+                }
+
+                .vd-form-field::before {
+                    content: "";
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 4px;
+                    background: var(--crimson);
+                    transition: all 0.3s ease;
+                }
+
+                .vd-form-field:hover::before {
+                    width: 6px;
+                }
+
+                .vd-form-field.requirements-card:hover {
+                    border-color: rgba(200, 169, 81, 0.25);
+                    box-shadow: 0 12px 24px rgba(200, 169, 81, 0.06), 0 2px 4px rgba(200, 169, 81, 0.02);
+                }
+
+                .vd-field-icon {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 10px;
+                    background: rgba(139, 26, 43, 0.04);
+                    color: var(--crimson);
+                    font-size: 1.15rem;
+                    flex-shrink: 0;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+
+                .vd-form-field:hover .vd-field-icon {
+                    background: var(--crimson);
+                    color: #ffffff;
+                    transform: scale(1.05);
+                }
+
+                .vd-form-field.requirements-card:hover .vd-field-icon {
+                    background: var(--gold-accent);
+                    color: #ffffff;
+                    box-shadow: 0 4px 10px rgba(200, 169, 81, 0.2);
+                }
+
+                .vd-field-content {
+                    display: flex;
                     flex-direction: column;
-                    gap: 4px;
+                    gap: 2px;
+                    flex: 1;
+                    text-align: left;
                 }
 
                 .vd-form-field.full-width {
                     grid-column: span 2;
+                    flex-direction: column;
+                    align-items: stretch;
+                    gap: 10px;
+                    padding: 20px 20px 20px 24px;
+                    border-radius: 16px;
+                    position: relative;
+                    overflow: hidden;
+                    border: 1.5px solid #f1f5f9;
+                }
+
+                .vd-form-field.full-width::before {
+                    content: "";
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 4px;
+                    background: var(--crimson);
+                    transition: all 0.3s ease;
+                }
+
+                .vd-form-field.full-width:hover::before {
+                    width: 6px;
+                }
+
+                .vd-form-field.requirements-card::before {
+                    background: var(--gold-accent);
                 }
 
                 @media (max-width: 600px) {
@@ -1379,47 +1536,131 @@ function ManageVacancies({ admin }) {
                 }
 
                 .vd-form-label {
-                    font-size: 0.6rem;
+                    font-size: 0.65rem;
                     font-weight: 800;
                     color: #94a3b8;
                     text-transform: uppercase;
-                    letter-spacing: 1.2px;
-                    padding-left: 2px;
+                    letter-spacing: 0.8px;
                 }
 
                 .vd-form-value {
-                    padding: 8px 12px;
-                    background: #f8fafc;
-                    border: 1.5px solid #e2e8f0;
-                    border-radius: 8px;
-                    font-size: 0.82rem;
-                    font-weight: 600;
-                    color: #334155;
-                    min-height: 34px;
+                    padding: 0;
+                    background: transparent;
+                    border: none;
+                    border-radius: 0;
+                    font-size: 0.88rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                    min-height: auto;
                     display: flex;
                     align-items: center;
-                    transition: all 0.2s;
+                    transition: none;
+                    box-shadow: none;
                 }
 
                 .vd-form-value:hover {
-                    background: #f1f5f9;
-                    border-color: #cbd5e1;
+                    background: transparent;
+                    border-color: transparent;
+                    box-shadow: none;
+                }
+
+                .vd-period-date {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 0.82rem;
+                    color: #475569;
+                    font-weight: 700;
+                    background: rgba(139, 26, 43, 0.03);
+                    border: 1px solid rgba(139, 26, 43, 0.08);
+                    padding: 4px 10px;
+                    border-radius: 8px;
+                    transition: all 0.25s ease;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+
+                .vd-form-field:hover .vd-period-date {
+                    background: rgba(139, 26, 43, 0.05);
+                    border-color: rgba(139, 26, 43, 0.15);
+                }
+
+                .vd-period-date .inline-icon {
+                    font-size: 0.85rem;
+                    color: var(--crimson);
+                    opacity: 0.85;
+                }
+
+                .vd-period-arrow {
+                    color: var(--gold-accent);
+                    margin: 0 6px;
+                    font-weight: 800;
+                    font-size: 1.05rem;
+                    display: inline-block;
+                    transition: all 0.25s ease;
+                }
+
+                .vd-form-field:hover .vd-period-arrow {
+                    transform: translateX(3px);
+                }
+
+                .vd-form-field.col-span-2 {
+                    grid-column: span 2;
+                }
+
+                @media (max-width: 600px) {
+                    .vd-form-field.col-span-2 {
+                        grid-column: span 1;
+                    }
                 }
 
                 .vd-form-value-textarea {
-                    padding: 12px 16px;
+                    padding: 14px 18px;
                     background: #f8fafc;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1px solid #f1f5f9;
                     border-radius: 10px;
-                    font-size: 0.82rem;
-                    color: #475569;
-                    line-height: 1.6;
-                    transition: all 0.2s;
+                    font-size: 0.88rem;
+                    color: #334155;
+                    line-height: 1.65;
+                    transition: all 0.2s ease;
+                    max-height: 350px;
+                    overflow-y: auto;
                     text-align: left;
                 }
 
                 .vd-form-value-textarea:hover {
-                    border-color: #cbd5e1;
+                    background: #ffffff;
+                    border-color: rgba(139, 26, 43, 0.1);
+                    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.01);
+                }
+
+                /* Custom Scrollbar for Textareas */
+                .vd-form-value-textarea::-webkit-scrollbar {
+                    width: 6px;
+                }
+
+                .vd-form-value-textarea::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+
+                .vd-form-value-textarea::-webkit-scrollbar-thumb {
+                    background: rgba(139, 26, 43, 0.12);
+                    border-radius: 3px;
+                }
+
+                .vd-form-value-textarea::-webkit-scrollbar-thumb:hover {
+                    background: var(--crimson);
+                }
+
+                .vd-form-field-empty {
+                    grid-column: span 2;
+                }
+
+                .vd-form-field-action {
+                    grid-column: span 2;
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 4px;
                 }
 
                 .vd-emp-btn {
@@ -1755,7 +1996,7 @@ function ManageVacancies({ admin }) {
 
                 /* ORCHESTRATION HEADER */
                 .vacancies-orchestration-header {
-                    background: linear-gradient(135deg, #2a050b 0%, var(--crimson-dark) 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     border-radius: 20px;
                     padding: 24px;
                     margin-bottom: 24px;
@@ -2150,6 +2391,7 @@ function ManageVacancies({ admin }) {
                     position: relative;
                     overflow: hidden;
                     flex-shrink: 0;
+                    border-radius: 30px 30px 0 0;
                 }
 
                 .vd-header-glow {
@@ -2198,7 +2440,7 @@ function ManageVacancies({ admin }) {
                 .vd-close-btn {
                     width: 38px;
                     height: 38px;
-                    border-radius: 12px;
+                    border-radius: 50%;
                     background: rgba(255,255,255,0.1);
                     border: 1px solid rgba(255,255,255,0.18);
                     color: #fff;
@@ -2207,10 +2449,14 @@ function ManageVacancies({ admin }) {
                     justify-content: center;
                     cursor: pointer;
                     font-size: 1.05rem;
-                    transition: all 0.2s;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     flex-shrink: 0;
                 }
-                .vd-close-btn:hover { background: rgba(255,255,255,0.18); transform: scale(1.05); }
+                .vd-close-btn:hover {
+                    background: rgba(255,255,255,0.22);
+                    transform: rotate(90deg) scale(1.08);
+                    box-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+                }
 
                 .vd-title {
                     font-family: var(--font-heading);

@@ -92,6 +92,15 @@ function ConfirmInterview() {
                             </div>
                             <div className="success-v2-badge" style={{ background: 'rgba(22, 163, 74, 0.1)', color: '#16a34a' }}>Attendance Confirmed</div>
                             <h1 className="success-v2-title" style={{ color: 'var(--text-primary)' }}>See You Soon</h1>
+                            
+                            <div className="rsvp-details-card" style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', border: '1px solid #dcfce7', marginBottom: '24px', textAlign: 'center', display: 'inline-block', minWidth: '220px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#166534', letterSpacing: '0.5px' }}>Your Response</div>
+                                <div style={{ fontSize: '15px', fontWeight: 700, color: '#15803d', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a' }}></span>
+                                    Yes, I am available
+                                </div>
+                            </div>
+
                             <div className="success-v2-message" style={{ marginBottom: '30px' }}>
                                 <p>Thank you for confirming your availability! Your attendance has been successfully recorded in our system. We look forward to discussing your potential future with us.</p>
                             </div>
@@ -132,6 +141,15 @@ function ConfirmInterview() {
                             </div>
                             <div className="success-v2-badge" style={{ background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626' }}>Declined RSVP</div>
                             <h1 className="success-v2-title" style={{ color: 'var(--text-primary)' }}>Declined Invitation</h1>
+                            
+                            <div className="rsvp-details-card" style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', border: '1px solid #fecaca', marginBottom: '24px', textAlign: 'center', display: 'inline-block', minWidth: '220px' }}>
+                                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#991b1b', letterSpacing: '0.5px' }}>Your Response</div>
+                                <div style={{ fontSize: '15px', fontWeight: 700, color: '#b91c1c', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></span>
+                                    No, I cannot attend
+                                </div>
+                            </div>
+
                             <div className="success-v2-message" style={{ marginBottom: '30px' }}>
                                 <p>We understand that you are unable to attend the scheduled interview at this time. Your response has been logged, and the hiring team has been notified.</p>
                             </div>

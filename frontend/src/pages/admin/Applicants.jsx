@@ -2679,7 +2679,7 @@ function Applicants({ admin }) {
                     align-items: center;
                     flex-wrap: wrap;
                     gap: 20px;
-                    background: linear-gradient(135deg, #2a050b 0%, var(--crimson-dark) 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
                 }
 
@@ -3222,47 +3222,31 @@ function Applicants({ admin }) {
                         width: 100%;
                         min-width: 100%;
                     }
+
+                    .premium-table-container {
+                        overflow-x: auto !important;
+                        -webkit-overflow-scrolling: touch;
+                        padding-bottom: 8px !important;
+                    }
+
+                    .premium-table-container::-webkit-scrollbar {
+                        height: 5px !important;
+                    }
+                    .premium-table-container::-webkit-scrollbar-track {
+                        background: #f1f5f9 !important;
+                        border-radius: 10px !important;
+                    }
+                    .premium-table-container::-webkit-scrollbar-thumb {
+                        background: var(--crimson, #8b1a2b) !important;
+                        border-radius: 10px !important;
+                    }
+
+                    .premium-table.applicants-table {
+                        min-width: 1000px !important;
+                    }
                 }
 
                 @media (max-width: 768px) {
-                    .premium-table {
-                        display: block;
-                        min-width: 0 !important;
-                        width: 100%;
-                    }
-                    
-                    .premium-table thead { display: none; }
-                    
-                    .premium-table tr {
-                        display: block;
-                        padding: 20px;
-                        border-bottom: 8px solid #f8fafc;
-                        background: #fff;
-                    }
-                    
-                    .premium-table td {
-                        display: block;
-                        padding: 12px 0;
-                        border: none;
-                        width: 100%;
-                        box-sizing: border-box;
-                    }
-                    
-                    .premium-table td::before {
-                        content: attr(data-label);
-                        display: block;
-                        font-size: 0.7rem;
-                        font-weight: 800;
-                        color: #94a3b8;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                        margin-bottom: 6px;
-                    }
-                    
-                    .orchestration-actions {
-                        justify-content: flex-start;
-                    }
-                    
                     .vacancies-orchestration-header {
                         padding: 24px 20px;
                         border-radius: 16px;

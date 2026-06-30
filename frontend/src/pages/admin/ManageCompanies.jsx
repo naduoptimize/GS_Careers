@@ -390,7 +390,7 @@ function ManageCompanies({ admin }) {
                                             </div>
                                             <div className="admin-info-p">
                                                 <span className="admin-name-p" style={{ fontWeight: 700, fontSize: '0.95rem' }}>{c.name}</span>
-                                                <span className="admin-email-p" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>ID: {c.id}</span>
+                                                <span className="admin-email-p" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>ID: {String(c.id).padStart(4, '0')}</span>
                                             </div>
                                         </div>
                                     </td>

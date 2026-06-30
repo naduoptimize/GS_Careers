@@ -26,7 +26,7 @@
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    min-width: 900px;
+    min-width: 1050px;
 }
 
 .premium-table th {
@@ -55,6 +55,13 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    min-width: 280px;
+}
+
+.candidate-info {
+    min-width: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .candidate-avatar {
@@ -91,6 +98,7 @@
 /* Target Position Column */
 .position-cell {
     max-width: 300px;
+    min-width: 260px;
 }
 
 .ref-badge {
@@ -122,6 +130,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 160px;
 }
 
 .exp-badge {
@@ -145,6 +154,7 @@
 .timeline-cell {
     color: var(--text-secondary);
     font-size: 0.85rem;
+    min-width: 165px;
 }
 
 .schedule-widget {
@@ -955,14 +965,14 @@
     }
 
     .premium-table {
-        min-width: 780px;
+        min-width: 1050px;
     }
 }
 
 /* Applicants table — mobile */
 @media (max-width: 768px) {
     .premium-table {
-        min-width: 640px;
+        min-width: 1050px;
     }
 
     .premium-table th,
@@ -998,7 +1008,7 @@
     }
 
     .premium-table {
-        min-width: 560px;
+        min-width: 1050px;
     }
 
     .premium-table th,
@@ -1056,6 +1066,7 @@
     flex-direction: column;
     height: auto;
     max-height: 94vh !important;
+    padding: 0 !important;
 }
 
 .modal-header-p.candidate-header {
@@ -1566,6 +1577,235 @@
     background-color: #fef2f2;
     color: #991b1b;
     border: 1px solid #fecaca;
+}
+
+/* ── CANDIDATE DETAILS MODAL RESPONSIVENESS ── */
+@media (max-width: 1024px) {
+    .confirm-modal.candidate-detail-modal {
+        width: 95% !important;
+        max-height: 96vh !important;
+        border-radius: 20px !important;
+        padding: 0 !important;
+    }
+    
+    .modal-header-p.candidate-header {
+        padding: 20px 24px !important;
+    }
+    
+    .candidate-name-container h2 {
+        font-size: 2rem;
+    }
+    
+    .modal-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .validation-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .submission-box-p.interview-widget-card {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Center and resize modal overlay and wrapper */
+    .confirm-overlay {
+        padding: 10px !important;
+        z-index: 9999 !important;
+    }
+    
+    .confirm-modal.candidate-detail-modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+        border-radius: 16px !important;
+        padding: 0 !important;
+    }
+
+    .modal-header-p.candidate-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        padding: 12px 14px !important;
+        padding-right: 48px !important;
+        position: relative !important;
+        gap: 12px !important;
+    }
+    
+    .header-info-p {
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+        width: 100%;
+    }
+    
+    .modal-avatar-p {
+        width: 48px !important;
+        height: 48px !important;
+        font-size: 1.1rem !important;
+        border-radius: 12px !important;
+    }
+
+    .modal-avatar-ring {
+        border-radius: 14px !important;
+        inset: -3px !important;
+    }
+    
+    .candidate-name-container h2 {
+        font-size: 1.15rem !important;
+        flex-wrap: wrap;
+        gap: 6px !important;
+        line-height: 1.2 !important;
+        margin: 0 0 2px 0 !important;
+    }
+
+    .status-badge-p {
+        font-size: 0.58rem !important;
+        padding: 2px 6px !important;
+    }
+
+    .modal-subheaders {
+        gap: 6px !important;
+        margin-top: 2px !important;
+    }
+    
+    .modal-prospect-tag,
+    .modal-location-tag {
+        font-size: 0.62rem !important;
+        padding: 2px 6px !important;
+    }
+    
+    .modal-info-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .modal-info-card {
+        padding: 12px 16px !important;
+    }
+    
+    .recruiter-report-summary {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    
+    .validation-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .submission-box-p.interview-widget-card {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    
+    .modal-actions-footer-p {
+        padding: 16px 20px !important;
+        flex-direction: column-reverse;
+        gap: 10px;
+    }
+    
+    .modal-actions-footer-p .btn,
+    .modal-actions-footer-p .btn-status-action {
+        width: 100% !important;
+        margin: 0 !important;
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Skills tab bar horizontal scroll */
+    .apb-skills-tabs {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px !important;
+        padding: 6px !important;
+        padding-bottom: 8px !important;
+        scrollbar-width: none;
+    }
+    .apb-skills-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .apb-tab-btn {
+        flex-shrink: 0 !important;
+        padding: 6px 12px !important;
+        font-size: 0.76rem !important;
+    }
+
+    /* AI badge wrap */
+    .admin-ai-badge {
+        padding: 6px 12px !important;
+        font-size: 0.72rem !important;
+        white-space: normal !important;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* CV Banner Mobile Refinement */
+    .cv-banner-p {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        padding: 14px 16px !important;
+        gap: 12px !important;
+    }
+    .cb-text p {
+        word-break: break-all !important;
+    }
+    .cv-banner-p .btn {
+        width: 100% !important;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .confirm-modal.candidate-detail-modal {
+        border-radius: 12px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+    
+    .modal-info-card {
+        padding: 12px 16px;
+    }
+    
+    .admin-recruiter-report {
+        padding: 12px;
+    }
+}
+
+.modal-body-p {
+    padding: 24px 32px;
+}
+
+@media (max-width: 768px) {
+    .modal-body-p {
+        padding: 16px !important;
+    }
+    
+    .modal-header-p.candidate-header {
+        position: relative;
+        padding-right: 48px !important;
+    }
+    
+    .modal-header-p.candidate-header .o-btn.delete {
+        position: absolute !important;
+        top: 14px !important;
+        right: 14px !important;
+        width: 28px !important;
+        height: 28px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 }
 
 

@@ -4,7 +4,8 @@ import { toast } from 'react-toastify';
 import {
     FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiSearch, FiFilter,
     FiEye, FiArrowLeft, FiCheck, FiX, FiCalendar, FiBriefcase, FiMapPin,
-    FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser, FiEdit2
+    FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser, FiEdit2,
+    FiTarget, FiTrendingUp, FiMail, FiPhone
 } from 'react-icons/fi';
 import { getPendingApprovals, approveVacancy, rejectVacancy, getVacancyAuditLog, API_BASE } from '../../services/api';
 import { formatDate, daysLeft } from '../../utils/constants';
@@ -98,7 +99,7 @@ const renderApprovalTimeline = (v) => {
         });
     }
 
-    // Step 3: Global Admin Approval
+    // Step 3: GS Admin Approval
     let step3Status = 'pending';
     let step3Detail = 'Awaiting previous step';
     let step3Time = '';
@@ -113,7 +114,7 @@ const renderApprovalTimeline = (v) => {
         step3Color = '#16a34a';
     } else if (v.approval_status === 'pending_global') {
         step3Status = 'active';
-        step3Detail = 'Awaiting review by Global Admin';
+        step3Detail = 'Awaiting review by GS Admin';
         step3Color = '#2563eb';
     } else if (v.approval_status === 'rejected' && v.rejected_by_name && (v.global_approved_by_name || !requiresSub1 || v.sub1_approved_by_name)) {
         step3Status = 'rejected';
@@ -122,11 +123,11 @@ const renderApprovalTimeline = (v) => {
         step3Color = '#dc2626';
     } else if (isSub1Done && v.approval_status !== 'draft') {
         step3Status = 'pending';
-        step3Detail = 'Pending review by Global Admin';
+        step3Detail = 'Pending review by GS Admin';
     }
 
     steps.push({
-        label: 'Global Admin Approval',
+        label: 'GS Admin Approval',
         status: step3Status,
         icon: 'FiCheckCircle',
         color: step3Color,
@@ -446,6 +447,11 @@ function VacancyApprovals({ admin }) {
 
     useEffect(() => {
         if (highlightId && !loading && vacancies.length > 0) {
+            const targetVac = vacancies.find(v => v.id == highlightId);
+            if (targetVac) {
+                setViewDetail(targetVac);
+                setModalTab('details');
+            }
             // Wait slightly for rendering to complete on the target page
             setTimeout(() => {
                 const el = document.getElementById(`vacancy-card-${highlightId}`);
@@ -455,7 +461,7 @@ function VacancyApprovals({ admin }) {
                 }
             }, 300);
         }
-    }, [loading, vacancies]);
+    }, [loading, vacancies, highlightId]);
 
     // Metrics calculations
     const stats = {
@@ -511,7 +517,7 @@ function VacancyApprovals({ admin }) {
     const getStatusLabel = (status) => {
         const mapping = {
             pending_subadmin1: 'Pending Sub Admin 1',
-            pending_global: 'Pending Global Admin',
+            pending_global: 'Pending GS Admin',
             approved: 'Approved',
             rejected: 'Rejected'
         };
@@ -568,7 +574,7 @@ function VacancyApprovals({ admin }) {
                 <div className="av-stat-card av-blue clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_global'); }}>
                     <div className="av-card-body">
                         <div className="av-card-meta">
-                            <span className="av-card-label">Pending Global Admin</span>
+                            <span className="av-card-label">Pending GS Admin</span>
                             <span className="av-card-value">{stats.pendingGlobal}</span>
                             <span className="av-card-sub">Final Tier Authorization</span>
                         </div>
@@ -662,7 +668,7 @@ function VacancyApprovals({ admin }) {
                                     >
                                         <option value="">All Statuses</option>
                                         <option value="pending_subadmin1">Pending Sub Admin 1</option>
-                                        <option value="pending_global">Pending Global Admin</option>
+                                        <option value="pending_global">Pending GS Admin</option>
                                         <option value="approved">Approved & Published</option>
                                         <option value="rejected">Rejected</option>
                                     </select>
@@ -874,20 +880,32 @@ function VacancyApprovals({ admin }) {
                                             <h3 className="vd-form-section-title">General Information</h3>
                                             <div className="vd-form-grid">
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Position / Job Title</span>
-                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.title)}</div>
+                                                    <div className="vd-field-icon"><FiBriefcase /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Position / Job Title</span>
+                                                        <div className="vd-form-value">{decodeHTMLEntities(viewDetail.title)}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Reference Number</span>
-                                                    <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiInfo /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Reference Number</span>
+                                                        <div className="vd-form-value">{viewDetail.reference_number || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Establishment Entity</span>
-                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.company_name)}</div>
+                                                    <div className="vd-field-icon"><FiUsers /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Establishment Entity</span>
+                                                        <div className="vd-form-value">{decodeHTMLEntities(viewDetail.company_name)}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Designation Class</span>
-                                                    <div className="vd-form-value">{decodeHTMLEntities(viewDetail.designation) || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiTarget /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Designation Class</span>
+                                                        <div className="vd-form-value">{decodeHTMLEntities(viewDetail.designation) || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -896,23 +914,35 @@ function VacancyApprovals({ admin }) {
                                             <h3 className="vd-form-section-title">Operational Details</h3>
                                             <div className="vd-form-grid">
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Employment Classification</span>
-                                                    <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                                    <div className="vd-field-icon"><FiClock /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Employment Classification</span>
+                                                        <div className="vd-form-value">{viewDetail.employment_type}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Work Location</span>
-                                                    <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                                    <div className="vd-field-icon"><FiMapPin /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Work Location</span>
+                                                        <div className="vd-form-value">{viewDetail.location || 'N/A'}</div>
+                                                    </div>
                                                 </div>
                                                 <div className="vd-form-field">
-                                                    <span className="vd-form-label">Experience Tier Required</span>
-                                                    <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                                    <div className="vd-field-icon"><FiTrendingUp /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Experience Tier Required</span>
+                                                        <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
+                                                    </div>
                                                 </div>
-                                                <div className="vd-form-field">
-                                                    <span className="vd-form-label">Active Listing Period</span>
-                                                    <div className="vd-form-value">
-                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiCalendar /> {viewDetail.publish_date}</span>
-                                                        <span style={{ color: '#cbd5e1', margin: '0 6px' }}>&rarr;</span>
-                                                        <span style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}><FiClock /> {viewDetail.expire_date}</span>
+                                                <div className="vd-form-field col-span-2">
+                                                    <div className="vd-field-icon"><FiCalendar /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Active Listing Period</span>
+                                                        <div className="vd-form-value">
+                                                            <span className="vd-period-date"><FiCalendar className="inline-icon" /> {viewDetail.publish_date}</span>
+                                                            <span className="vd-period-arrow">&rarr;</span>
+                                                            <span className="vd-period-date"><FiClock className="inline-icon" /> {viewDetail.expire_date}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -930,9 +960,9 @@ function VacancyApprovals({ admin }) {
                                                     </div>
                                                 </div>
                                                 {viewDetail.requirements && (
-                                                    <div className="vd-form-field full-width">
+                                                    <div className="vd-form-field full-width requirements-card">
                                                         <span className="vd-form-label" style={{ color: 'var(--gold-accent)' }}>Candidate Profile & Qualifications (Requirements)</span>
-                                                        <div className="vd-form-value-textarea" style={{ borderLeft: '3.5px solid var(--gold-accent)' }}>
+                                                        <div className="vd-form-value-textarea">
                                                             {renderFormattedText(decodeHTMLEntities(viewDetail.requirements))}
                                                         </div>
                                                     </div>
@@ -986,7 +1016,7 @@ function VacancyApprovals({ admin }) {
                                                                 submitted: 'Requisition Submitted',
                                                                 edited: 'Details Revised',
                                                                 sub1_approved: 'Approved by Tier-1 Reviewer',
-                                                                global_approved: 'Authorized by Global Admin',
+                                                                global_approved: 'Authorized by GS Admin',
                                                                 rejected: 'Requisition Rejected'
                                                             };
                                                             const actionColors = {
@@ -1009,7 +1039,7 @@ function VacancyApprovals({ admin }) {
                                                                             </span>
                                                                         </div>
                                                                         <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '4px' }}>
-                                                                            By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'Global Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
+                                                                            By: <strong style={{ color: '#0f172a' }}>{log.admin_name}</strong> ({log.admin_role === 'super_admin' ? 'Super Admin' : log.admin_role === 'admin' ? 'GS Admin' : log.admin_role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'})
                                                                         </div>
                                                                         {log.old_status && log.new_status && (
                                                                             <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
@@ -1190,12 +1220,12 @@ function VacancyApprovals({ admin }) {
                                 }} className="dot pulse"></div>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
-                                        {actionSuccessModal.type === 'sub1_approved' && 'Awaiting Action: Global Admin'}
+                                        {actionSuccessModal.type === 'sub1_approved' && 'Awaiting Action: GS Admin'}
                                         {actionSuccessModal.type === 'global_approved' && 'Status: LIVE & Publishable'}
-                                        {actionSuccessModal.type === 'rejected' && `Rejected by: ${actionSuccessModal.role === 'sub_admin1' ? 'Sub Admin 1' : 'Global Admin'}`}
+                                        {actionSuccessModal.type === 'rejected' && `Rejected by: ${actionSuccessModal.role === 'sub_admin1' ? 'Sub Admin 1' : 'GS Admin'}`}
                                     </p>
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
-                                        {actionSuccessModal.type === 'sub1_approved' && 'Email notification sent to global approval reviewers.'}
+                                        {actionSuccessModal.type === 'sub1_approved' && 'Email notification sent to GS approval reviewers.'}
                                         {actionSuccessModal.type === 'global_approved' && 'Notification email sent to the requisition creator.'}
                                         {actionSuccessModal.type === 'rejected' && `Reason: "${decodeHTMLEntities(actionSuccessModal.rejection_reason)}"`}
                                     </p>

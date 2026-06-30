@@ -23,7 +23,7 @@
 .premium-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 900px;
+    min-width: 1050px;
 }
 
 .premium-table th {
@@ -282,11 +282,11 @@
         padding: 12px 14px;
     }
 
-    .premium-table { min-width: 780px; }
+    .premium-table { min-width: 1050px; }
 }
 
 @media (max-width: 768px) {
-    .premium-table { min-width: 640px; }
+    .premium-table { min-width: 1050px; }
 
     .premium-table th,
     .premium-table td {
@@ -309,7 +309,7 @@
 }
 
 @media (max-width: 480px) {
-    .premium-table { min-width: 560px; }
+    .premium-table { min-width: 1050px; }
 
     .premium-table th,
     .premium-table td {

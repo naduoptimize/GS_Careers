@@ -214,7 +214,7 @@ function VacanciesPage() {
                     ) : (
                         <div className="v2-vacancy-grid">
                             {filteredVacancies.map((vacancy, idx) => {
-                                const isNew = daysLeft(vacancy.created_at) < 7; // Simple logic for "New" tag
+                                const isNew = vacancy.created_at && new Date(vacancy.created_at).toDateString() === new Date().toDateString();
                                 return (
                                     <div
                                         key={vacancy.id}

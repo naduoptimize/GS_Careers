@@ -996,10 +996,14 @@ function notifyCreatorApproved($vacancyId)
     $db = getDB();
     $stmt = $db->prepare("
         SELECT v.id, v.title, v.reference_number, v.company_id, c.name AS company_name,
-               creator.email AS creator_email, creator.full_name AS creator_name, creator.role AS creator_role
+               creator.email AS creator_email, creator.full_name AS creator_name, creator.role AS creator_role,
+               sub1.email AS sub1_email, sub1.full_name AS sub1_name, sub1.role AS sub1_role,
+               glob.email AS global_email, glob.full_name AS global_name, glob.role AS global_role
         FROM vacancies v
         JOIN companies c ON v.company_id = c.id
-        JOIN admins creator ON v.created_by = creator.id
+        LEFT JOIN admins creator ON v.created_by = creator.id
+        LEFT JOIN admins sub1 ON v.sub1_approved_by = sub1.id
+        LEFT JOIN admins glob ON v.global_approved_by = glob.id
         WHERE v.id = ?");
     $stmt->execute([$vacancyId]);
     $vacancy = $stmt->fetch();
@@ -1051,25 +1055,38 @@ function notifyCreatorApproved($vacancyId)
     // Gather recipients (email => name)
     $recipients = [];
 
-    // 1. Creator is always notified
-    $recipients[$vacancy['creator_email']] = $vacancy['creator_name'];
+    // 1. Creator is always notified (could be sub_admin2, sub_admin1, admin, super_admin)
+    if (!empty($vacancy['creator_email'])) {
+        $recipients[$vacancy['creator_email']] = $vacancy['creator_name'];
+    }
 
-    // 2. If creator is sub_admin2, notify all active sub_admin1 users of that company
+    // 2. If creator is sub_admin2: notify the sub_admin1 who approved it (sub1_approved_by)
+    //    or fallback to the active sub_admin1 of that company.
     if ($vacancy['creator_role'] === 'sub_admin2') {
-        $stmtSub1 = $db->prepare("SELECT email, full_name FROM admins WHERE role = 'sub_admin1' AND company_id = ? AND is_active = 1");
-        $stmtSub1->execute([$vacancy['company_id']]);
-        $sub1List = $stmtSub1->fetchAll();
-        foreach ($sub1List as $sub1) {
-            $recipients[$sub1['email']] = $sub1['full_name'];
+        if (!empty($vacancy['sub1_email'])) {
+            $recipients[$vacancy['sub1_email']] = $vacancy['sub1_name'];
+        } else {
+            // fallback to active sub_admin1 of that company
+            $stmtSub1 = $db->prepare("SELECT email, full_name FROM admins WHERE role = 'sub_admin1' AND company_id = ? AND is_active = 1 LIMIT 1");
+            $stmtSub1->execute([$vacancy['company_id']]);
+            $sub1Fallback = $stmtSub1->fetch();
+            if ($sub1Fallback) {
+                $recipients[$sub1Fallback['email']] = $sub1Fallback['full_name'];
+            }
         }
     }
 
-    // 3. Always notify all active admin and super_admin users (Global Admins)
-    $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role IN ('admin', 'super_admin') AND is_active = 1");
-    $stmtAdmins->execute();
-    $adminList = $stmtAdmins->fetchAll();
-    foreach ($adminList as $adm) {
-        $recipients[$adm['email']] = $adm['full_name'];
+    // 3. Notify the global admin or super admin who approved it (global_approved_by)
+    if (!empty($vacancy['global_email'])) {
+        $recipients[$vacancy['global_email']] = $vacancy['global_name'];
+    } else {
+        // Fallback: If no specific global approver is saved, send to all active admins and super admins
+        $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role IN ('admin', 'super_admin') AND is_active = 1");
+        $stmtAdmins->execute();
+        $adminList = $stmtAdmins->fetchAll();
+        foreach ($adminList as $adm) {
+            $recipients[$adm['email']] = $adm['full_name'];
+        }
     }
 
     // Send emails to all gathered unique recipients

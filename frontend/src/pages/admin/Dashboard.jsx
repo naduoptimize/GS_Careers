@@ -111,9 +111,6 @@ function Dashboard({ admin }) {
                         <div className="db-s-icon"><FiCheckCircle /></div>
                     </div>
                     <span className="db-s-value">{activeVac}</span>
-                    <div className="db-s-progress-bar">
-                        <div className="db-s-progress-fill green-fill" style={{ width: `${conversionRate}%` }}></div>
-                    </div>
                     <div className="db-s-trend positive"><FiBarChart2 /> {conversionRate}% Active Rate</div>
                 </div>
                 <div className="db-stat-card blue" style={{ animationDelay: '0.3s' }}>
@@ -337,7 +334,7 @@ function Dashboard({ admin }) {
 
                 /* HERO */
                 .dashboard-hero-premium {
-                    background: linear-gradient(135deg, #1a0208 0%, #2a050b 40%, #3d0813 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     border-radius: 24px;
                     padding: 36px 40px;
                     margin-bottom: 24px;

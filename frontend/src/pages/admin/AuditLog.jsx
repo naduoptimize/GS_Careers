@@ -26,7 +26,7 @@ function AuditLog({ admin }) {
         }
     };
 
-    // Get unique companies list for filter dropdown (only relevant for global admin/super admin)
+    // Get unique companies list for filter dropdown (only relevant for GS admin/super admin)
     const uniqueCompanies = Array.from(new Set(logs.map(log => log.company_name).filter(Boolean)));
     const uniqueActions = Array.from(new Set(logs.map(log => log.action).filter(Boolean)));
 
@@ -86,7 +86,7 @@ function AuditLog({ admin }) {
     const getRoleBadge = (role) => {
         const mapping = {
             super_admin: { label: 'Super Admin', color: '#be123c', bg: '#fff1f2' },
-            admin: { label: 'Global Admin', color: '#1d4ed8', bg: '#eff6ff' },
+            admin: { label: 'GS Admin', color: '#1d4ed8', bg: '#eff6ff' },
             sub_admin1: { label: 'Sub Admin 1', color: '#b45309', bg: '#fffbeb' },
             sub_admin2: { label: 'Sub Admin 2', color: '#6d28d9', bg: '#f5f3ff' }
         };
@@ -109,7 +109,7 @@ function AuditLog({ admin }) {
         <div className="audit-log-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
             {/* ── HERO BANNER ── */}
             <div className="dashboard-hero-premium" style={{
-                background: 'linear-gradient(135deg, #1e050b 0%, #1e1b2e 100%)',
+                background: 'linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%)',
                 borderRadius: '24px',
                 padding: '36px 40px',
                 marginBottom: '28px',
@@ -165,8 +165,8 @@ function AuditLog({ admin }) {
             </div>
 
             {/* ── FILTER BAR ── */}
-            <div className="card-p" style={{ padding: '20px', borderRadius: '20px', background: '#fff', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+            <div className="card-p audit-filters-card" style={{ padding: '20px', borderRadius: '20px', background: '#fff', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                <div className="audit-filters-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
                     <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
                         <FiSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
                         <input
@@ -216,7 +216,7 @@ function AuditLog({ admin }) {
                         </select>
                     </div>
 
-                    {/* Subsidiary Filter (Only for Global Admins) */}
+                    {/* Subsidiary Filter (Only for GS Admins) */}
                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div style={{ minWidth: '200px' }}>
                             <select
@@ -246,7 +246,7 @@ function AuditLog({ admin }) {
             </div>
 
             {/* ── LOGS TABLE ── */}
-            <div className="card-p" style={{ padding: '0px', overflow: 'hidden', borderRadius: '20px', background: '#fff', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+            <div className="card-p audit-table-card" style={{ padding: '0px', overflow: 'hidden', borderRadius: '20px', background: '#fff', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
                 {loading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
                         <div className="loading-orb" style={{
@@ -265,18 +265,18 @@ function AuditLog({ admin }) {
                         <p style={{ margin: 0, fontSize: '0.85rem' }}>No activity records match your search or filter criteria.</p>
                     </div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+                    <div className="premium-table-container" style={{ margin: 0, border: 'none', boxShadow: 'none', borderRadius: 0 }}>
+                        <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
                             <thead>
                                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '180px' }}>Timestamp</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '220px' }}>Vacancy / Job Requisition</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '160px', minWidth: '160px' }}>Timestamp</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '220px', minWidth: '220px' }}>Vacancy / Job Requisition</th>
                                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                                        <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '150px' }}>Subsidiary</th>
+                                        <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '160px', minWidth: '160px' }}>Subsidiary</th>
                                     )}
-                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '200px' }}>Action Logged</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '220px' }}>Actor</th>
-                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Log Detail / Metadata</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '160px', minWidth: '160px' }}>Action Logged</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '180px', minWidth: '180px' }}>Actor</th>
+                                    <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '320px', minWidth: '320px' }}>Log Detail / Metadata</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -340,6 +340,69 @@ function AuditLog({ admin }) {
                     </div>
                 )}
             </div>
+            
+            <style>{`
+                .premium-table-container {
+                    width: 100%;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    background: #fff;
+                    border-radius: 12px;
+                }
+                .audit-table-card .premium-table {
+                    table-layout: auto !important;
+                    min-width: 1100px !important;
+                    width: 100% !important;
+                }
+                .premium-table-container::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .premium-table-container::-webkit-scrollbar-track {
+                    background: #f8fafc;
+                    border-radius: 3px;
+                }
+                .premium-table-container::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 3px;
+                }
+                .premium-table-container::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                }
+
+                @media (max-width: 768px) {
+                    .dashboard-hero-premium {
+                        padding: 24px 20px !important;
+                        margin-bottom: 20px !important;
+                        border-radius: 16px !important;
+                    }
+                    .dashboard-hero-premium h1 {
+                        font-size: 1.4rem !important;
+                    }
+                    .dashboard-hero-premium p {
+                        font-size: 0.78rem !important;
+                    }
+                    .audit-filters-card {
+                        padding: 14px 16px !important;
+                        border-radius: 16px !important;
+                        margin-bottom: 16px !important;
+                    }
+                    .audit-table-card {
+                        border-radius: 16px !important;
+                    }
+                    .audit-filters-row {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        gap: 10px !important;
+                    }
+                    .audit-filters-row > div {
+                        width: 100% !important;
+                        min-width: 0 !important;
+                    }
+                    .premium-table th, .premium-table td {
+                        padding: 12px 14px !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

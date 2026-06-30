@@ -282,7 +282,7 @@ function CreateVacancy({ admin }) {
             </div>
 
             <form onSubmit={(e) => e.preventDefault()} className="premium-form-layout">
-                <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0, display: 'contents' }}>
+                <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
                     <div className="form-sections-container">
                         {form.approval_status === 'rejected' && (
                             <div className="rejection-banner animate-fade-in" style={{
@@ -909,12 +909,12 @@ function CreateVacancy({ admin }) {
                                 <div>
                                     <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
                                         {admin.role === 'admin' && 'Status: LIVE & Published'}
-                                        {admin.role === 'sub_admin1' && 'Awaiting Action: Global Admin'}
+                                        {admin.role === 'sub_admin1' && 'Awaiting Action: GS Admin'}
                                         {admin.role === 'sub_admin2' && 'Awaiting Action: Sub Admin 1'}
                                     </p>
                                     <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
                                         {admin.role === 'admin' && 'The vacancy is active and visible to applicants.'}
-                                        {admin.role === 'sub_admin1' && 'Email notification sent to global approval reviewers.'}
+                                        {admin.role === 'sub_admin1' && 'Email notification sent to GS approval reviewers.'}
                                         {admin.role === 'sub_admin2' && 'Email notification sent to evaluation reviewers.'}
                                     </p>
                                 </div>
@@ -1003,7 +1003,7 @@ function CreateVacancy({ admin }) {
                     align-items: center;
                     flex-wrap: wrap;
                     gap: 20px;
-                    background: linear-gradient(135deg, #2a050b 0%, var(--crimson-dark) 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
                 }
 
@@ -1953,7 +1953,7 @@ function CreateVacancy({ admin }) {
                     }
 
                     .form-sidebar-container {
-                        order: -1;
+                        order: 1;
                     }
 
                     /* Sidebar becomes a horizontal summary strip on tablet */

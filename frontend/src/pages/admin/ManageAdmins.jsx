@@ -240,7 +240,7 @@ function ManageAdmins({ admin }) {
                                 {admin.role === 'super_admin' && (
                                     <>
                                         <option value="super_admin">Super Admins Only</option>
-                                        <option value="admin">Global Admins Only</option>
+                                        <option value="admin">GS Admins Only</option>
                                     </>
                                 )}
                                 <option value="sub_admin1">Sub Admins 1 Only</option>
@@ -304,7 +304,7 @@ function ManageAdmins({ admin }) {
                                     <td data-label="Authority Level">
                                         <div className="role-cell">
                                             <span className={`role-badge-p ${a.role === 'super_admin' ? 'role-super' : (a.role === 'admin' ? 'role-admin' : 'role-sub')}`}>
-                                                {a.role === 'super_admin' ? 'Super Admin' : (a.role === 'admin' ? 'Global Admin' : (a.role === 'sub_admin1' ? 'Sub Admin 1' : (a.role === 'sub_admin2' ? 'Sub Admin 2' : 'Sub Admin')))}
+                                                {a.role === 'super_admin' ? 'Super Admin' : (a.role === 'admin' ? 'GS Admin' : (a.role === 'sub_admin1' ? 'Sub Admin 1' : (a.role === 'sub_admin2' ? 'Sub Admin 2' : 'Sub Admin')))}
                                             </span>
                                             <div className="admin-email-p" style={{ marginTop: '4px' }}>@{a.username}</div>
                                         </div>
@@ -388,7 +388,7 @@ function ManageAdmins({ admin }) {
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body-p" style={{ padding: '32px', overflowY: 'auto', maxHeight: '70vh' }}>
-                                <div className="form-grid-p" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                                <div className="form-grid-p" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
                                     <div className="form-group-p full-width" style={{ gridColumn: '1 / -1' }}>
                                         <label htmlFor="full_name">Full Name</label>
                                         <div className="input-with-icon">
@@ -443,7 +443,7 @@ function ManageAdmins({ admin }) {
                                             {admin.role === 'super_admin' && (
                                                 <>
                                                     <option value="super_admin">Super Admin</option>
-                                                    <option value="admin">Global Admin</option>
+                                                    <option value="admin">GS Admin</option>
                                                 </>
                                             )}
                                             <option value="sub_admin1">Sub Admin 1</option>
@@ -554,7 +554,7 @@ function ManageAdmins({ admin }) {
                 /* HERITAGE CINEMATIC HERO */
                 .dashboard-hero-premium {
                     position: relative;
-                    background: linear-gradient(135deg, #2a050b 0%, #1a1a2e 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     border-radius: 20px;
                     padding: 24px;
                     overflow: hidden;

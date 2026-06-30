@@ -597,7 +597,7 @@
 /* HERO */
 .dashboard-hero-premium {
     position: relative;
-    background: linear-gradient(135deg, #2a050b 0%, #1a1a2e 100%);
+    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
     border-radius: 20px;
     padding: 32px 40px;
     overflow: hidden;
@@ -976,20 +976,20 @@
     }
 
     /* Company table card transform */
-    .orchestration-table .premium-table,
-    .orchestration-table .premium-table thead,
-    .orchestration-table .premium-table tbody,
-    .orchestration-table .premium-table th,
-    .orchestration-table .premium-table td,
-    .orchestration-table .premium-table tr {
+    .premium-table.orchestration-table,
+    .premium-table.orchestration-table thead,
+    .premium-table.orchestration-table tbody,
+    .premium-table.orchestration-table th,
+    .premium-table.orchestration-table td,
+    .premium-table.orchestration-table tr {
         display: block;
     }
 
-    .orchestration-table .premium-table thead {
+    .premium-table.orchestration-table thead {
         display: none;
     }
 
-    .orchestration-table .premium-table tbody tr {
+    .premium-table.orchestration-table tbody tr {
         background: #fff;
         border-radius: 14px;
         border: 1px solid #f1f5f9;
@@ -1002,16 +1002,16 @@
         animation: rowSlide 0.35s ease both;
     }
 
-    .orchestration-table .premium-table tbody tr:hover td {
+    .premium-table.orchestration-table tbody tr:hover td {
         background: transparent;
     }
 
-    .orchestration-table .premium-table td {
+    .premium-table.orchestration-table td {
         padding: 0;
         border-bottom: none;
     }
 
-    .orchestration-table .premium-table td::before {
+    .premium-table.orchestration-table td::before {
         content: attr(data-label);
         display: block;
         font-size: 0.65rem;
@@ -1022,11 +1022,11 @@
         margin-bottom: 4px;
     }
 
-    .orchestration-table .premium-table td[data-label="Operations"]::before {
+    .premium-table.orchestration-table td[data-label="Operations"]::before {
         display: none;
     }
 
-    .orchestration-table td[data-label="Operations"] .orchestration-actions {
+    .premium-table.orchestration-table td[data-label="Operations"] .orchestration-actions {
         justify-content: flex-start;
     }
 

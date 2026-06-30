@@ -6512,10 +6512,14 @@ body::before {
 /* ─── Hero Banner ─── */
 .apb-banner {
   position: relative;
-  height: min(480px, 60vh);
+  min-height: min(480px, 60vh);
+  height: auto;
   overflow: hidden;
   flex-shrink: 0;
   border-bottom: 4px solid var(--gold-accent);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .apb-banner-img {
@@ -6547,10 +6551,11 @@ body::before {
 .apb-banner-content {
   position: relative;
   z-index: 2;
-  height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  padding-top: 120px; /* Safe padding for sticky navbar spacing */
   padding-bottom: 48px;
 }
 
@@ -7290,13 +7295,14 @@ body::before {
 /* ─── Responsive ─── */
 @media (max-width: 1024px) {
   .apb-container { grid-template-columns: 280px 1fr; gap: 24px; }
-  .apb-banner { height: 350px; }
+  .apb-banner { min-height: 350px; height: auto; }
 }
 
 @media (max-width: 992px) {
   .apb-page { padding-top: 0; }
   .navbar { height: 80px; }
-  .apb-banner { height: 320px; }
+  .apb-banner { min-height: 320px; height: auto; }
+  .apb-banner-content { padding-top: 100px; }
 }
 
 @media (max-width: 768px) {
@@ -7310,7 +7316,8 @@ body::before {
     display: block; 
     margin-bottom: 32px; /* Add margin bottom instead of top */
   } 
-  .apb-banner { height: 280px; }
+  .apb-banner { min-height: 280px; height: auto; }
+  .apb-banner-content { padding-top: 90px; }
   .apb-banner-title { font-size: 1.8rem; }
   .apb-card { padding: 32px 24px; }
   .apb-grid2 { grid-template-columns: 1fr; }
@@ -7321,12 +7328,12 @@ body::before {
 }
 
 @media (max-width: 480px) {
-  .apb-banner { height: 220px; }
+  .apb-banner { min-height: 220px; height: auto; }
   .apb-banner-title { font-size: 1.5rem; letter-spacing: -0.5px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
   .apb-card { padding: 24px 16px; }
   .apb-review-actions { flex-direction: column; }
   .apb-submit-final { margin-top: 0; }
-  .apb-banner-content { padding-bottom: 24px; }
+  .apb-banner-content { padding-top: 80px; padding-bottom: 24px; }
   .apb-step span { display: none; } /* Hide text on very small screens, show dots only */
   .apb-step.active span { display: inline-block; } /* Show only active step text */
 }
@@ -7511,14 +7518,31 @@ body::before {
         bottom: 0;
         width: 280px;
         height: calc(100vh - 60px) !important;
+        display: flex !important;
+        flex-direction: column !important;
         transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 1005;
         box-shadow: 20px 0 50px rgba(0,0,0,0.1);
         background: #fff;
+        overflow: hidden !important;
     }
 
     .admin-sidebar.open {
         left: 0;
+    }
+
+    .admin-sidebar .sidebar-nav {
+        flex: 1 1 auto !important;
+        overflow-y: auto !important;
+        min-height: 0 !important;
+    }
+
+    .admin-sidebar .sidebar-footer {
+        flex-shrink: 0 !important;
+    }
+
+    .admin-sidebar .sidebar-collapse-toggle {
+        display: none !important;
     }
 
     .sidebar-overlay {
@@ -8645,4 +8669,128 @@ body::before {
         border-bottom-left-radius: 12px;
     }
 }
+
+/* ==========================================================================
+   ADMIN PAGES RESPONSIVENESS OVERRIDES
+   ========================================================================== */
+
+/* ── DIVISIONAL REPORTS SPLIT GRID ── */
+.analytics-layout-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    align-items: start;
+    transition: all 0.3s ease;
+}
+
+@media (min-width: 1025px) {
+    .analytics-layout-split.has-sidebar {
+        grid-template-columns: 1fr 400px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .analytics-layout-split.has-sidebar {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ── AUDIT LOG FILTERS ROW ── */
+@media (max-width: 768px) {
+    .audit-filters-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .audit-filters-row > div {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .audit-filters-row select,
+    .audit-filters-row input {
+        width: 100% !important;
+    }
+}
+
+/* ── SETTINGS PAGE RESPONSIVE CARDS & SMTP TEST ── */
+@media (max-width: 768px) {
+    .settings-sender-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        text-align: center;
+        gap: 16px !important;
+    }
+    .settings-sender-card .sidebar-avatar-enhanced,
+    .settings-sender-card > div:first-child {
+        margin: 0 auto !important;
+    }
+    .settings-sender-card button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    .smtp-test-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 14px !important;
+    }
+    .smtp-test-row > div {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .smtp-test-row button {
+        width: 100% !important;
+        justify-content: center !important;
+        height: 48px !important;
+    }
+}
+
+/* ── HERO BANNER OVERRIDES FOR SMALL VIEWPORTS ── */
+@media (max-width: 768px) {
+    .audit-log-page .dashboard-hero-premium,
+    .premium-settings-page .dashboard-hero-premium,
+    .premium-admins-page .dashboard-hero-premium {
+        padding: 24px 20px !important;
+        border-radius: 16px !important;
+        margin-bottom: 20px !important;
+    }
+    .audit-log-page .dashboard-hero-premium h1,
+    .premium-settings-page .dashboard-hero-premium h1,
+    .premium-admins-page .dashboard-hero-premium h1 {
+        font-size: 1.5rem !important;
+    }
+    .audit-log-page .dashboard-hero-premium p,
+    .premium-settings-page .dashboard-hero-premium p,
+    .premium-admins-page .dashboard-hero-premium p {
+        font-size: 0.8rem !important;
+    }
+}
+
+/* ── MODAL SCROLLING & SIZING FIXES FOR MOBILE ── */
+@media (max-width: 768px) {
+    .admin-modal-p, .delete-modal-p {
+        max-height: 85vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    .admin-modal-p form {
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+    }
+    
+    .admin-modal-p .modal-body-p, 
+    .delete-modal-p .modal-body-p {
+        max-height: calc(85vh - 120px) !important;
+        overflow-y: auto !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        padding: 20px !important;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 

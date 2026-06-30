@@ -151,7 +151,7 @@ function CompanyReports({ admin }) {
                 </div>
             </div>
 
-            <div className="analytics-layout-split" style={{ display: 'grid', gridTemplateColumns: selectedCompanyId ? '1fr 400px' : '1fr', gap: '24px', alignItems: 'start', transition: 'all 0.3s ease' }}>
+            <div className={`analytics-layout-split ${selectedCompanyId ? 'has-sidebar' : ''}`}>
                 
                 {/* LEFT COLUMN: MAIN COMPARATIVE LIST */}
                 <div className="results-card-p orchestration-container">
@@ -213,7 +213,7 @@ function CompanyReports({ admin }) {
                                                     </div>
                                                     <div className="admin-info-p">
                                                         <span className="admin-name-p" style={{ fontWeight: 800, fontSize: '0.92rem' }}>{c.name}</span>
-                                                        <span className="admin-email-p" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID: {c.id}</span>
+                                                        <span className="admin-email-p" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>ID: {String(c.id).padStart(4, '0')}</span>
                                                     </div>
                                                 </div>
                                             </td>

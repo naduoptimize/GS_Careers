@@ -346,8 +346,8 @@ function sendShortlistEmail($applicationId, $to, $name, $jobTitle, $companyName,
 
                     <p style='margin-top: 25px; font-weight: bold;'>Please confirm your availability for this schedule by clicking one of the buttons below:</p>
                     <div style='text-align: center; margin: 25px 0;'>
-                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=yes' class='confirm-btn yes' style='margin-right: 15px;'>Yes, I am available</a>
-                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=no' class='confirm-btn no'>No, I cannot attend</a>
+                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=yes' class='confirm-btn yes' style='display: inline-block; padding: 12px 24px; background-color: #10b981; border-top: 12px solid #10b981; border-bottom: 12px solid #10b981; border-left: 24px solid #10b981; border-right: 24px solid #10b981; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; margin-right: 15px;'>Yes, I am available</a>
+                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=no' class='confirm-btn no' style='display: inline-block; padding: 12px 24px; background-color: #ef4444; border-top: 12px solid #ef4444; border-bottom: 12px solid #ef4444; border-left: 24px solid #ef4444; border-right: 24px solid #ef4444; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important;'>No, I cannot attend</a>
                     </div>
 
                     <p>We look forward to discussing your potential contribution to George Steuart Group.</p>
@@ -360,6 +360,84 @@ function sendShortlistEmail($applicationId, $to, $name, $jobTitle, $companyName,
                     &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
                     No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
                     <p style='font-size: 10px; margin-top: 10px;'>This is an automated notification.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>";
+
+    queueEmail($to, $name, $subject, $body);
+}
+
+function sendInterviewConfirmationReceiptEmail($to, $name, $jobTitle, $companyName, $response, $jobRef)
+{
+    if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
+        return;
+
+    $responseStr = $response === 'yes' ? 'Yes, I am available' : 'No, I cannot attend';
+    $subject = "Interview RSVP Confirmation: $jobTitle | George Steuart Group";
+    $currentYear = date('Y');
+
+    $body = "
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <style>
+            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
+            .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
+            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+            .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
+            .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+            .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+            .content { padding: 40px 35px; }
+            .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
+            .success-badge { display: inline-block; background-color: " . ($response === 'yes' ? "#ecfdf5" : "#fef2f2") . "; color: " . ($response === 'yes' ? "#15803d" : "#b91c1c") . "; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; border: 1px solid " . ($response === 'yes' ? "#dcfce7" : "#fecaca") . "; }
+            .info-card { background-color: #fdfaf3; border-radius: 12px; padding: 25px; margin: 25px 0; border-left: 4px solid #c8a951; border-top: 1px solid #fbd38d; border-right: 1px solid #fbd38d; border-bottom: 1px solid #fbd38d; }
+            .info-row { margin-bottom: 12px; }
+            .info-row:last-child { margin-bottom: 0; }
+            .info-label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+            .info-value { color: #1a1a2e; font-size: 15px; font-weight: 600; }
+            .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        </style>
+    </head>
+    <body>
+        <div class='wrapper'>
+            <div class='container'>
+                <div class='header'>
+                    <h1>GEORGE STEUART</h1>
+                    <p>ESTABLISHED 1835</p>
+                </div>
+                <div class='content'>
+                    <div class='greeting'>Dear $name,</div>
+                    <div class='success-badge'>RSVP Recorded</div>
+                    <p>This email confirms that we have successfully received and registered your RSVP response for the scheduled interview.</p>
+                    
+                    <div class='info-card'>
+                        <div class='info-row'>
+                            <div class='info-label'>Position</div>
+                            <div class='info-value'>$jobTitle</div>
+                        </div>
+                        <div class='info-row'>
+                            <div class='info-label'>Job Reference No</div>
+                            <div class='info-value'>$jobRef</div>
+                        </div>
+                        <div class='info-row'>
+                            <div class='info-label'>Your Selection</div>
+                            <div class='info-value' style='color: " . ($response === 'yes' ? "#10b981" : "#ef4444") . "; font-weight: 700; text-transform: uppercase;'>$responseStr</div>
+                        </div>
+                    </div>
+
+                    <p>If you wish to reschedule or discuss alternative slots, please reply directly to your original interview invitation email or contact the recruitment team.</p>
+                    
+                    <p style='margin-top: 30px;'>Best regards,<br>
+                    <strong style='color: #1a1a2e;'>Talent Acquisition Team</strong><br>
+                    George Steuart Group</p>
+                </div>
+                <div class='footer'>
+                    &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
+                    No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
                 </div>
             </div>
         </div>
@@ -717,7 +795,14 @@ function handleConfirmInterview()
         jsonResponse(400, 'Invalid confirmation parameters');
     }
 
-    $stmt = $db->prepare("SELECT first_name, last_name, status, vacancy_id FROM applications WHERE id = ?");
+    $stmt = $db->prepare("
+        SELECT a.first_name, a.last_name, a.email, a.status, a.vacancy_id, 
+               v.title as vacancy_title, v.reference_number as job_ref, c.name as company_name 
+        FROM applications a
+        JOIN vacancies v ON a.vacancy_id = v.id
+        LEFT JOIN companies c ON v.company_id = c.id
+        WHERE a.id = ?
+    ");
     $stmt->execute([$id]);
     $app = $stmt->fetch();
 
@@ -737,6 +822,16 @@ function handleConfirmInterview()
     $auditAction = 'interview_confirmed_' . $response;
     $auditReason = "Candidate: " . $candidateName . " responded: " . strtoupper($response);
     logVacancyAction($app['vacancy_id'], null, $auditAction, $app['status'], $app['status'], $auditReason);
+
+    // Send confirmation receipt email to the candidate
+    sendInterviewConfirmationReceiptEmail(
+        $app['email'],
+        $candidateName,
+        $app['vacancy_title'],
+        $app['company_name'],
+        $response,
+        $app['job_ref']
+    );
 
     jsonResponse(200, 'Interview confirmation updated successfully');
 }

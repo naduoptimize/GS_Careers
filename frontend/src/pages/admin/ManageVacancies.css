@@ -528,20 +528,20 @@
         overflow: visible;
     }
 
-    .premium-table,
-    .premium-table thead,
-    .premium-table tbody,
-    .premium-table th,
-    .premium-table td,
-    .premium-table tr {
+    .premium-table.vacancies-table,
+    .premium-table.vacancies-table thead,
+    .premium-table.vacancies-table tbody,
+    .premium-table.vacancies-table th,
+    .premium-table.vacancies-table td,
+    .premium-table.vacancies-table tr {
         display: block;
     }
 
-    .premium-table thead {
+    .premium-table.vacancies-table thead {
         display: none;
     }
 
-    .premium-table tbody tr {
+    .premium-table.vacancies-table tbody tr {
         background: #fff;
         border-radius: 16px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.06);
@@ -554,24 +554,24 @@
         animation: rowFadeIn 0.4s ease both;
     }
 
-    .premium-table tbody tr:hover td {
+    .premium-table.vacancies-table tbody tr:hover td {
         background: transparent;
     }
 
-    .premium-table td {
+    .premium-table.vacancies-table td {
         padding: 4px 0;
         border-bottom: none;
         overflow: visible;
     }
 
     /* Position cell — full width top row */
-    .premium-table td:nth-child(1) {
+    .premium-table.vacancies-table td:nth-child(1) {
         grid-column: 1 / 2;
         grid-row: 1;
     }
 
     /* Actions cell — top right */
-    .premium-table td:nth-child(8) {
+    .premium-table.vacancies-table td:nth-child(8) {
         grid-column: 2 / 3;
         grid-row: 1;
         display: flex;
@@ -580,33 +580,33 @@
     }
 
     /* Classification cell */
-    .premium-table td:nth-child(2) {
+    .premium-table.vacancies-table td:nth-child(2) {
         grid-column: 1 / -1;
         grid-row: 2;
     }
 
     /* Skills cell */
-    .premium-table td:nth-child(3) {
+    .premium-table.vacancies-table td:nth-child(3) {
         grid-column: 1 / -1;
         grid-row: 3;
     }
 
     /* Engagement + Stages + Timeline + Status inline */
-    .premium-table td:nth-child(4),
-    .premium-table td:nth-child(5),
-    .premium-table td:nth-child(6),
-    .premium-table td:nth-child(7) {
+    .premium-table.vacancies-table td:nth-child(4),
+    .premium-table.vacancies-table td:nth-child(5),
+    .premium-table.vacancies-table td:nth-child(6),
+    .premium-table.vacancies-table td:nth-child(7) {
         grid-column: 1 / -1;
     }
 
-    .premium-table td:nth-child(4) { grid-row: 4; }
-    .premium-table td:nth-child(5) { grid-row: 4; }
-    .premium-table td:nth-child(6) { grid-row: 5; }
-    .premium-table td:nth-child(7) { grid-row: 5; }
+    .premium-table.vacancies-table td:nth-child(4) { grid-row: 4; }
+    .premium-table.vacancies-table td:nth-child(5) { grid-row: 4; }
+    .premium-table.vacancies-table td:nth-child(6) { grid-row: 5; }
+    .premium-table.vacancies-table td:nth-child(7) { grid-row: 6; } /* Pushed to row 6 to resolve date overlap */
 
     /* Inline row for engagement + stages */
-    .premium-table td:nth-child(4),
-    .premium-table td:nth-child(5) {
+    .premium-table.vacancies-table td:nth-child(4),
+    .premium-table.vacancies-table td:nth-child(5) {
         grid-column: auto;
         display: inline-flex;
         align-items: center;

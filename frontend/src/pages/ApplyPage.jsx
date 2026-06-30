@@ -227,6 +227,7 @@ function ApplyPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [step, setStep] = useState(1);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [showPdpaModal, setShowPdpaModal] = useState(false);
 
     const [form, setForm] = useState({
         first_name: '', last_name: '', email: '', contact_number: '',
@@ -268,7 +269,7 @@ function ApplyPage() {
     const [parsing, setParsing] = useState(false);
 
     useEffect(() => {
-        console.log("Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
+        console.log("George Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
     }, []);
 
     const extractTextFromPdf = async (file) => {
@@ -1152,7 +1153,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
 
             toast.success(requiredSkillsList.length > 0
                 ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
-                : "🎉 Steuart AI successfully parsed your CV and auto-filled the form!", { autoClose: 5000 });
+                : "🎉 George Steuart AI successfully parsed your CV and auto-filled the form!", { autoClose: 5000 });
         } catch (err) {
             console.error("CV parsing error:", err);
             let userFriendlyMessage = err.message || 'Please enter details manually.';
@@ -1299,8 +1300,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             return;
         }
 
-        setStep(2);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setShowPdpaModal(true);
     };
 
     const submitToBackend = async () => {
@@ -1561,6 +1561,329 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 .btn-secondary-small:hover {
                     background-color: #cbd5e1;
                 }
+                .apb-tooltip {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 50%;
+                    border: 1.2px solid currentColor;
+                    font-size: 9px;
+                    font-weight: 800;
+                    cursor: help;
+                    margin-left: 4px;
+                    opacity: 0.7;
+                    transition: opacity 0.2s;
+                    user-select: none;
+                }
+                .apb-tooltip:hover {
+                    opacity: 1;
+                }
+                .apb-tooltip-text {
+                    visibility: hidden;
+                    width: 220px;
+                    background-color: #1e293b;
+                    color: #ffffff;
+                    text-align: center;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                    position: absolute;
+                    z-index: 99999;
+                    bottom: 135%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    opacity: 0;
+                    transition: opacity 0.2s, visibility 0.2s;
+                    font-size: 11px;
+                    font-weight: 500;
+                    line-height: 1.4;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    pointer-events: none;
+                    text-transform: none;
+                    letter-spacing: normal;
+                }
+                .apb-tooltip-text::after {
+                    content: "";
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    margin-left: -5px;
+                    border-width: 5px;
+                    border-style: solid;
+                    border-color: #1e293b transparent transparent transparent;
+                }
+                .apb-tooltip:hover .apb-tooltip-text {
+                    visibility: visible;
+                    opacity: 1;
+                }
+
+                .pdpa-modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.6);
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 99999;
+                    animation: pdpaFadeIn 0.3s ease-out;
+                }
+
+                .pdpa-modal-card {
+                    background: #ffffff;
+                    border-radius: 20px;
+                    width: 90%;
+                    max-width: 580px;
+                    max-height: 90vh;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 25px 50px -12px rgba(139, 26, 43, 0.25);
+                    border: 1px solid rgba(200, 169, 81, 0.3);
+                    animation: pdpaSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    overflow: hidden;
+                }
+
+                .pdpa-modal-header {
+                    padding: 20px 24px;
+                    border-bottom: 1px solid #f1f5f9;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: #fcfcfd;
+                }
+
+                .pdpa-modal-header h3 {
+                    margin: 0;
+                    font-size: 1.2rem;
+                    font-weight: 800;
+                    color: var(--crimson, #8b1a2b);
+                    font-family: var(--font-body);
+                }
+
+                .pdpa-modal-close-btn {
+                    background: none;
+                    border: none;
+                    color: #64748b;
+                    cursor: pointer;
+                    padding: 4px;
+                    border-radius: 6px;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .pdpa-modal-close-btn:hover {
+                    color: var(--crimson, #8b1a2b);
+                    background: rgba(139, 26, 43, 0.05);
+                }
+
+                .pdpa-modal-body {
+                    padding: 24px;
+                    overflow-y: auto;
+                    flex: 1;
+                    text-align: left;
+                }
+
+                .pdpa-info-section {
+                    background: rgba(139, 26, 43, 0.02);
+                    border-left: 4px solid var(--crimson, #8b1a2b);
+                    padding: 16px;
+                    border-radius: 0 12px 12px 0;
+                    margin-bottom: 24px;
+                }
+
+                .pdpa-info-section h4 {
+                    margin: 0 0 8px 0;
+                    font-size: 0.95rem;
+                    font-weight: 800;
+                    color: var(--crimson, #8b1a2b);
+                }
+
+                .pdpa-info-section p {
+                    margin: 0 0 12px 0;
+                    font-size: 0.85rem;
+                    line-height: 1.5;
+                    color: #475569;
+                }
+
+                .pdpa-bullets {
+                    margin: 0;
+                    padding-left: 20px;
+                    font-size: 0.82rem;
+                    color: #475569;
+                    line-height: 1.6;
+                }
+
+                .pdpa-bullets li {
+                    margin-bottom: 6px;
+                }
+
+                .pdpa-consent-question {
+                    margin-bottom: 16px;
+                }
+
+                .pdpa-consent-question strong {
+                    font-size: 0.95rem;
+                    color: #1e293b;
+                    display: block;
+                    margin-bottom: 4px;
+                }
+
+                .pdpa-consent-sub {
+                    margin: 0;
+                    font-size: 0.8rem;
+                    color: #64748b;
+                }
+
+                .pdpa-checkbox-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                }
+
+                .pdpa-checkbox-card {
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 12px;
+                    padding: 14px 16px;
+                    display: flex;
+                    gap: 14px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    background: #ffffff;
+                    user-select: none;
+                    text-align: left;
+                }
+
+                .pdpa-checkbox-card:hover {
+                    border-color: var(--gold-accent, #c8a951);
+                    background: rgba(200, 169, 81, 0.02);
+                }
+
+                .pdpa-checkbox-card.selected {
+                    border-color: var(--crimson, #8b1a2b);
+                    background: rgba(139, 26, 43, 0.02);
+                    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.05);
+                }
+
+                .pdpa-checkbox-indicator {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    border: 2px solid #cbd5e1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    margin-top: 2px;
+                    transition: all 0.2s;
+                }
+
+                .pdpa-checkbox-card.selected .pdpa-checkbox-indicator {
+                    border-color: var(--crimson, #8b1a2b);
+                }
+
+                .pdpa-checkbox-checked {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                    background: var(--crimson, #8b1a2b);
+                    animation: pdpaScaleIn 0.15s ease-out;
+                }
+
+                .pdpa-checkbox-label {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .pdpa-checkbox-label strong {
+                    font-size: 0.88rem;
+                    color: #1e293b;
+                }
+
+                .pdpa-checkbox-card.selected .pdpa-checkbox-label strong {
+                    color: var(--crimson, #8b1a2b);
+                }
+
+                .pdpa-checkbox-label span {
+                    font-size: 0.78rem;
+                    color: #64748b;
+                    line-height: 1.4;
+                }
+
+                .pdpa-modal-footer {
+                    padding: 16px 24px;
+                    border-top: 1px solid #f1f5f9;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 12px;
+                    background: #fcfcfd;
+                }
+
+                .pdpa-btn-cancel {
+                    padding: 10px 20px;
+                    border-radius: 10px;
+                    background: #ffffff;
+                    border: 1.5px solid #cbd5e1;
+                    color: #475569;
+                    font-weight: 700;
+                    font-size: 0.88rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .pdpa-btn-cancel:hover {
+                    background: #f1f5f9;
+                    border-color: #94a3b8;
+                    color: #1e293b;
+                }
+
+                .pdpa-btn-proceed {
+                    padding: 10px 24px;
+                    border-radius: 10px;
+                    background: var(--crimson, #8b1a2b);
+                    border: none;
+                    color: #ffffff;
+                    font-weight: 700;
+                    font-size: 0.88rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.15);
+                }
+
+                .pdpa-btn-proceed:hover:not(:disabled) {
+                    background: #721422;
+                    box-shadow: 0 6px 16px rgba(139, 26, 43, 0.25);
+                }
+
+                .pdpa-btn-proceed:disabled {
+                    background: #e2e8f0;
+                    color: #94a3b8;
+                    cursor: not-allowed;
+                    box-shadow: none;
+                }
+
+                @keyframes pdpaFadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+
+                @keyframes pdpaSlideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @keyframes pdpaScaleIn {
+                    from { transform: scale(0); }
+                    to { transform: scale(1); }
+                }
             `}</style>
 
             {/* ── Navbar ── */}
@@ -1701,7 +2024,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', padding: '4px 0' }}>
                                                 <div className="spinner-small" style={{ flexShrink: 0 }}></div>
                                                 <div style={{ textAlign: 'left' }}>
-                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>Steuart AI is parsing your resume...</div>
+                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>George Steuart AI is parsing your resume...</div>
                                                     <div className="apb-upload-hint">Extracting contact details, qualifications, experience and skill matches. Please wait.</div>
                                                 </div>
                                             </div>
@@ -1721,456 +2044,443 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                     <div style={{ display: parsing ? 'none' : 'block' }}>
                                         {/* Personal Info */}
                                         <div className="apb-fieldset-label">Personal Information</div>
-                                    <div className="apb-grid2">
-                                        <div className="apb-field">
-                                            <label>First Name <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiUser className="apb-ico" />
-                                                <input type="text" name="first_name" className="apb-input"
-                                                    value={form.first_name} onChange={handleChange}
-                                                    placeholder="First name" required />
+                                        <div className="apb-grid2">
+                                            <div className="apb-field">
+                                                <label>First Name <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiUser className="apb-ico" />
+                                                    <input type="text" name="first_name" className="apb-input"
+                                                        value={form.first_name} onChange={handleChange}
+                                                        placeholder="First name" required />
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Last Name <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiUser className="apb-ico" />
+                                                    <input type="text" name="last_name" className="apb-input"
+                                                        value={form.last_name} onChange={handleChange}
+                                                        placeholder="Last name" required />
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Email <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiMail className="apb-ico" />
+                                                    <input type="email" name="email" className="apb-input"
+                                                        value={form.email} onChange={handleChange}
+                                                        placeholder="you@example.com" required />
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Contact Number <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiPhone className="apb-ico" />
+                                                    <input type="tel" name="contact_number" className="apb-input"
+                                                        value={form.contact_number} onChange={handleChange}
+                                                        placeholder="+94 77 123 4567" required />
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="apb-field">
-                                            <label>Last Name <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiUser className="apb-ico" />
-                                                <input type="text" name="last_name" className="apb-input"
-                                                    value={form.last_name} onChange={handleChange}
-                                                    placeholder="Last name" required />
-                                            </div>
-                                        </div>
-                                        <div className="apb-field">
-                                            <label>Email <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiMail className="apb-ico" />
-                                                <input type="email" name="email" className="apb-input"
-                                                    value={form.email} onChange={handleChange}
-                                                    placeholder="you@example.com" required />
-                                            </div>
-                                        </div>
-                                        <div className="apb-field">
-                                            <label>Contact Number <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiPhone className="apb-ico" />
-                                                <input type="tel" name="contact_number" className="apb-input"
-                                                    value={form.contact_number} onChange={handleChange}
-                                                    placeholder="+94 77 123 4567" required />
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {/* Professional Profile */}
-                                    <div className="apb-fieldset-label">Professional Profile</div>
-                                    <div className="apb-grid2">
-                                        <div className="apb-field">
-                                            <label>Highest Qualification <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiBookOpen className="apb-ico" />
-                                                <select name="qualification" className="apb-input apb-sel"
-                                                    value={form.qualification} onChange={handleChange} required>
-                                                    <option value="">Select</option>
-                                                    {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                                                </select>
+                                        {/* Professional Profile */}
+                                        <div className="apb-fieldset-label">Professional Profile</div>
+                                        <div className="apb-grid2">
+                                            <div className="apb-field">
+                                                <label>Highest Qualification <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiBookOpen className="apb-ico" />
+                                                    <select name="qualification" className="apb-input apb-sel"
+                                                        value={form.qualification} onChange={handleChange} required>
+                                                        <option value="">Select</option>
+                                                        {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Salary Expectation (LKR) <span className="req">*</span></label>
+                                                <div className="apb-iw"><span className="apb-ico" style={{ fontSize: '0.75rem', fontWeight: 800, userSelect: 'none' }}>LKR</span>
+                                                    <input
+                                                        type="text"
+                                                        name="salary_expectation"
+                                                        className="apb-input"
+                                                        value={form.salary_expectation}
+                                                        onChange={handleChange}
+                                                        placeholder="e.g. 150,000"
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Total Experience <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiClock className="apb-ico" />
+                                                    <select name="overall_experience" className="apb-input apb-sel"
+                                                        value={form.overall_experience} onChange={handleChange} required>
+                                                        <option value="">Select</option>
+                                                        <option value="0 years">0 years (Fresher)</option>
+                                                        <option value="0-1 years">0–1 years</option>
+                                                        <option value="1-2 years">1–2 years</option>
+                                                        <option value="3-4 years">3–4 years</option>
+                                                        <option value="5-7 years">5–7 years</option>
+                                                        <option value="8-10 years">8–10 years</option>
+                                                        <option value="10+ years">10+ years</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="apb-field">
+                                                <label>Relevant Experience <span className="req">*</span></label>
+                                                <div className="apb-iw"><FiClock className="apb-ico" />
+                                                    <select name="relevant_experience" className="apb-input apb-sel"
+                                                        value={form.relevant_experience} onChange={handleChange} required>
+                                                        <option value="">Select</option>
+                                                        <option value="0 years">0 years (Fresher)</option>
+                                                        <option value="0-1 years">0–1 years</option>
+                                                        <option value="1-2 years">1–2 years</option>
+                                                        <option value="3-4 years">3–4 years</option>
+                                                        <option value="5-7 years">5–7 years</option>
+                                                        <option value="8-10 years">8–10 years</option>
+                                                        <option value="10+ years">10+ years</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="apb-field">
-                                            <label>Salary Expectation (LKR) <span className="req">*</span></label>
-                                            <div className="apb-iw"><span className="apb-ico" style={{ fontSize: '0.75rem', fontWeight: 800, userSelect: 'none' }}>LKR</span>
-                                                <input
-                                                    type="text"
-                                                    name="salary_expectation"
-                                                    className="apb-input"
-                                                    value={form.salary_expectation}
-                                                    onChange={handleChange}
-                                                    placeholder="e.g. 150,000"
-                                                    required
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="apb-field">
-                                            <label>Total Experience <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiClock className="apb-ico" />
-                                                <select name="overall_experience" className="apb-input apb-sel"
-                                                    value={form.overall_experience} onChange={handleChange} required>
-                                                    <option value="">Select</option>
-                                                    <option value="0 years">0 years (Fresher)</option>
-                                                    <option value="0-1 years">0–1 years</option>
-                                                    <option value="1-2 years">1–2 years</option>
-                                                    <option value="3-4 years">3–4 years</option>
-                                                    <option value="5-7 years">5–7 years</option>
-                                                    <option value="8-10 years">8–10 years</option>
-                                                    <option value="10+ years">10+ years</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div className="apb-field">
-                                            <label>Relevant Experience <span className="req">*</span></label>
-                                            <div className="apb-iw"><FiClock className="apb-ico" />
-                                                <select name="relevant_experience" className="apb-input apb-sel"
-                                                    value={form.relevant_experience} onChange={handleChange} required>
-                                                    <option value="">Select</option>
-                                                    <option value="0 years">0 years (Fresher)</option>
-                                                    <option value="0-1 years">0–1 years</option>
-                                                    <option value="1-2 years">1–2 years</option>
-                                                    <option value="3-4 years">3–4 years</option>
-                                                    <option value="5-7 years">5–7 years</option>
-                                                    <option value="8-10 years">8–10 years</option>
-                                                    <option value="10+ years">10+ years</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {/* ── AI Skill Match / Extracted Skills Dashboard ── */}
-                                    {aiAnalysis && !parsing && (
-                                        <div className={`apb-skill-match-panel premium-skills-container ${!skillsPanelExpanded ? 'collapsed' : ''}`} style={{ marginTop: '24px', marginBottom: '24px' }}>
-                                            <div className="apb-smp-header" onClick={() => setSkillsPanelExpanded(v => !v)}>
-                                                <FiZap size={16} className="apb-smp-icon pulse-animation" style={{ color: 'var(--gold-accent)' }} />
-                                                <span className="apb-smp-title">
-                                                    Steuart AI Skills Profile Analysis
-                                                </span>
-                                                {form.cv && !parsing && (
-                                                    <span className="apb-smp-badge" style={{ marginRight: '8px' }}>
-                                                        {skillsMetadata.length} Verified Skills
+                                        {/* ── AI Skill Match / Extracted Skills Dashboard ── */}
+                                        {aiAnalysis && !parsing && (
+                                            <div className={`apb-skill-match-panel premium-skills-container ${!skillsPanelExpanded ? 'collapsed' : ''}`} style={{ marginTop: '24px', marginBottom: '24px' }}>
+                                                <div className="apb-smp-header" onClick={() => setSkillsPanelExpanded(v => !v)}>
+                                                    <FiZap size={16} className="apb-smp-icon pulse-animation" style={{ color: 'var(--gold-accent)' }} />
+                                                    <span className="apb-smp-title">
+                                                        George Steuart AI Skills Profile Analysis
                                                     </span>
-                                                )}
-                                                <span className="apb-smp-chevron">
-                                                    {skillsPanelExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
-                                                </span>
-                                            </div>
-
-                                            {skillsPanelExpanded && (
-                                                <>
                                                     {form.cv && !parsing && (
-                                                        <div className="ai-verification-notice">
-                                                            <span className="ai-notice-icon">🤖</span>
-                                                            <div>
-                                                                <strong>Human-like Verification:</strong> Steuart AI filtered out list-only skills that lacked supporting work history or project context in your CV.
-                                                            </div>
-                                                        </div>
+                                                        <span className="apb-smp-badge" style={{ marginRight: '8px' }}>
+                                                            {skillsMetadata.length} Verified Skills
+                                                        </span>
                                                     )}
+                                                    <span className="apb-smp-chevron">
+                                                        {skillsPanelExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
+                                                    </span>
+                                                </div>
 
-                                                    {skillsMetadata.length > 0 && skillsMetadata.filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills').length === 0 && (
-                                                        <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                            <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
-                                                            <div>
-                                                                <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
-                                                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
-                                                                    Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
-                                                                </p>
+                                                {skillsPanelExpanded && (
+                                                    <>
+                                                        {form.cv && !parsing && (
+                                                            <div className="ai-verification-notice">
+                                                                <span className="ai-notice-icon">🤖</span>
+                                                                <div>
+                                                                    <strong>Human-like Verification:</strong> George Steuart AI filtered out list-only skills that lacked supporting work history or project context in your CV.
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
-                                                    {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
-                                                        <div className="mandatory-skills-checklist">
-                                                            <h4 className="skills-subtitle">
-                                                                <FiCheckCircle size={13} style={{ color: 'var(--gold-accent)', marginRight: '6px' }} />
-                                                                Mandatory Requirements Status
-                                                            </h4>
-                                                            <div className="apb-smp-skills">
-                                                                {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
-                                                                    const skillName = skill.trim();
-                                                                    const isMatched = checkSkillInCvText(skillName, rawCvText);
+                                                        {skillsMetadata.length > 0 && skillsMetadata.filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills').length === 0 && (
+                                                            <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                                <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
+                                                                <div>
+                                                                    <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
+                                                                    <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
+                                                                        Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
-                                                                    return (
-                                                                        <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
-                                                                            <span className={`apb-smp-check-icon ${isMatched ? 'on' : 'off'}`}>
-                                                                                {isMatched ? <FiCheck size={10} /> : <FiX size={10} />}
-                                                                            </span>
-                                                                            <span className="apb-smp-skill-name">{skillName}</span>
-                                                                            {isMatched ? (
-                                                                                <span className="apb-smp-ai-tag">
-                                                                                    <FiZap size={9} /> Matched
+                                                        {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
+                                                        {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
+                                                            <div className="mandatory-skills-checklist">
+                                                                <h4 className="skills-subtitle">
+                                                                    <FiCheckCircle size={13} style={{ color: 'var(--gold-accent)', marginRight: '6px' }} />
+                                                                    Mandatory Requirements Status
+                                                                </h4>
+                                                                <div className="apb-smp-skills">
+                                                                    {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
+                                                                        const skillName = skill.trim();
+                                                                        const isMatched = checkSkillInCvText(skillName, rawCvText);
+
+                                                                        return (
+                                                                            <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
+                                                                                <span className={`apb-smp-check-icon ${isMatched ? 'on' : 'off'}`}>
+                                                                                    {isMatched ? <FiCheck size={10} /> : <FiX size={10} />}
                                                                                 </span>
-                                                                            ) : (
-                                                                                <span className="apb-smp-missing-tag">Not found in CV</span>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
+                                                                                <span className="apb-smp-skill-name">{skillName}</span>
+                                                                                {isMatched ? (
+                                                                                    <span className="apb-smp-ai-tag">
+                                                                                        <FiZap size={9} /> Matched
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="apb-smp-missing-tag">Not found in CV</span>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    {/* Detailed categorized skills display */}
-                                                    {skillsMetadata.length > 0 ? (
-                                                        <div className="categorized-skills-grid">
-                                                            {/* Horizontal Tab System */}
-                                                            <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
-                                                                {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
-                                                                    const count = skillsMetadata.filter(item => item.category === tabName).length;
+                                                        {/* Detailed categorized skills display */}
+                                                        {skillsMetadata.length > 0 ? (
+                                                            <div className="categorized-skills-grid">
+                                                                {/* Horizontal Tab System */}
+                                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
+                                                                    {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
+                                                                        const count = skillsMetadata.filter(item => item.category === tabName).length;
 
-                                                                    const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+                                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
+
+                                                                        return (
+                                                                            <button
+                                                                                key={tabName}
+                                                                                type="button"
+                                                                                className={`apb-tab-btn ${activeTab === tabName ? 'active' : ''}`}
+                                                                                onClick={() => setActiveTab(tabName)}
+                                                                                style={{
+                                                                                    padding: '10px 16px',
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    borderBottom: activeTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
+                                                                                    color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                                    fontWeight: 700,
+                                                                                    fontSize: '0.88rem',
+                                                                                    cursor: 'pointer',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    gap: '6px',
+                                                                                    transition: 'all 0.2s ease',
+                                                                                    marginBottom: '-2px'
+                                                                                }}
+                                                                            >
+                                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                                    {emoji} {tabName}
+                                                                                    <span className="apb-tooltip" onClick={(e) => e.stopPropagation()}>
+                                                                                        ?
+                                                                                        <span className="apb-tooltip-text">
+                                                                                            {tabName === 'Relevant Skills' && 'Core skills directly required in the job description or essential for performing this role.'}
+                                                                                            {tabName === 'Related Skills' && 'Supporting skills from the same industry/domain that add value to your profile.'}
+                                                                                            {tabName === 'Additional Skills' && 'Other skills from different domains or general abilities found in your CV.'}
+                                                                                        </span>
+                                                                                    </span>
+                                                                                </span>
+                                                                                <span style={{
+                                                                                    fontSize: '0.72rem',
+                                                                                    background: activeTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
+                                                                                    color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
+                                                                                    padding: '2px 8px',
+                                                                                    borderRadius: '100px',
+                                                                                    fontWeight: 800
+                                                                                }}>
+                                                                                    {count}
+                                                                                </span>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Tab Content */}
+                                                                {(() => {
+                                                                    const activeSkills = skillsMetadata.filter(item => item.category === activeTab);
 
                                                                     return (
-                                                                        <button
-                                                                            key={tabName}
-                                                                            type="button"
-                                                                            className={`apb-tab-btn ${activeTab === tabName ? 'active' : ''}`}
-                                                                            onClick={() => setActiveTab(tabName)}
-                                                                            style={{
-                                                                                padding: '10px 16px',
-                                                                                background: 'none',
-                                                                                border: 'none',
-                                                                                borderBottom: activeTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
-                                                                                color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                                fontWeight: 700,
-                                                                                fontSize: '0.88rem',
-                                                                                cursor: 'pointer',
-                                                                                display: 'flex',
-                                                                                alignItems: 'center',
-                                                                                gap: '6px',
-                                                                                transition: 'all 0.2s ease',
-                                                                                marginBottom: '-2px'
-                                                                            }}
-                                                                        >
-                                                                            <span>{emoji} {tabName}</span>
-                                                                            <span style={{
-                                                                                fontSize: '0.72rem',
-                                                                                background: activeTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
-                                                                                color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                                padding: '2px 8px',
-                                                                                borderRadius: '100px',
-                                                                                fontWeight: 800
-                                                                            }}>
-                                                                                {count}
-                                                                            </span>
-                                                                        </button>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                                                        <div className="category-block animate-fade-in" style={{ border: 'none', background: 'transparent', padding: 0 }}>
+                                                                            {activeSkills.length === 0 && (
+                                                                                <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
+                                                                                    No skills identified under {activeTab} in your CV. You can manually add some below.
+                                                                                </p>
+                                                                            )}
+                                                                            <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
+                                                                                {activeSkills.map((item, idx) => {
+                                                                                    const isEditing = editingSkillName === item.skill;
+                                                                                    const isMatched = checkSkillInCvText(item.skill, rawCvText);
 
-                                                            {/* Tab Content */}
-                                                            {(() => {
-                                                                const activeSkills = skillsMetadata.filter(item => item.category === activeTab);
-
-                                                                return (
-                                                                    <div className="category-block animate-fade-in" style={{ border: 'none', background: 'transparent', padding: 0 }}>
-                                                                        {activeSkills.length === 0 && (
-                                                                            <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
-                                                                                No skills identified under {activeTab} in your CV. You can manually add some below.
-                                                                            </p>
-                                                                        )}
-                                                                        <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
-                                                                            {activeSkills.map((item, idx) => {
-                                                                                const isEditing = editingSkillName === item.skill;
-                                                                                const isMatched = checkSkillInCvText(item.skill, rawCvText);
-
-                                                                                if (isEditing) {
-                                                                                    const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
-                                                                                    return (
-                                                                                        <div key={idx} className={`skill-metadata-card editing-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`} style={{ border: '2px solid var(--gold-accent, #c8a951)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold-accent)' }}>Edit Skill Name</label>
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                    <input
-                                                                                                        type="text"
-                                                                                                        value={editingSkillValue}
-                                                                                                        onChange={(e) => setEditingSkillValue(e.target.value)}
-                                                                                                        className="apb-input"
-                                                                                                        style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
-                                                                                                        autoFocus
-                                                                                                        onKeyDown={(e) => {
-                                                                                                            if (e.key === 'Enter') {
-                                                                                                                handleSaveSkill(item.skill, editingSkillValue);
-                                                                                                            } else if (e.key === 'Escape') {
-                                                                                                                setEditingSkillName(null);
-                                                                                                                setEditingSkillValue('');
-                                                                                                            }
+                                                                                    if (isEditing) {
+                                                                                        const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
+                                                                                        return (
+                                                                                            <div key={idx} className={`skill-metadata-card editing-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`} style={{ border: '2px solid var(--gold-accent, #c8a951)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold-accent)' }}>Edit Skill Name</label>
+                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                        <input
+                                                                                                            type="text"
+                                                                                                            value={editingSkillValue}
+                                                                                                            onChange={(e) => setEditingSkillValue(e.target.value)}
+                                                                                                            className="apb-input"
+                                                                                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
+                                                                                                            autoFocus
+                                                                                                            onKeyDown={(e) => {
+                                                                                                                if (e.key === 'Enter') {
+                                                                                                                    handleSaveSkill(item.skill, editingSkillValue);
+                                                                                                                } else if (e.key === 'Escape') {
+                                                                                                                    setEditingSkillName(null);
+                                                                                                                    setEditingSkillValue('');
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        />
+                                                                                                        {rawCvText && (
+                                                                                                            <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                                {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="btn-secondary-small"
+                                                                                                        onClick={() => {
+                                                                                                            setEditingSkillName(null);
+                                                                                                            setEditingSkillValue('');
                                                                                                         }}
-                                                                                                    />
+                                                                                                        style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
+                                                                                                    >
+                                                                                                        <FiX size={12} /> Cancel
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="btn-primary-small"
+                                                                                                        onClick={() => handleSaveSkill(item.skill, editingSkillValue)}
+                                                                                                        style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
+                                                                                                    >
+                                                                                                        <FiCheck size={12} /> Save
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    }
+
+                                                                                    return (
+                                                                                        <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
+                                                                                            <div className="skill-card-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
+                                                                                                    <span className="skill-card-name" style={{ fontWeight: 'bold' }}>
+                                                                                                        {item.skill}
+                                                                                                    </span>
                                                                                                     {rawCvText && (
-                                                                                                        <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                            {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
+                                                                                                        <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
+                                                                                                            {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
                                                                                                         </span>
                                                                                                     )}
                                                                                                 </div>
+                                                                                                <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="skill-edit-btn-trigger"
+                                                                                                        onClick={() => {
+                                                                                                            setEditingSkillName(item.skill);
+                                                                                                            setEditingSkillValue(item.skill);
+                                                                                                        }}
+                                                                                                        title="Edit Skill"
+                                                                                                    >
+                                                                                                        <FiEdit2 size={12} />
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        type="button"
+                                                                                                        className="skill-delete-btn"
+                                                                                                        onClick={() => {
+                                                                                                            setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                            setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                            if (item.is_mandatory) {
+                                                                                                                setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
+                                                                                                            }
+                                                                                                        }}
+                                                                                                        title="Remove Skill"
+                                                                                                    >
+                                                                                                        <FiX size={12} />
+                                                                                                    </button>
+                                                                                                </div>
                                                                                             </div>
-                                                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="btn-secondary-small"
-                                                                                                    onClick={() => {
-                                                                                                        setEditingSkillName(null);
-                                                                                                        setEditingSkillValue('');
-                                                                                                    }}
-                                                                                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
-                                                                                                >
-                                                                                                    <FiX size={12} /> Cancel
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="btn-primary-small"
-                                                                                                    onClick={() => handleSaveSkill(item.skill, editingSkillValue)}
-                                                                                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
-                                                                                                >
-                                                                                                    <FiCheck size={12} /> Save
-                                                                                                </button>
-                                                                                            </div>
+                                                                                            {item.evidence_source && (
+                                                                                                <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
+                                                                                                    <span className="skill-source-badge">
+                                                                                                        via {item.evidence_source}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            <p className="skill-card-context">
+                                                                                                {item.context}
+                                                                                            </p>
                                                                                         </div>
                                                                                     );
-                                                                                }
+                                                                                })}
 
-                                                                                return (
-                                                                                    <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
-                                                                                        <div className="skill-card-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                                                                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
-                                                                                                <span className="skill-card-name" style={{ fontWeight: 'bold' }}>
-                                                                                                    {item.skill}
+                                                                                {/* Add Skill card */}
+                                                                                <div className="skill-metadata-card add-skill-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                                                                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                                            ✨ Add New Skill to {activeTab.replace(' Skills', '')}
+                                                                                        </span>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                            <input
+                                                                                                type="text"
+                                                                                                placeholder="e.g. Docker, Python"
+                                                                                                value={newSkillName}
+                                                                                                onChange={(e) => setNewSkillName(e.target.value)}
+                                                                                                className="apb-input"
+                                                                                                style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
+                                                                                                onKeyDown={(e) => {
+                                                                                                    if (e.key === 'Enter') {
+                                                                                                        handleAddSkill();
+                                                                                                    }
+                                                                                                }}
+                                                                                            />
+                                                                                            {newSkillName.trim() && rawCvText && (
+                                                                                                <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                                                    {checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
                                                                                                 </span>
-                                                                                                {rawCvText && (
-                                                                                                    <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                                                        {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                                    </span>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="skill-edit-btn-trigger"
-                                                                                                    onClick={() => {
-                                                                                                        setEditingSkillName(item.skill);
-                                                                                                        setEditingSkillValue(item.skill);
-                                                                                                    }}
-                                                                                                    title="Edit Skill"
-                                                                                                >
-                                                                                                    <FiEdit2 size={12} />
-                                                                                                </button>
-                                                                                                <button
-                                                                                                    type="button"
-                                                                                                    className="skill-delete-btn"
-                                                                                                    onClick={() => {
-                                                                                                        setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                        setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                        if (item.is_mandatory) {
-                                                                                                            setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                        }
-                                                                                                    }}
-                                                                                                    title="Remove Skill"
-                                                                                                >
-                                                                                                    <FiX size={12} />
-                                                                                                </button>
-                                                                                            </div>
+                                                                                            )}
                                                                                         </div>
-                                                                                        {item.evidence_source && (
-                                                                                            <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
-                                                                                                <span className="skill-source-badge">
-                                                                                                    via {item.evidence_source}
-                                                                                                </span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        <p className="skill-card-context">
-                                                                                            {item.context}
-                                                                                        </p>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="btn-primary-small"
+                                                                                            onClick={() => handleAddSkill()}
+                                                                                            style={{ padding: '4px 12px', fontSize: '0.78rem', alignSelf: 'flex-end', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                                                                        >
+                                                                                            + Add Skill
+                                                                                        </button>
                                                                                     </div>
-                                                                                );
-                                                                            })}
-
-                                                                            {/* Add Skill card */}
-                                                                            <div className="skill-metadata-card add-skill-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                                                                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                                        ✨ Add New Skill to {activeTab.replace(' Skills', '')}
-                                                                                    </span>
-                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                        <input
-                                                                                            type="text"
-                                                                                            placeholder="e.g. Docker, Python"
-                                                                                            value={newSkillName}
-                                                                                            onChange={(e) => setNewSkillName(e.target.value)}
-                                                                                            className="apb-input"
-                                                                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
-                                                                                            onKeyDown={(e) => {
-                                                                                                if (e.key === 'Enter') {
-                                                                                                    handleAddSkill();
-                                                                                                }
-                                                                                            }}
-                                                                                        />
-                                                                                        {newSkillName.trim() && rawCvText && (
-                                                                                            <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                {checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                            </span>
-                                                                                        )}
-                                                                                    </div>
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        className="btn-primary-small"
-                                                                                        onClick={() => handleAddSkill()}
-                                                                                        style={{ padding: '4px 12px', fontSize: '0.78rem', alignSelf: 'flex-end', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                                                    >
-                                                                                        + Add Skill
-                                                                                    </button>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="no-skills-extracted">
-                                                            {form.cv ? (
-                                                                <p>Steuart AI could not find any skills with sufficient project context in your resume. You can add skills manually below.</p>
-                                                            ) : (
-                                                                <p>Upload a PDF CV to automatically extract and verify your skills with project experience details.</p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* CV is now uploaded and parsed at the top */}
-
-                                    {/* Privacy Consent */}
-                                    <div className="apb-consent">
-                                        <input
-                                            type="checkbox"
-                                            id="priv"
-                                            checked={privacyAccepted}
-                                            onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                                            required
-                                        />
-                                        <label htmlFor="priv">
-                                            I agree my personal information may be processed for recruitment purposes per the <a href="#">Privacy Policy</a>.
-                                        </label>
-                                    </div>
-
-                                    {/* Talent Pool */}
-                                    <div className="apb-talent-pool">
-                                        <div className="apb-tp-header">
-                                            <span className="apb-tp-emoji">📂</span>
-                                            <div>
-                                                <strong>Keep my CV for future opportunities?</strong>
-                                                <p>HR can reach out for future roles — no need to apply again.</p>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="no-skills-extracted">
+                                                                {form.cv ? (
+                                                                    <p>George Steuart AI could not find any skills with sufficient project context in your resume. You can add skills manually below.</p>
+                                                                ) : (
+                                                                    <p>Upload a PDF CV to automatically extract and verify your skills with project experience details.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
                                             </div>
-                                        </div>
-                                        <div className="apb-tp-btns">
-                                            <button type="button"
-                                                className={`apb-tp-btn yes ${form.future_consent === true ? 'sel' : ''}`}
-                                                onClick={() => setForm({ ...form, future_consent: true })}>
-                                                ✅ Yes, keep my CV
-                                            </button>
-                                            <button type="button"
-                                                className={`apb-tp-btn no ${form.future_consent === false && form.future_consent !== null ? 'sel' : ''}`}
-                                                onClick={() => setForm({ ...form, future_consent: false })}>
-                                                🚫 This role only
-                                            </button>
-                                        </div>
-                                        {form.future_consent === true && <div className="apb-tp-note yes">🎉 Your CV will be kept in our Talent Pool.</div>}
-                                        {form.future_consent === false && <div className="apb-tp-note no">Only used for this application.</div>}
-                                    </div>
+                                        )}
 
-                                    <button
-                                        type="submit"
-                                        className="apb-submit"
-                                        disabled={!privacyAccepted}
-                                        style={{
-                                            opacity: !privacyAccepted ? 0.6 : 1,
-                                            cursor: !privacyAccepted ? 'not-allowed' : 'pointer'
-                                        }}
-                                    >
-                                        Review Application <FiChevronRight />
-                                    </button>
+                                        {/* CV is now uploaded and parsed at the top */}
+
+                                        {/* Privacy Consent */}
+                                        <div className="apb-consent">
+                                            <input
+                                                type="checkbox"
+                                                id="priv"
+                                                checked={privacyAccepted}
+                                                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                                required
+                                            />
+                                            <label htmlFor="priv">
+                                                I agree my personal information may be processed for recruitment purposes per the <a href="#">Privacy Policy</a>.
+                                            </label>
+                                        </div>
+
+
+
+                                        <button
+                                            type="submit"
+                                            className="apb-submit"
+                                            disabled={!privacyAccepted}
+                                            style={{
+                                                opacity: !privacyAccepted ? 0.6 : 1,
+                                                cursor: !privacyAccepted ? 'not-allowed' : 'pointer'
+                                            }}
+                                        >
+                                            Review Application <FiChevronRight />
+                                        </button>
                                     </div>
                                 </form>
                             </div>
@@ -2272,7 +2582,19 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                                                     marginBottom: '-2px'
                                                                 }}
                                                             >
-                                                                <span>{emoji} {tabName}</span>
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                    {emoji} {tabName}
+                                                                    <span className="apb-tooltip" onClick={(e) => {
+                                                                        e.stopPropagation(); // Prevent tab switch
+                                                                    }}>
+                                                                        ?
+                                                                        <span className="apb-tooltip-text">
+                                                                            {tabName === 'Relevant Skills' && 'Core skills directly required in the job description or essential for performing this role.'}
+                                                                            {tabName === 'Related Skills' && 'Supporting skills from the same industry/domain that add value to your profile.'}
+                                                                            {tabName === 'Additional Skills' && 'Other skills from different domains or general abilities found in your CV.'}
+                                                                        </span>
+                                                                    </span>
+                                                                </span>
                                                                 <span style={{
                                                                     fontSize: '0.68rem',
                                                                     background: activeReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
@@ -2399,10 +2721,92 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 <div className="parsing-overlay">
                     <div className="parsing-popup">
                         <div className="spinner-large"></div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>Steuart AI is parsing your CV...</h3>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>George Steuart AI is parsing your CV...</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
                             Extracting contact details, qualifications, experience, and skill matches. Please wait.
                         </p>
+                    </div>
+                </div>
+            )}
+
+            {/* ── PDPA Consent Modal ── */}
+            {showPdpaModal && (
+                <div className="pdpa-modal-overlay">
+                    <div className="pdpa-modal-card">
+                        <div className="pdpa-modal-header">
+                            <h3>PDPA Consent & Guidelines</h3>
+                            <button type="button" className="pdpa-modal-close-btn" onClick={() => setShowPdpaModal(false)}>
+                                <FiX size={20} />
+                            </button>
+                        </div>
+                        <div className="pdpa-modal-body">
+                            <div className="pdpa-info-section">
+                                <h4>Personal Data Protection Act (PDPA) Compliance</h4>
+                                <p>
+                                    In accordance with the Personal Data Protection Act (PDPA), we require your explicit consent to store, process, and retain your CV and personal information for future job openings.
+                                </p>
+                                <ul className="pdpa-bullets">
+                                    <li><strong>Purpose:</strong> Your details will be accessed by our HR team to match you with suitable future career opportunities.</li>
+                                    <li><strong>Retention:</strong> If consented, your data will be securely stored in our Talent Pool for a maximum duration of 1 year.</li>
+                                    <li><strong>Security:</strong> All personal data is processed under strict confidentiality and industry-standard security measures.</li>
+                                    <li><strong>Your Rights:</strong> You can withdraw your consent at any time by contacting our HR department.</li>
+                                </ul>
+                            </div>
+
+                            <div className="pdpa-consent-question">
+                                <strong>Would you like George Steuart & Company to keep your CV for future opportunities? <span className="req">*</span></strong>
+                                <p className="pdpa-consent-sub">Please select one option to proceed with your application.</p>
+                            </div>
+
+                            <div className="pdpa-checkbox-group">
+                                <div 
+                                    className={`pdpa-checkbox-card ${form.future_consent === true ? 'selected' : ''}`}
+                                    onClick={() => setForm({ ...form, future_consent: true })}
+                                >
+                                    <div className="pdpa-checkbox-indicator">
+                                        {form.future_consent === true && <div className="pdpa-checkbox-checked"></div>}
+                                    </div>
+                                    <div className="pdpa-checkbox-label">
+                                        <strong>Yes, keep my CV for future opportunities</strong>
+                                        <span>Our HR team can contact you for relevant future roles. You won't need to reapply.</span>
+                                    </div>
+                                </div>
+
+                                <div 
+                                    className={`pdpa-checkbox-card ${form.future_consent === false ? 'selected' : ''}`}
+                                    onClick={() => setForm({ ...form, future_consent: false })}
+                                >
+                                    <div className="pdpa-checkbox-indicator">
+                                        {form.future_consent === false && <div className="pdpa-checkbox-checked"></div>}
+                                    </div>
+                                    <div className="pdpa-checkbox-label">
+                                        <strong>No, only process for this role</strong>
+                                        <span>Your application will be considered for this position only. Your data will not be stored in the Talent Pool.</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="pdpa-modal-footer">
+                            <button 
+                                type="button" 
+                                className="pdpa-btn-cancel" 
+                                onClick={() => setShowPdpaModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                type="button" 
+                                className="pdpa-btn-proceed"
+                                disabled={form.future_consent === null}
+                                onClick={() => {
+                                    setShowPdpaModal(false);
+                                    setStep(2);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                            >
+                                Accept & Proceed <FiChevronRight />
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

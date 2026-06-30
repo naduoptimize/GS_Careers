@@ -25,6 +25,7 @@ import ChangePasswordPage from './pages/admin/ChangePasswordPage';
 import ForgotPasswordPage from './pages/admin/ForgotPasswordPage';
 import ResetPasswordPage from './pages/admin/ResetPasswordPage';
 import VacancyApprovals from './pages/admin/VacancyApprovals';
+import ApprovalTracker from './pages/admin/ApprovalTracker';
 import AuditLog from './pages/admin/AuditLog';
 import SettingsPage from './pages/admin/SettingsPage';
 
@@ -95,6 +96,7 @@ function App() {
                                 <Route path="/applicants" element={<Applicants admin={admin} />} />
                                 <Route path="/talent-pool" element={<TalentPool admin={admin} />} />
                                 <Route path="/approvals" element={<VacancyApprovals admin={admin} />} />
+                                <Route path="/approvals/tracker" element={<ApprovalTracker admin={admin} />} />
                                 <Route path="/audit-log" element={<AuditLog admin={admin} />} />
                                 {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                     <>

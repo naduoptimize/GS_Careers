@@ -11,6 +11,7 @@ function AdminLayout({ admin, children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [vacanciesExpanded, setVacanciesExpanded] = useState(location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies'));
+    const [approvalsExpanded, setApprovalsExpanded] = useState(location.pathname.startsWith('/admin/approvals'));
     const [pendingCount, setPendingCount] = useState(0);
 
     useEffect(() => {
@@ -48,7 +49,7 @@ function AdminLayout({ admin, children }) {
     const getRoleDisplayName = (role) => {
         const mapping = {
             super_admin: 'Super Admin',
-            admin: 'Global Admin',
+            admin: 'GS Admin',
             sub_admin1: 'Sub Admin 1',
             sub_admin2: 'Sub Admin 2',
             sub_admin: 'Sub Admin 2'
@@ -231,6 +232,57 @@ function AdminLayout({ admin, children }) {
                                 </div>
                             );
                         }
+
+                        if (item.label === 'Approvals') {
+                            const isApprovalsActive = location.pathname.startsWith('/admin/approvals');
+                            return (
+                                <div key={item.to} className="sidebar-dropdown-container">
+                                    <div
+                                        className={`sidebar-link ${isApprovalsActive ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setApprovalsExpanded(!approvalsExpanded);
+                                            navigate('/admin/approvals');
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <span className="sidebar-link-icon">{item.icon}</span>
+                                        <span className="sidebar-link-text">{item.label}</span>
+                                        {item.badge && <span className="sidebar-badge" style={{ marginRight: '8px' }}>{item.badge}</span>}
+                                        <FiChevronRight 
+                                            className="sidebar-link-arrow" 
+                                            size={14} 
+                                            style={{ 
+                                                transform: approvalsExpanded ? 'rotate(90deg)' : 'translateX(-4px)',
+                                                opacity: 1,
+                                                transition: 'transform 0.2s ease'
+                                            }} 
+                                        />
+                                    </div>
+                                    
+                                    {approvalsExpanded && (
+                                        <div className="sidebar-submenu animate-slide-down">
+                                            <NavLink
+                                                to="/admin/approvals"
+                                                end
+                                                className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                onClick={() => setSidebarOpen(false)}
+                                            >
+                                                <span className="sidebar-sublink-bullet"></span>
+                                                <span>Pending Approvals</span>
+                                            </NavLink>
+                                            <NavLink
+                                                to="/admin/approvals/tracker"
+                                                className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                onClick={() => setSidebarOpen(false)}
+                                            >
+                                                <span className="sidebar-sublink-bullet"></span>
+                                                <span>Approval Tracker</span>
+                                            </NavLink>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
                         
                         return (
                             <NavLink
@@ -259,7 +311,7 @@ function AdminLayout({ admin, children }) {
                         <div className="sidebar-user-info">
                             <div className="sidebar-user-name">{admin.full_name}</div>
                             <div className="sidebar-user-role">
-                                {admin.role === 'super_admin' ? 'Super Admin' : (admin.role === 'admin' ? 'Global Admin' : `${getRoleDisplayName(admin.role)} · ${admin.company_name || ''}`)}
+                                {admin.role === 'super_admin' ? 'Super Admin' : (admin.role === 'admin' ? 'GS Admin' : `${getRoleDisplayName(admin.role)} · ${admin.company_name || ''}`)}
                             </div>
                         </div>
                     </div>

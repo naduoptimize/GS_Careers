@@ -571,7 +571,7 @@ function TalentPool({ admin }) {
 
                         {/* Body can scroll if content is too long */}
                         <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '70vh', padding: '32px' }}>
-                            <div className="detail-grid-p admin-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px' }}>
+                            <div className="detail-grid-p admin-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '32px' }}>
                                 <div className="detail-section-p">
                                     <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>Contact Information</label>
                                     <div className="contact-list-p" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -894,7 +894,7 @@ function TalentPool({ admin }) {
                     align-items: center;
                     flex-wrap: wrap;
                     gap: 20px;
-                    background: linear-gradient(135deg, #2a050b 0%, var(--crimson-dark) 100%);
+                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
                     box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
                 }
 
