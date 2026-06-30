@@ -8,7 +8,7 @@ import {
     FiChevronDown, FiChevronUp, FiEdit2
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
-import { getVacancy, applyForJob, API_BASE } from '../services/api';
+import { getVacancy, applyForJob, API_BASE, getPublicPdpa } from '../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -228,6 +228,29 @@ function ApplyPage() {
     const [step, setStep] = useState(1);
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
     const [showPdpaModal, setShowPdpaModal] = useState(false);
+    const [pdpaConfig, setPdpaConfig] = useState({
+        pdpa_title: 'Personal Data Protection Act (PDPA) Compliance',
+        pdpa_description: 'In accordance with the Personal Data Protection Act (PDPA), we require your explicit consent to store, process, and retain your CV and personal information for future job openings.',
+        pdpa_purpose: 'Your details will be accessed by our HR team to match you with suitable future career opportunities.',
+        pdpa_retention: 'If consented, your data will be securely stored in our Talent Pool for a maximum duration of 1 year.',
+        pdpa_security: 'All personal data is processed under strict confidentiality and industry-standard security measures.',
+        pdpa_rights: 'You can withdraw your consent at any time by contacting our HR department.'
+    });
+
+    useEffect(() => {
+        const fetchPdpa = async () => {
+            try {
+                const response = await getPublicPdpa();
+                const pdpaData = response.data?.data || response.data;
+                if (pdpaData) {
+                    setPdpaConfig(pdpaData);
+                }
+            } catch (err) {
+                console.error("Failed to fetch PDPA guidelines:", err);
+            }
+        };
+        fetchPdpa();
+    }, []);
 
     const [form, setForm] = useState({
         first_name: '', last_name: '', email: '', contact_number: '',
@@ -1636,7 +1659,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     background: #ffffff;
                     border-radius: 20px;
                     width: 90%;
-                    max-width: 580px;
+                    max-width: 680px;
                     max-height: 90vh;
                     display: flex;
                     flex-direction: column;
@@ -1647,7 +1670,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 }
 
                 .pdpa-modal-header {
-                    padding: 20px 24px;
+                    padding: 18px 24px;
                     border-bottom: 1px solid #f1f5f9;
                     display: flex;
                     align-items: center;
@@ -1682,31 +1705,31 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 }
 
                 .pdpa-modal-body {
-                    padding: 24px;
+                    padding: 20px 24px;
                     overflow-y: auto;
                     flex: 1;
                     text-align: left;
                 }
 
                 .pdpa-info-section {
-                    background: rgba(139, 26, 43, 0.02);
+                    background: rgba(139, 26, 43, 0.015);
                     border-left: 4px solid var(--crimson, #8b1a2b);
-                    padding: 16px;
+                    padding: 14px 16px;
                     border-radius: 0 12px 12px 0;
-                    margin-bottom: 24px;
+                    margin-bottom: 18px;
                 }
 
                 .pdpa-info-section h4 {
-                    margin: 0 0 8px 0;
+                    margin: 0 0 6px 0;
                     font-size: 0.95rem;
                     font-weight: 800;
                     color: var(--crimson, #8b1a2b);
                 }
 
                 .pdpa-info-section p {
-                    margin: 0 0 12px 0;
+                    margin: 0 0 10px 0;
                     font-size: 0.85rem;
-                    line-height: 1.5;
+                    line-height: 1.45;
                     color: #475569;
                 }
 
@@ -1715,22 +1738,26 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                     padding-left: 20px;
                     font-size: 0.82rem;
                     color: #475569;
-                    line-height: 1.6;
+                    line-height: 1.5;
                 }
 
                 .pdpa-bullets li {
-                    margin-bottom: 6px;
+                    margin-bottom: 4px;
+                }
+
+                .pdpa-bullets li strong {
+                    color: #1e293b;
                 }
 
                 .pdpa-consent-question {
-                    margin-bottom: 16px;
+                    margin-bottom: 14px;
                 }
 
                 .pdpa-consent-question strong {
                     font-size: 0.95rem;
                     color: #1e293b;
                     display: block;
-                    margin-bottom: 4px;
+                    margin-bottom: 2px;
                 }
 
                 .pdpa-consent-sub {
@@ -1740,33 +1767,44 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 }
 
                 .pdpa-checkbox-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 16px;
+                    margin-bottom: 4px;
+                }
+
+                @media (max-width: 640px) {
+                    .pdpa-checkbox-group {
+                        grid-template-columns: 1fr;
+                        gap: 12px;
+                    }
                 }
 
                 .pdpa-checkbox-card {
                     border: 1.5px solid #e2e8f0;
                     border-radius: 12px;
-                    padding: 14px 16px;
+                    padding: 16px;
                     display: flex;
                     gap: 14px;
                     cursor: pointer;
-                    transition: all 0.2s ease;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
                     background: #ffffff;
                     user-select: none;
                     text-align: left;
+                    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
                 }
 
                 .pdpa-checkbox-card:hover {
                     border-color: var(--gold-accent, #c8a951);
-                    background: rgba(200, 169, 81, 0.02);
+                    background: rgba(200, 169, 81, 0.015);
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
                 }
 
                 .pdpa-checkbox-card.selected {
                     border-color: var(--crimson, #8b1a2b);
                     background: rgba(139, 26, 43, 0.02);
-                    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.05);
+                    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.06);
                 }
 
                 .pdpa-checkbox-indicator {
@@ -1803,6 +1841,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 .pdpa-checkbox-label strong {
                     font-size: 0.88rem;
                     color: #1e293b;
+                    line-height: 1.3;
                 }
 
                 .pdpa-checkbox-card.selected .pdpa-checkbox-label strong {
@@ -2741,15 +2780,15 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                         </div>
                         <div className="pdpa-modal-body">
                             <div className="pdpa-info-section">
-                                <h4>Personal Data Protection Act (PDPA) Compliance</h4>
+                                <h4>{pdpaConfig.pdpa_title}</h4>
                                 <p>
-                                    In accordance with the Personal Data Protection Act (PDPA), we require your explicit consent to store, process, and retain your CV and personal information for future job openings.
+                                    {pdpaConfig.pdpa_description}
                                 </p>
                                 <ul className="pdpa-bullets">
-                                    <li><strong>Purpose:</strong> Your details will be accessed by our HR team to match you with suitable future career opportunities.</li>
-                                    <li><strong>Retention:</strong> If consented, your data will be securely stored in our Talent Pool for a maximum duration of 1 year.</li>
-                                    <li><strong>Security:</strong> All personal data is processed under strict confidentiality and industry-standard security measures.</li>
-                                    <li><strong>Your Rights:</strong> You can withdraw your consent at any time by contacting our HR department.</li>
+                                    <li><strong>Purpose:</strong> {pdpaConfig.pdpa_purpose}</li>
+                                    <li><strong>Retention:</strong> {pdpaConfig.pdpa_retention}</li>
+                                    <li><strong>Security:</strong> {pdpaConfig.pdpa_security}</li>
+                                    <li><strong>Your Rights:</strong> {pdpaConfig.pdpa_rights}</li>
                                 </ul>
                             </div>
 

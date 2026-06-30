@@ -187,84 +187,31 @@ function sendConfirmationEmail($to, $name, $jobTitle, $companyName, $jobRef)
     if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
         return;
 
-    $subject = "Application Received - $jobTitle | George Steuart Group";
-    $currentYear = date('Y');
+    $defaultSubject = "Application Received - {job_title} | George Steuart Group";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Thank you for your interest in joining George Steuart Group. We have successfully received your application for {job_title} ({ref_no}) and it is now being reviewed by our Talent Acquisition team.</p>
+</body>
+</html>';
 
-    // Premium HTML Template
-    $body = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        <style>
-            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
-            .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-            .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
-            .header img { height: 60px; margin-bottom: 15px; }
-            .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
-            .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
-            .content { padding: 40px 35px; }
-            .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
-            .success-badge { display: inline-block; background-color: #f0fdf4; color: #166534; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; border: 1px solid #dcfce7; }
-            .info-card { background-color: #fdfaf3; border-radius: 12px; padding: 25px; margin: 25px 0; border-left: 4px solid #c8a951; }
-            .info-row { margin-bottom: 12px; }
-            .info-row:last-child { margin-bottom: 0; }
-            .info-label { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
-            .info-value { color: #1a1a2e; font-size: 15px; font-weight: 600; }
-            .next-steps { background-color: #f8fafc; border-radius: 12px; padding: 20px; margin-top: 30px; }
-            .next-steps h3 { margin-top: 0; font-size: 16px; color: #1a1a2e; }
-            .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #ffffff; }
-            .footer-divider { border: 0; border-top: 1px solid #f1f5f9; margin: 0 35px; }
-        </style>
-    </head>
-    <body>
-        <div class='wrapper'>
-            <div class='container'>
-                <div class='header'>
-                    <h1>GEORGE STEUART</h1>
-                    <p>ESTABLISHED 1835</p>
-                </div>
-                <div class='content'>
-                    <div class='greeting'>Hello $name,</div>
-                    <div class='success-badge'>✓ Application Received Successfully</div>
-                    <p>Thank you for your interest in joining <strong>George Steuart Group</strong>. We have successfully received your application and it is now being reviewed by our Talent Acquisition team.</p>
-                    
-                    <div class='info-card'>
-                        <div class='info-row'>
-                            <div class='info-label'>Position</div>
-                            <div class='info-value'>$jobTitle</div>
-                        </div>
-                        <div class='info-row'>
-                            <div class='info-label'>Job Reference No</div>
-                            <div class='info-value'>$jobRef</div>
-                        </div>
-                        <div class='info-row'>
-                            <div class='info-label'>Entity</div>
-                            <div class='info-value'>$companyName</div>
-                        </div>
-                    </div>
- 
-                    <div class='next-steps'>
-                        <h3>What's next?</h3>
-                        <p style='margin-bottom: 0; font-size: 14px;'>Our team will evaluate your profile against the role requirements. If your experience aligns with our needs, we will reach out to you directly for the next steps in the selection process.</p>
-                    </div>
-                    
-                    <p style='margin-top: 30px;'>Best regards,<br>
-                    <strong style='color: #1a1a2e;'>Talent Acquisition Team</strong><br>
-                    George Steuart Group</p>
-                </div>
-                <hr class='footer-divider'>
-                <div class='footer'>
-                    &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
-                    No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
-                    <p style='font-size: 10px; margin-top: 15px;'>This is an automated system notification. Please do not reply to this email.</p>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>";
+    $subjectTemplate = getEmailTemplate('email_template_confirmation_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_confirmation_body', $defaultBody);
+
+    $vars = [
+        'name' => $name,
+        'job_title' => $jobTitle,
+        'company' => $companyName,
+        'ref_no' => $jobRef,
+        'current_year' => date('Y')
+    ];
+
+    $subject = parseEmailTemplate($subjectTemplate, $vars);
+    $body = parseEmailTemplate($bodyTemplate, $vars);
 
     queueEmail($to, $name, $subject, $body);
 }
@@ -274,97 +221,40 @@ function sendShortlistEmail($applicationId, $to, $name, $jobTitle, $companyName,
     if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
         return;
 
-    $subject = "Interview Invitation - $jobTitle | George Steuart Group";
-    $currentYear = date('Y');
+    $defaultSubject = "Interview Invitation - {job_title} | George Steuart Group";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Dear {name},</p>
+    <p>We are pleased to invite you for an interview for the position of {job_title} ({ref_no}) scheduled on {interview_date} at {interview_time} ({interview_type}).</p>
+    <p>Location/Meeting link: {interview_location}</p>
+    <p>Please confirm your availability: <a href="{confirm_url_yes}">Yes, I am available</a> | <a href="{confirm_url_no}">No, I cannot attend</a></p>
+</body>
+</html>';
 
-    $body = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        <style>
-            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f0f4f8; }
-            .wrapper { width: 100%; table-layout: fixed; background-color: #f0f4f8; padding-bottom: 40px; }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
-            .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
-            .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
-            .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
-            .content { padding: 40px 35px; }
-            .greeting { font-size: 22px; color: #1a1a2e; margin-bottom: 20px; font-weight: 700; }
-            .status-line { color: #8b1a2b; font-weight: 700; font-size: 18px; margin-bottom: 20px; }
-            .details-box { background-color: #fffaf0; border-radius: 12px; padding: 30px; margin: 25px 0; border: 1px solid #fbd38d; }
-            .details-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #fbd38d; padding-bottom: 10px; }
-            .detail-item { margin-bottom: 15px; display: flex; align-items: baseline; }
-            .detail-label { font-weight: 700; color: #718096; width: 130px; font-size: 12px; text-transform: uppercase; }
-            .detail-value { font-weight: 600; color: #2d3748; flex: 1; font-size: 15px; }
-            .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
-            .confirm-btn { display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; transition: background-color 0.2s; }
-            .confirm-btn.yes { background-color: #10b981; }
-            .confirm-btn.no { background-color: #ef4444; }
-        </style>
-    </head>
-    <body>
-        <div class='wrapper'>
-            <div class='container'>
-                <div class='header'>
-                    <h1>GEORGE STEUART</h1>
-                    <p>ESTABLISHED 1835</p>
-                </div>
-                <div class='content'>
-                    <div class='greeting'>Dear $name,</div>
-                    <p>We are pleased to inform you that after reviewing your application for the position of <strong>$jobTitle</strong> (Ref: $jobRef), you have been <span style='color: #c8a951; font-weight: 800;'>SHORTLISTED</span> for the next stage of our selection process.</p>
-                    
-                    <div class='details-box'>
-                        <div class='details-title'>Interview Details</div>
-                        <div class='detail-item'>
-                            <div class='detail-label'>Type</div>
-                            <div class='detail-value'>$type</div>
-                        </div>
-                        <div class='detail-item'>
-                            <div class='detail-label'>Date</div>
-                            <div class='detail-value'>$date</div>
-                        </div>
-                        <div class='detail-item'>
-                            <div class='detail-label'>Time</div>
-                            <div class='detail-value'>$time</div>
-                        </div>
-                        <div class='detail-item'>
-                            <div class='detail-label'>Location</div>
-                            <div class='detail-value'>" . ($type === 'Online' ? 'Virtual / Online' : $location) . "</div>
-                        </div>
-                        " . (!empty($locationLink) || $type === 'Online' ? "
-                        <div class='detail-item'>
-                            <div class='detail-label'>" . ($type === 'Online' ? 'Meeting Link' : 'Map Link') . "</div>
-                            <div class='detail-value'>
-                                <a href='" . ($type === 'Online' ? $location : $locationLink) . "' style='color: #c8a951; text-decoration: underline; font-weight: 700;'>
-                                    " . ($type === 'Online' ? 'Join Meeting' : 'View on Map') . "
-                                </a>
-                            </div>
-                        </div>" : "") . "
-                    </div>
+    $subjectTemplate = getEmailTemplate('email_template_shortlist_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_shortlist_body', $defaultBody);
 
-                    <p style='margin-top: 25px; font-weight: bold;'>Please confirm your availability for this schedule by clicking one of the buttons below:</p>
-                    <div style='text-align: center; margin: 25px 0;'>
-                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=yes' class='confirm-btn yes' style='display: inline-block; padding: 12px 24px; background-color: #10b981; border-top: 12px solid #10b981; border-bottom: 12px solid #10b981; border-left: 24px solid #10b981; border-right: 24px solid #10b981; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; margin-right: 15px;'>Yes, I am available</a>
-                        <a href='" . FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=no' class='confirm-btn no' style='display: inline-block; padding: 12px 24px; background-color: #ef4444; border-top: 12px solid #ef4444; border-bottom: 12px solid #ef4444; border-left: 24px solid #ef4444; border-right: 24px solid #ef4444; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important;'>No, I cannot attend</a>
-                    </div>
+    $vars = [
+        'name' => $name,
+        'job_title' => $jobTitle,
+        'company' => $companyName,
+        'ref_no' => $jobRef,
+        'interview_type' => $type,
+        'interview_date' => $date,
+        'interview_time' => $time,
+        'interview_location' => $type === 'Online' ? 'Virtual / Online' : $location,
+        'confirm_url_yes' => FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=yes",
+        'confirm_url_no' => FRONTEND_URL . "/confirm-interview?id={$applicationId}&response=no",
+        'current_year' => date('Y')
+    ];
 
-                    <p>We look forward to discussing your potential contribution to George Steuart Group.</p>
-
-                    <p style='margin-top: 30px;'>Best regards,<br>
-                    <strong style='color: #1a1a2e;'>Talent Acquisition Team</strong><br>
-                    George Steuart Group</p>
-                </div>
-                <div class='footer'>
-                    &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
-                    No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
-                    <p style='font-size: 10px; margin-top: 10px;'>This is an automated notification.</p>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>";
+    $subject = parseEmailTemplate($subjectTemplate, $vars);
+    $body = parseEmailTemplate($bodyTemplate, $vars);
 
     queueEmail($to, $name, $subject, $body);
 }
@@ -452,58 +342,33 @@ function sendRejectionEmail($to, $name, $jobTitle, $companyName, $reason, $jobRe
     if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)
         return;
 
-    $subject = "Application Status Update - $jobTitle | George Steuart Group";
-    $currentYear = date('Y');
+    $defaultSubject = "Application Status Update - {job_title} | George Steuart Group";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Dear {name},</p>
+    <p>Thank you for your interest in George Steuart Group. We regret to inform you that we will not be moving forward with your application for the position of {job_title} ({ref_no}) at this time.</p>
+    <p>We wish you all the best in your career.</p>
+</body>
+</html>';
 
-    $body = "
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        <style>
-            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #475569; margin: 0; padding: 0; background-color: #f8fafc; }
-            .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-            .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 4px solid #ef4444; }
-            .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
-            .header p { color: #ef4444; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
-            .content { padding: 40px 35px; }
-            .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
-            .info-bar { background-color: #f1f5f9; padding: 12px 20px; border-radius: 8px; font-size: 13px; color: #64748b; margin-bottom: 25px; }
-            .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
-        </style>
-    </head>
-    <body>
-        <div class='wrapper'>
-            <div class='container'>
-                <div class='header'>
-                    <h1>GEORGE STEUART</h1>
-                    <p>ESTABLISHED 1835</p>
-                </div>
-                <div class='content'>
-                    <div class='greeting'>Dear $name,</div>
-                    <div class='info-bar'>Position: $jobTitle | Ref: $jobRef</div>
-                    <p>Thank you for the time and effort you invested in applying for the position of <strong>$jobTitle</strong> at <strong>$companyName</strong>.</p>
-                    
-                    <p>After a thorough review of all applications, we regret to inform you that we will not be moving forward with your candidacy at this time. Our team received a significant number of competitive applications, making our selection process extremely competitive.</p>
-                    
-                    <p>We truly appreciate your interest in George Steuart Group and encourage you to apply for other positions that align with your expertise in the future.</p>
-                    
-                    <p>We wish you the very best in your professional endeavors.</p>
-                    
-                    <p style='margin-top: 30px;'>Sincerely,<br>
-                    <strong style='color: #1a1a2e;'>Talent Acquisition Team</strong><br>
-                    George Steuart Group</p>
-                </div>
-                <div class='footer'>
-                    &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
-                    No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>";
+    $subjectTemplate = getEmailTemplate('email_template_rejection_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_rejection_body', $defaultBody);
+
+    $vars = [
+        'name' => $name,
+        'job_title' => $jobTitle,
+        'company' => $companyName,
+        'ref_no' => $jobRef,
+        'current_year' => date('Y')
+    ];
+
+    $subject = parseEmailTemplate($subjectTemplate, $vars);
+    $body = parseEmailTemplate($bodyTemplate, $vars);
 
     queueEmail($to, $name, $subject, $body);
 }

@@ -854,12 +854,11 @@ function notifyReviewers($vacancyId, $status)
 {
     $db = getDB();
     
-    // Fetch vacancy title and company name, along with creator role
+    // Fetch vacancy title and company name
     $stmt = $db->prepare("
-        SELECT v.title, v.reference_number, c.name as company_name, creator.role as creator_role 
+        SELECT v.title, v.reference_number, c.name as company_name
         FROM vacancies v 
         JOIN companies c ON v.company_id = c.id 
-        JOIN admins creator ON v.created_by = creator.id 
         WHERE v.id = ?");
     $stmt->execute([$vacancyId]);
     $vacancy = $stmt->fetch();
@@ -868,122 +867,49 @@ function notifyReviewers($vacancyId, $status)
     $title = $vacancy['title'];
     $refNumber = $vacancy['reference_number'];
     $companyName = $vacancy['company_name'];
-    $creatorRole = $vacancy['creator_role'];
-
-    // Check if this vacancy has ever been rejected (which indicates it is a resubmission)
-    $stmtRej = $db->prepare("SELECT COUNT(*) FROM vacancy_audit_logs WHERE vacancy_id = ? AND action = 'rejected'");
-    $stmtRej->execute([$vacancyId]);
-    $isResubmission = ($stmtRej->fetchColumn() > 0);
     
     if ($status === 'pending_subadmin1') {
         $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role = 'sub_admin1' AND company_id = (SELECT company_id FROM vacancies WHERE id = ?) AND is_active = 1");
         $stmtAdmins->execute([$vacancyId]);
         $reviewers = $stmtAdmins->fetchAll();
-        
-        if ($isResubmission) {
-            $subject = "Action Required: Resubmitted Vacancy Requisition Pending Approval - $refNumber";
-            $bodyHeader = "A vacancy requisition has been revised and resubmitted, and requires your approval as <strong>Sub Admin 1</strong>.";
-        } else {
-            $subject = "Action Required: New Vacancy Requisition Pending Approval - $refNumber";
-            $bodyHeader = "A new vacancy requisition has been submitted and requires your approval as <strong>Sub Admin 1</strong>.";
-        }
     } elseif ($status === 'pending_global') {
         $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role IN ('admin', 'super_admin') AND is_active = 1");
         $stmtAdmins->execute();
         $reviewers = $stmtAdmins->fetchAll();
-        
-        if ($isResubmission) {
-            $subject = "Action Required: Resubmitted Vacancy Requisition Pending Global Approval - $refNumber";
-            if ($creatorRole === 'sub_admin1') {
-                $bodyHeader = "A vacancy requisition has been revised and resubmitted by Sub Admin 1, and now requires your approval as <strong>Global Admin</strong>.";
-            } else {
-                $bodyHeader = "A vacancy requisition has been revised and approved by Sub Admin 1, and now requires your approval as <strong>Global Admin</strong>.";
-            }
-        } else {
-            $subject = "Action Required: Vacancy Requisition Pending Global Approval - $refNumber";
-            if ($creatorRole === 'sub_admin1') {
-                $bodyHeader = "A new vacancy requisition has been created by Sub Admin 1 and now requires your approval as <strong>Global Admin</strong>.";
-            } else {
-                $bodyHeader = "A vacancy requisition has been approved by Sub Admin 1 and now requires your approval as <strong>Global Admin</strong>.";
-            }
-        }
     } else {
         return;
     }
+
+    $defaultSubject = "Action Required: Vacancy Requisition Pending Approval - {ref_no}";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Dear {reviewer_name},</p>
+    <p>A new job vacancy requisition for {job_title} ({ref_no}) has been submitted and is awaiting your approval.</p>
+    <p><a href="{review_url}">Review & Approve Requisition</a></p>
+</body>
+</html>';
+
+    $subjectTemplate = getEmailTemplate('email_template_vacancy_pending_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_vacancy_pending_body', $defaultBody);
     
     foreach ($reviewers as $reviewer) {
-        $reviewUrl = FRONTEND_URL . "/admin/approvals?highlight={$vacancyId}";
+        $vars = [
+            'ref_no' => $refNumber,
+            'job_title' => $title,
+            'company' => $companyName,
+            'reviewer_name' => $reviewer['full_name'],
+            'review_url' => FRONTEND_URL . "/admin/approvals?highlight={$vacancyId}",
+            'current_year' => date('Y')
+        ];
         
-        if ($status === 'pending_subadmin1') {
-            $pillHtml   = gsStatusPill('Pending Your Approval', 'pending');
-            if ($isResubmission) {
-                $headingTxt = 'Resubmitted Requisition Requires Your Review';
-                $introPara  = "A previously rejected job vacancy requisition has been edited and <strong>resubmitted for approval</strong> by Sub Admin 2. It is now awaiting your review as Sub Admin 1 before it proceeds to the Global Admin.";
-            } else {
-                $headingTxt = 'New Requisition Requires Your Review';
-                $introPara  = "A new job vacancy requisition has been submitted by your team and is <strong>awaiting your approval</strong> as Sub Admin 1 before it proceeds to the Global Admin.";
-            }
-            $noteHtml   = "<p style='margin:0 0 8px;font-size:13px;color:#475569;'>Please review the details carefully and either <strong>approve</strong> to forward it to the Global Admin, or <strong>reject</strong> with a reason.</p>";
-            $btnLabel   = '&#128269;&nbsp; Review &amp; Approve Requisition';
-        } else {
-            $pillHtml   = gsStatusPill('Awaiting Global Approval', 'pending');
-            if ($isResubmission) {
-                if ($creatorRole === 'sub_admin1') {
-                    $headingTxt = 'Resubmitted Requisition Created by Sub Admin 1 — Your Action Required';
-                    $introPara  = "A job vacancy requisition has been <strong>revised and resubmitted directly by Sub Admin 1</strong>, and is now awaiting your final approval as <strong>Global Admin</strong>.";
-                } else {
-                    $headingTxt = 'Resubmitted Requisition Approved by Sub Admin 1 — Your Action Required';
-                    $introPara  = "A previously rejected job vacancy requisition has been edited, approved by Sub Admin 1, and is now awaiting your final approval as <strong>Global Admin</strong> to publish it on the careers portal.";
-                }
-            } else {
-                if ($creatorRole === 'sub_admin1') {
-                    $headingTxt = 'New Requisition Created by Sub Admin 1 — Your Action Required';
-                    $introPara  = "A job vacancy requisition has been <strong>created directly by Sub Admin 1</strong> and is now awaiting your final approval as <strong>Global Admin</strong> to publish it on the careers portal.";
-                } else {
-                    $headingTxt = 'Requisition Approved by Sub Admin 1 — Your Action Required';
-                    $introPara  = "A job vacancy requisition has been <strong>approved by Sub Admin 1</strong> and is now awaiting your final approval as <strong>Global Admin</strong> to publish it on the careers portal.";
-                }
-            }
-            $noteHtml   = "<p style='margin:0 0 8px;font-size:13px;color:#475569;'>Please log in to the Careers Portal and review this requisition. You can approve it to make it live, or reject it with a reason.</p>";
-            $btnLabel   = '&#9989;&nbsp; Review &amp; Give Final Approval';
-        }
-
-        $infoRows = gsInfoRow('Position / Title', htmlspecialchars($title))
-                  . gsInfoRow('Reference No.', "<span style='font-family:monospace;font-size:13px;color:#C8A951;'>" . htmlspecialchars($refNumber) . "</span>")
-                  . gsInfoRow('Company', htmlspecialchars($companyName));
-
-        $contentHtml = "
-          <!-- Greeting -->
-          <p style='margin:0 0 6px;font-size:14px;color:#64748b;'>Dear <strong style='color:#1e293b;'>{$reviewer['full_name']}</strong>,</p>
-
-          <!-- Status Pill + Heading -->
-          <div style='margin:16px 0 8px;'>{$pillHtml}</div>
-          <h2 style='margin:0 0 12px;font-size:20px;font-weight:800;color:#1a0208;line-height:1.3;'>{$headingTxt}</h2>
-
-          <!-- Intro -->
-          <p style='margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;'>{$introPara}</p>
-
-          <!-- Vacancy Info Card -->
-          <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;margin-bottom:24px;'>
-            <p style='margin:0 0 14px;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;'>Requisition Details</p>
-            <table width='100%' cellpadding='0' cellspacing='0'>
-              {$infoRows}
-            </table>
-          </div>
-
-          <!-- Note -->
-          <div style='background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:28px;'>
-            <p style='margin:0 0 4px;font-size:11px;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:0.5px;'>&#9888;&nbsp; Action Required</p>
-            {$noteHtml}
-          </div>
-
-          <!-- CTA Button -->
-          <div style='text-align:center;margin-bottom:8px;'>
-            " . gsButton($btnLabel, $reviewUrl, 'crimson') . "
-          </div>
-        ";
-
-        $body = gsEmailShell($contentHtml);
+        $subject = parseEmailTemplate($subjectTemplate, $vars);
+        $body = parseEmailTemplate($bodyTemplate, $vars);
+        
         queueEmail($reviewer['email'], $reviewer['full_name'], $subject, $body);
     }
 }
@@ -1014,43 +940,22 @@ function notifyCreatorApproved($vacancyId)
     $companyName = $vacancy['company_name'];
     $portalUrl   = FRONTEND_URL . "/admin/vacancies?highlight={$vacancyId}";
 
-    $infoRows = gsInfoRow('Position / Title', htmlspecialchars($title), '#dcfce7')
-              . gsInfoRow('Reference No.', "<span style='font-family:monospace;color:#16a34a;'>" . htmlspecialchars($refNumber) . "</span>", '#dcfce7')
-              . gsInfoRow('Company', htmlspecialchars($companyName), '#dcfce7')
-              . gsInfoRow('Status', gsStatusPill('APPROVED &amp; LIVE', 'approved'), '#dcfce7');
+    $defaultSubject = "Vacancy Approved & Published — {ref_no}";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Dear {recipient_name},</p>
+    <p>The vacancy requisition for {job_title} ({ref_no}) has been approved and published successfully.</p>
+    <p><a href="{review_url}">View Vacancy</a></p>
+</body>
+</html>';
 
-    $buildApprovalBody = function($recipientName, $recipientEmail, $creatorEmail, $creatorName) use ($title, $refNumber, $companyName, $portalUrl, $infoRows) {
-        if ($recipientEmail === $creatorEmail) {
-            $introText = "Great news! The job vacancy requisition you submitted has been <strong>approved by the Global Admin</strong> and is now <strong>successfully published and live</strong> on the careers portal. Candidates can now view and apply for this position.";
-        } else {
-            $introText = "Great news! The job vacancy requisition created by <strong>{$creatorName}</strong> has been <strong>fully approved and published</strong>. It is now <strong>live</strong> on the careers portal.";
-        }
-
-        $contentHtml = "
-          <p style='margin:0 0 6px;font-size:14px;color:#64748b;'>Dear <strong style='color:#1e293b;'>{$recipientName}</strong>,</p>
-
-          <div style='margin:16px 0 8px;'>" . gsStatusPill('Approved &amp; Published', 'approved') . "</div>
-          <h2 class='mobile-h2' style='margin:0 0 12px;font-size:20px;font-weight:800;color:#166534;line-height:1.3;'>&#127881;&nbsp; Vacancy Approved &amp; Published</h2>
-
-          <p style='margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;'>
-            {$introText}
-          </p>
-
-          <div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px;margin-bottom:24px;'>
-            <p style='margin:0 0 14px;font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:1px;'>Approved Requisition</p>
-            <table width='100%' cellpadding='0' cellspacing='0'>
-              {$infoRows}
-            </table>
-          </div>
-
-          <div style='text-align:center;margin-bottom:8px;'>
-            " . gsButton('&#128196;&nbsp; View Vacancy in Portal', $portalUrl, 'green') . "
-          </div>
-        ";
-        return gsEmailShell($contentHtml);
-    };
-
-    $subject = "&#127881; Vacancy Approved &amp; Published — {$refNumber}";
+    $subjectTemplate = getEmailTemplate('email_template_vacancy_approved_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_vacancy_approved_body', $defaultBody);
 
     // Gather recipients (email => name)
     $recipients = [];
@@ -1060,13 +965,11 @@ function notifyCreatorApproved($vacancyId)
         $recipients[$vacancy['creator_email']] = $vacancy['creator_name'];
     }
 
-    // 2. If creator is sub_admin2: notify the sub_admin1 who approved it (sub1_approved_by)
-    //    or fallback to the active sub_admin1 of that company.
+    // 2. If creator is sub_admin2: notify the sub_admin1 who approved it
     if ($vacancy['creator_role'] === 'sub_admin2') {
         if (!empty($vacancy['sub1_email'])) {
             $recipients[$vacancy['sub1_email']] = $vacancy['sub1_name'];
         } else {
-            // fallback to active sub_admin1 of that company
             $stmtSub1 = $db->prepare("SELECT email, full_name FROM admins WHERE role = 'sub_admin1' AND company_id = ? AND is_active = 1 LIMIT 1");
             $stmtSub1->execute([$vacancy['company_id']]);
             $sub1Fallback = $stmtSub1->fetch();
@@ -1076,11 +979,10 @@ function notifyCreatorApproved($vacancyId)
         }
     }
 
-    // 3. Notify the global admin or super admin who approved it (global_approved_by)
+    // 3. Notify the global admin or super admin who approved it
     if (!empty($vacancy['global_email'])) {
         $recipients[$vacancy['global_email']] = $vacancy['global_name'];
     } else {
-        // Fallback: If no specific global approver is saved, send to all active admins and super admins
         $stmtAdmins = $db->prepare("SELECT email, full_name FROM admins WHERE role IN ('admin', 'super_admin') AND is_active = 1");
         $stmtAdmins->execute();
         $adminList = $stmtAdmins->fetchAll();
@@ -1091,7 +993,19 @@ function notifyCreatorApproved($vacancyId)
 
     // Send emails to all gathered unique recipients
     foreach ($recipients as $email => $name) {
-        $body = $buildApprovalBody($name, $email, $vacancy['creator_email'], $vacancy['creator_name']);
+        $vars = [
+            'ref_no' => $refNumber,
+            'job_title' => $title,
+            'company' => $companyName,
+            'creator_name' => $vacancy['creator_name'],
+            'recipient_name' => $name,
+            'review_url' => $portalUrl,
+            'current_year' => date('Y')
+        ];
+        
+        $subject = parseEmailTemplate($subjectTemplate, $vars);
+        $body = parseEmailTemplate($bodyTemplate, $vars);
+        
         queueEmail($email, $name, $subject, $body);
     }
 }
@@ -1123,119 +1037,60 @@ function notifyOnRejection($vacancyId, $mode, $reason)
     $companyName = $vacancy['company_name'];
     $reasonHtml  = htmlspecialchars($reason);
 
-    $buildRejectionBody = function($recipientName, $recipientRole, $portalUrl) use ($title, $refNumber, $companyName, $reasonHtml) {
+    $defaultSubject = "Vacancy Requisition Rejected — {ref_no}";
+    $defaultBody = '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <p>Dear {recipient_name},</p>
+    <p>The vacancy requisition for {job_title} ({ref_no}) has been returned for revision.</p>
+    <p><strong>Reason:</strong> {reason}</p>
+    <p><a href="{review_url}">Edit & Resubmit Requisition</a></p>
+</body>
+</html>';
 
-        $isCreator = ($recipientRole === 'sub_admin2' || $recipientRole === 'sub_admin1');
+    $subjectTemplate = getEmailTemplate('email_template_vacancy_rejected_subject', $defaultSubject);
+    $bodyTemplate = getEmailTemplate('email_template_vacancy_rejected_body', $defaultBody);
 
-        $roleLabel = $isCreator
-            ? 'The vacancy requisition you submitted'
-            : 'A vacancy requisition you approved (Sub Admin 1)';
-
-        $btnLabel = $isCreator
-            ? '&#9998;&nbsp; Edit &amp; Resubmit Requisition'
-            : '&#128269;&nbsp; View Vacancy Pipeline';
-
-        $step2Title = $isCreator ? 'Modify &amp; Refine Requisition' : 'Requisition Revision Initiated';
-        $step2Desc = $isCreator
-            ? 'Edit the requisition details in the portal to fix the issues mentioned in the reviewer feedback.'
-            : 'The creator has been notified to edit and resubmit. You can track progress in the portal.';
-
-        $infoRows = gsInfoRow('Position / Title', htmlspecialchars($title), '#fee2e2')
-                  . gsInfoRow('Reference No.', "<span style='font-family:monospace;color:#b91c1c;font-weight:700;'>" . htmlspecialchars($refNumber) . "</span>", '#fee2e2')
-                  . gsInfoRow('Company', htmlspecialchars($companyName), '#fee2e2')
-                  . gsInfoRow('Status', gsStatusPill('Revision Required', 'rejected'), '#fee2e2');
-
-        $contentHtml = "
-          <!-- Greeting -->
-          <p style='margin:0 0 8px;font-size:14px;color:#64748b;'>Dear <strong style='color:#1e293b;'>{$recipientName}</strong>,</p>
-
-          <!-- Status Pill -->
-          <div style='margin:16px 0 12px;'>
-            <span style='display:inline-block;background-color:#fff5f5;color:#c53030;padding:5px 14px;border-radius:100px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;line-height:1.2;vertical-align:middle;border:1px solid #feb2b2;'>
-              <span style='width:6px;height:6px;border-radius:50%;background-color:#e53e3e;display:inline-block;vertical-align:middle;margin-right:6px;margin-top:-2px;'></span>
-              <span style='vertical-align:middle;'>Revision Required</span>
-            </span>
-          </div>
-
-          <!-- Header -->
-          <h2 style='margin:0 0 16px;font-size:22px;font-weight:800;color:#1e293b;letter-spacing:-0.5px;line-height:1.25;'>
-            Vacancy Requisition Returned for Revision
-          </h2>
-
-          <p style='margin:0 0 24px;font-size:14px;color:#475569;line-height:1.6;'>
-            {$roleLabel} has been reviewed and has been <strong>returned with feedback</strong> for revision.
-          </p>
-
-          <!-- Feedback Card -->
-          <div style='background:linear-gradient(135deg, #fff5f5 0%, #fffbfb 100%);border:1px solid #feb2b2;border-left:4px solid #e53e3e;border-radius:10px;padding:20px;margin-bottom:28px;box-shadow:0 2px 4px rgba(229,62,62,0.03);'>
-            <p style='margin:0 0 8px;font-size:11px;font-weight:800;color:#c53030;text-transform:uppercase;letter-spacing:0.8px;'>Reviewer Feedback &amp; Reason</p>
-            <p style='margin:0;font-size:14px;color:#2d3748;font-weight:600;line-height:1.6;font-style:italic;'>
-              &ldquo;{$reasonHtml}&rdquo;
-            </p>
-          </div>
-
-          <!-- Info Card -->
-          <div style='background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:28px;box-shadow:0 1px 3px rgba(0,0,0,0.02);'>
-            <p style='margin:0 0 16px;font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #f1f5f9;padding-bottom:8px;'>Requisition Details</p>
-            <table width='100%' cellpadding='0' cellspacing='0'>
-              {$infoRows}
-            </table>
-          </div>
-
-          <!-- Next Steps -->
-          <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin-bottom:32px;'>
-            <p style='margin:0 0 16px;font-size:11px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.8px;'>How to Proceed</p>
-            
-            <table width='100%' cellpadding='0' cellspacing='0'>
-              <tr>
-                <td valign='top' style='width:28px;'>
-                  <div style='width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;font-weight:700;text-align:center;line-height:20px;'>1</div>
-                </td>
-                <td valign='top' style='padding-bottom:16px;'>
-                  <p style='margin:0 0 4px;font-size:13px;font-weight:700;color:#1e293b;'>Analyze Rejection Reason</p>
-                  <p style='margin:0;font-size:12px;color:#64748b;line-height:1.4;'>Read the reviewer feedback above to check the required changes.</p>
-                </td>
-              </tr>
-              <tr>
-                <td valign='top' style='width:28px;'>
-                  <div style='width:20px;height:20px;border-radius:50%;background:#e2e8f0;color:#475569;font-size:11px;font-weight:700;text-align:center;line-height:20px;'>2</div>
-                </td>
-                <td valign='top' style='padding-bottom:16px;'>
-                  <p style='margin:0 0 4px;font-size:13px;font-weight:700;color:#1e293b;'>{$step2Title}</p>
-                  <p style='margin:0;font-size:12px;color:#64748b;line-height:1.4;'>{$step2Desc}</p>
-                </td>
-              </tr>
-              <tr>
-                <td valign='top' style='width:28px;'>
-                  <div style='width:20px;height:20px;border-radius:50%;background:#e53e3e;color:#ffffff;font-size:11px;font-weight:700;text-align:center;line-height:20px;'>3</div>
-                </td>
-                <td valign='top'>
-                  <p style='margin:0 0 4px;font-size:13px;font-weight:700;color:#1e293b;'>Submit for Re-approval</p>
-                  <p style='margin:0;font-size:12px;color:#64748b;line-height:1.4;'>Save and resubmit the vacancy requisition to put it back in the approval pipeline.</p>
-                </td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- CTA Button -->
-          <div style='text-align:center;margin-bottom:12px;'>
-            " . gsButton($btnLabel, $portalUrl, 'crimson') . "
-          </div>
-        ";
-        return gsEmailShell($contentHtml);
-    };
-
-    $subject = "Vacancy Requisition Rejected — {$refNumber}";
+    $varsGlobal = [
+        'ref_no' => $refNumber,
+        'job_title' => $title,
+        'company' => $companyName,
+        'reason' => $reasonHtml
+    ];
+    $subject = parseEmailTemplate($subjectTemplate, $varsGlobal);
 
     // Always notify the creator (Sub Admin 2 or Sub Admin 1)
     $creatorPortalUrl = FRONTEND_URL . "/admin/vacancies?highlight={$vacancyId}";
-    $creatorBody      = $buildRejectionBody($vacancy['creator_name'], $vacancy['creator_role'], $creatorPortalUrl);
+    
+    $varsCreator = [
+        'ref_no' => $refNumber,
+        'job_title' => $title,
+        'company' => $companyName,
+        'reason' => $reasonHtml,
+        'recipient_name' => $vacancy['creator_name'],
+        'review_url' => $creatorPortalUrl,
+        'current_year' => date('Y')
+    ];
+    $creatorBody = parseEmailTemplate($bodyTemplate, $varsCreator);
     queueEmail($vacancy['creator_email'], $vacancy['creator_name'], $subject, $creatorBody);
 
     // If admin rejected (pending_global stage) and the creator was Sub Admin 2, also notify Sub Admin 1
     if ($mode === 'admin_rejected' && $vacancy['creator_role'] === 'sub_admin2' && !empty($vacancy['sub1_email']) && $vacancy['sub1_email'] !== $vacancy['creator_email']) {
         $sub1PortalUrl = FRONTEND_URL . "/admin/approvals?highlight={$vacancyId}";
-        $sub1Body      = $buildRejectionBody($vacancy['sub1_name'], 'sub_admin1', $sub1PortalUrl);
+        $varsSub1 = [
+            'ref_no' => $refNumber,
+            'job_title' => $title,
+            'company' => $companyName,
+            'reason' => $reasonHtml,
+            'recipient_name' => $vacancy['sub1_name'],
+            'review_url' => $sub1PortalUrl,
+            'current_year' => date('Y')
+        ];
+        $sub1Body = parseEmailTemplate($bodyTemplate, $varsSub1);
         queueEmail($vacancy['sub1_email'], $vacancy['sub1_name'], $subject, $sub1Body);
     }
 }

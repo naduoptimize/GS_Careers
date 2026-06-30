@@ -301,4 +301,32 @@ function logVacancyAction($vacancyId, $adminId, $action, $oldStatus, $newStatus,
     }
 }
 
+// ---- EMAIL TEMPLATES HELPERS ----
+function parseEmailTemplate($template, $variables)
+{
+    foreach ($variables as $key => $value) {
+        $template = str_replace("{" . $key . "}", $value, $template);
+    }
+    return $template;
+}
+
+function getEmailTemplate($key, $default)
+{
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+        $stmt->execute([$key]);
+        $val = $stmt->fetchColumn();
+        
+        // Upgrade legacy non-HTML text templates to the new premium full HTML defaults
+        if ($val !== false && $val !== null && $val !== '' && strpos($key, '_body') !== false && strpos($val, '<!DOCTYPE html>') === false) {
+            return $default;
+        }
+        
+        return ($val !== false && $val !== null && $val !== '') ? $val : $default;
+    } catch (\Exception $e) {
+        return $default;
+    }
+}
+
 

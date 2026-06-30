@@ -138,5 +138,6 @@ export const resetAdminPassword = (data) => api.post('/admins.php?action=reset-p
 export const getSettings = () => api.get('/settings.php');
 export const saveSettings = (data) => api.post('/settings.php', data);
 export const testSmtpSettings = (data) => api.post('/settings.php?action=test', data);
+export const getPublicPdpa = () => api.get('/public_pdpa.php');
 
 export default api;
