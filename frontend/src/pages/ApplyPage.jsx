@@ -2760,7 +2760,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                 <div className="parsing-overlay">
                     <div className="parsing-popup">
                         <div className="spinner-large"></div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>George Steuart AI is parsing your CV...</h3>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>George Steuart AI is reading your CV...</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
                             Extracting contact details, qualifications, experience, and skill matches. Please wait.
                         </p>
@@ -2798,7 +2798,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             </div>
 
                             <div className="pdpa-checkbox-group">
-                                <div 
+                                <div
                                     className={`pdpa-checkbox-card ${form.future_consent === true ? 'selected' : ''}`}
                                     onClick={() => setForm({ ...form, future_consent: true })}
                                 >
@@ -2811,7 +2811,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                     </div>
                                 </div>
 
-                                <div 
+                                <div
                                     className={`pdpa-checkbox-card ${form.future_consent === false ? 'selected' : ''}`}
                                     onClick={() => setForm({ ...form, future_consent: false })}
                                 >
@@ -2826,15 +2826,15 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                             </div>
                         </div>
                         <div className="pdpa-modal-footer">
-                            <button 
-                                type="button" 
-                                className="pdpa-btn-cancel" 
+                            <button
+                                type="button"
+                                className="pdpa-btn-cancel"
                                 onClick={() => setShowPdpaModal(false)}
                             >
                                 Cancel
                             </button>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 className="pdpa-btn-proceed"
                                 disabled={form.future_consent === null}
                                 onClick={() => {
