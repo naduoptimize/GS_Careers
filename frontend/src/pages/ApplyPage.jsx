@@ -290,6 +290,7 @@ function ApplyPage() {
         : [];
 
     const [parsing, setParsing] = useState(false);
+    const [parsingProgress, setParsingProgress] = useState(0);
 
     useEffect(() => {
         console.log("George Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
@@ -326,6 +327,18 @@ function ApplyPage() {
 
     const parseResumeWithAI = async (file) => {
         setParsing(true);
+        setParsingProgress(0);
+        const progressInterval = setInterval(() => {
+            setParsingProgress(prev => {
+                if (prev >= 98) {
+                    clearInterval(progressInterval);
+                    return 98;
+                }
+                const diff = Math.max(1, Math.floor((100 - prev) * 0.15));
+                return Math.min(98, prev + diff);
+            });
+        }, 300);
+
         try {
             const text = await extractTextFromPdf(file);
             if (!text || text.trim().length === 0) {
@@ -1174,10 +1187,15 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             const cleanedSkills = [...new Set(normalized.map(item => item.skill))];
             setUserSkills(cleanedSkills);
 
+            clearInterval(progressInterval);
+            setParsingProgress(100);
+            await new Promise(r => setTimeout(r, 450));
+
             toast.success(requiredSkillsList.length > 0
                 ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
                 : "🎉 George Steuart AI successfully parsed your CV and auto-filled the form!", { autoClose: 5000 });
         } catch (err) {
+            clearInterval(progressInterval);
             console.error("CV parsing error:", err);
             let userFriendlyMessage = err.message || 'Please enter details manually.';
             if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
@@ -1185,6 +1203,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             }
             toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 10000 });
         } finally {
+            clearInterval(progressInterval);
             setParsing(false);
         }
     };
@@ -2063,7 +2082,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', padding: '4px 0' }}>
                                                 <div className="spinner-small" style={{ flexShrink: 0 }}></div>
                                                 <div style={{ textAlign: 'left' }}>
-                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>George Steuart AI is parsing your resume...</div>
+                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>George Steuart AI is parsing your resume... ({parsingProgress}%)</div>
                                                     <div className="apb-upload-hint">Extracting contact details, qualifications, experience and skill matches. Please wait.</div>
                                                 </div>
                                             </div>
@@ -2759,7 +2778,22 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             {parsing && (
                 <div className="parsing-overlay">
                     <div className="parsing-popup">
-                        <div className="spinner-large"></div>
+                        <div className="spinner-wrapper" style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 24px' }}>
+                            <div className="spinner-large" style={{ width: '80px', height: '80px', margin: 0, borderWidth: '5px' }}></div>
+                            <div className="spinner-percentage" style={{
+                                position: 'absolute',
+                                inset: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.2rem',
+                                fontWeight: '850',
+                                color: 'var(--crimson, #8b1a2b)',
+                                fontFamily: 'var(--font-body)'
+                            }}>
+                                {parsingProgress}%
+                            </div>
+                        </div>
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>George Steuart AI is reading your CV...</h3>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
                             Extracting contact details, qualifications, experience, and skill matches. Please wait.

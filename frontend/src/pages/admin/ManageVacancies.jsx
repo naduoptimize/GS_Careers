@@ -941,57 +941,59 @@ function ManageVacancies({ admin }) {
                                         )}
 
                                         {/* Selected Employee Section */}
-                                        <div className="vd-form-section">
-                                            <h3 className="vd-form-section-title">Assigned Placement</h3>
-                                            {viewDetail.selected_first_name ? (
-                                                <div className="vd-form-grid">
-                                                    <div className="vd-form-field">
-                                                        <div className="vd-field-icon"><FiUser /></div>
-                                                        <div className="vd-field-content">
-                                                            <span className="vd-form-label">Selected Employee</span>
-                                                            <div className="vd-form-value">{viewDetail.selected_first_name} {viewDetail.selected_last_name}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="vd-form-field">
-                                                        <div className="vd-field-icon"><FiMail /></div>
-                                                        <div className="vd-field-content">
-                                                            <span className="vd-form-label">Email Address</span>
-                                                            <div className="vd-form-value">{viewDetail.selected_email}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="vd-form-field">
-                                                        <div className="vd-field-icon"><FiPhone /></div>
-                                                        <div className="vd-field-content">
-                                                            <span className="vd-form-label">Contact Number</span>
-                                                            <div className="vd-form-value">{viewDetail.selected_contact_number || 'N/A'}</div>
-                                                        </div>
-                                                    </div>
-                                                    {admin.role !== 'super_admin' && (
-                                                        <div className="vd-form-field-action" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                                            <button className="vd-emp-btn change" onClick={handleOpenAssignModal} style={{ width: 'fit-content', height: 'fit-content', marginTop: '6px' }}>
-                                                                Change Employee
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="vd-form-grid">
-                                                    <div className="vd-form-field-empty" style={{ gridColumn: 'span 2' }}>
-                                                        <div className="vd-form-value" style={{ background: '#f8fafc', borderStyle: 'dashed', justifyContent: 'space-between', padding: '16px 20px', height: 'auto', minHeight: '52px' }}>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-                                                                <span style={{ fontWeight: 800, color: '#64748b', fontSize: '0.85rem' }}>No Employee Assigned Yet</span>
-                                                                <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 500 }}>Select a shortlisted candidate to assign to this vacancy.</span>
+                                        {viewDetail.approval_status === 'approved' && (
+                                            <div className="vd-form-section">
+                                                <h3 className="vd-form-section-title">Assigned Placement</h3>
+                                                {viewDetail.selected_first_name ? (
+                                                    <div className="vd-form-grid">
+                                                        <div className="vd-form-field">
+                                                            <div className="vd-field-icon"><FiUser /></div>
+                                                            <div className="vd-field-content">
+                                                                <span className="vd-form-label">Selected Employee</span>
+                                                                <div className="vd-form-value">{viewDetail.selected_first_name} {viewDetail.selected_last_name}</div>
                                                             </div>
-                                                            {admin.role !== 'super_admin' && (
-                                                                <button className="vd-emp-btn assign" onClick={handleOpenAssignModal} style={{ height: 'fit-content' }}>
-                                                                    Select Employee
+                                                        </div>
+                                                        <div className="vd-form-field">
+                                                            <div className="vd-field-icon"><FiMail /></div>
+                                                            <div className="vd-field-content">
+                                                                <span className="vd-form-label">Email Address</span>
+                                                                <div className="vd-form-value">{viewDetail.selected_email}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="vd-form-field">
+                                                            <div className="vd-field-icon"><FiPhone /></div>
+                                                            <div className="vd-field-content">
+                                                                <span className="vd-form-label">Contact Number</span>
+                                                                <div className="vd-form-value">{viewDetail.selected_contact_number || 'N/A'}</div>
+                                                            </div>
+                                                        </div>
+                                                        {admin.role !== 'super_admin' && (
+                                                            <div className="vd-form-field-action" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                                <button className="vd-emp-btn change" onClick={handleOpenAssignModal} style={{ width: 'fit-content', height: 'fit-content', marginTop: '6px' }}>
+                                                                    Change Employee
                                                                 </button>
-                                                            )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="vd-form-grid">
+                                                        <div className="vd-form-field-empty" style={{ gridColumn: 'span 2' }}>
+                                                            <div className="vd-form-value" style={{ background: '#f8fafc', borderStyle: 'dashed', justifyContent: 'space-between', padding: '16px 20px', height: 'auto', minHeight: '52px' }}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+                                                                    <span style={{ fontWeight: 800, color: '#64748b', fontSize: '0.85rem' }}>No Employee Assigned Yet</span>
+                                                                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 500 }}>Select a shortlisted candidate to assign to this vacancy.</span>
+                                                                </div>
+                                                                {admin.role !== 'super_admin' && (
+                                                                    <button className="vd-emp-btn assign" onClick={handleOpenAssignModal} style={{ height: 'fit-content' }}>
+                                                                        Select Employee
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="vd-form-section">
                                             <h3 className="vd-form-section-title">General Information</h3>
