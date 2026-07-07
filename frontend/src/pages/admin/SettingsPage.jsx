@@ -424,7 +424,7 @@ function SettingsPage({ admin }) {
                                             />
                                         </div>
                                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.4' }}>
-                                            💡 Target inbox displayed as the sender in incoming emails.
+                                            💡 Target inbox displayed as the sender in incoming emails. <strong>Note:</strong> Changing this address alone is not enough; you must also configure the SMTP Username &amp; App Password in the Custom SMTP section below.
                                         </p>
                                     </div>
 
@@ -696,6 +696,17 @@ function SettingsPage({ admin }) {
                                             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
                                                 Secure app password or password. Saved passwords show as <code>••••••••</code>.
                                             </p>
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: '16px', background: '#fffbeb', border: '1.5px solid #fef3c7', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '10px' }}>
+                                        <FiAlertTriangle style={{ color: '#d97706', fontSize: '1.25rem', flexShrink: 0, marginTop: '2px' }} />
+                                        <div style={{ fontSize: '0.8rem', color: '#78350f', lineHeight: '1.6' }}>
+                                            <strong style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>⚠️ SMTP Authentication Guidelines:</strong>
+                                            Just changing the email text field is not enough. You must generate/configure the credentials for the mail server:
+                                            <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
+                                                <li><strong>Gmail / Google Workspace:</strong> Enable 2-Step Verification on the Google account, go to <a href="https://myaccount.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#b45309', textDecoration: 'underline', fontWeight: 600 }}>Google Account Security &rarr; App Passwords</a>, generate a 16-character App Password, and use it in the SMTP Password field above.</li>
+                                                <li><strong>Office 365 / Microsoft Exchange:</strong> Ensure SMTP AUTH is enabled for this mailbox in the Microsoft 365 Admin Center, and use the correct password (or an App Password if Multi-Factor Authentication is enabled).</li>
+                                            </ul>
                                         </div>
                                     </div>
                                 </div>
