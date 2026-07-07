@@ -346,18 +346,7 @@ function ApplyPage() {
             }
             setRawCvText(text);
 
-            const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-            if (!GEMINI_API_KEY) {
-                throw new Error("Gemini API key is not configured. Please define VITE_GEMINI_API_KEY in your .env file.");
-            }
-            const models = [
-                "gemini-2.5-flash-lite",
-                "gemini-2.5-flash",
-                "gemini-2.5-pro",
-                "gemini-2.0-flash",
-                "gemini-flash-latest",
-                "gemini-pro-latest"
-            ];
+            const OLLAMA_SERVER = import.meta.env.VITE_OLLAMA_SERVER || "http://172.16.7.21:11434";
 
             const promptText = `You are an advanced AI system for CV Skill Extraction and Job Matching Analysis.
 
@@ -974,154 +963,77 @@ Important constraints:
 - overall_experience / relevant_experience: Estimate the years of experience that are relevant and suitable to the job vacancy description. Do not count unrelated/non-professional experience.
 - Do not make up or guess any details that are not directly supported by factual evidence in the CV. All data must strictly reflect actual CV facts matching the job vacancy.
 
-Analyze the candidate and return the output matching the requested JSON schema.`;
+Analyze the candidate and return the output matching the requested JSON schema.
+Return the output in the following JSON schema format:
 
-            let response = null;
-            let lastError = null;
-            let successfulModel = null;
+{
+  "first_name": "string",
+  "last_name": "string",
+  "email": "string",
+  "contact_number": "string",
+  "qualification": "O/L" | "A/L" | "Diploma" | "Bachelors Degree" | "Masters Degree" | "PhD" | "Professional Certification",
+  "overall_experience": "0 years" | "0-1 years" | "1-2 years" | "3-4 years" | "5-7 years" | "8-10 years" | "10+ years",
+  "relevant_experience": "0 years" | "0-1 years" | "1-2 years" | "3-4 years" | "5-7 years" | "8-10 years" | "10+ years",
+  "salary_expectation": "string",
+  "skills_analysis": [
+    {
+      "skill": "string",
+      "category": "Relevant Skills" | "Related Skills",
+      "experience_level": "Expert" | "Advanced" | "Intermediate" | "Basic" | "Mentioned Only",
+      "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
+      "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
+      "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
+      "usage_context": "string (A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words.)"
+    }
+  ],
+  "fully_demonstrated_skills": ["string"],
+  "partially_demonstrated_skills": ["string"],
+  "requirements_without_evidence": ["string"],
+  "additional_skills": [
+    {
+      "skill": "string",
+      "experience_level": "Expert" | "Advanced" | "Intermediate" | "Basic" | "Mentioned Only",
+      "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
+      "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
+      "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
+      "usage_context": "string (A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words.)"
+    }
+  ],
+  "qualifications_found": ["string"],
+  "certifications_found": ["string"],
+  "experience_summary": "string",
+  "recruiter_insights": ["string"]
+}
 
-            for (const model of models) {
+Make sure to return only valid JSON matching this schema. Do not add any conversational text or explanation outside the JSON format.`;
+
+            console.log(`Attempting AI resume parsing with Ollama at: ${OLLAMA_SERVER}`);
+            const res = await fetch(`${OLLAMA_SERVER}/api/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    model: "qwen2.5:7b",
+                    prompt: promptText,
+                    stream: false,
+                    format: "json"
+                })
+            });
+
+            if (!res.ok) {
+                let errorMsg = `Ollama server returned status ${res.status}`;
                 try {
-                    console.log(`Attempting AI resume parsing with model: ${model}`);
-                    const res = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                contents: [
-                                    {
-                                        parts: [
-                                            {
-                                                text: promptText
-                                            }
-                                        ]
-                                    }
-                                ],
-                                generationConfig: {
-                                    responseMimeType: "application/json",
-                                    responseSchema: {
-                                        type: "OBJECT",
-                                        properties: {
-                                            first_name: { type: "STRING" },
-                                            last_name: { type: "STRING" },
-                                            email: { type: "STRING" },
-                                            contact_number: { type: "STRING" },
-                                            qualification: {
-                                                type: "STRING",
-                                                enum: ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification']
-                                            },
-                                            overall_experience: {
-                                                type: "STRING",
-                                                enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
-                                            },
-                                            relevant_experience: {
-                                                type: "STRING",
-                                                enum: ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years']
-                                            },
-                                            salary_expectation: { type: "STRING" },
-
-                                            // Advanced Recruiter Analysis
-                                            skills_analysis: {
-                                                type: "ARRAY",
-                                                description: "Categorized skills classified as Relevant Skills or Related Skills. Include skills present in the CV even if they lack project/work experience context. ONLY extract skills that are explicitly present in the candidate's CV text.",
-                                                items: {
-                                                    type: "OBJECT",
-                                                    properties: {
-                                                        skill: { type: "STRING" },
-                                                        category: { type: "STRING", description: "Must be exactly 'Relevant Skills' or 'Related Skills'." },
-                                                        experience_level: { type: "STRING", enum: ["Expert", "Advanced", "Intermediate", "Basic", "Mentioned Only"] },
-                                                        estimated_duration: { type: "STRING", enum: ["Less than 3 Months", "3–6 Months", "6–12 Months", "1–2 Years", "2–3 Years", "3+ Years"] },
-                                                        evidence_strength: { type: "STRING", enum: ["Strong Evidence", "Moderate Evidence", "Weak Evidence", "Mentioned Only"] },
-                                                        evidence_source: { type: "STRING", description: "Strictly match the origin: 'Professional Experience' for job history, 'Internship' for student/graduate internships, 'Project' for distinct projects, 'Freelance Work' for contract gigs, 'Academic Work' for university/degree studies, 'Certification' for credentials, 'Training' for short workshops/courses, or 'Skills Section Only' for flat listings without context.", enum: ["Professional Experience", "Internship", "Project", "Freelance Work", "Academic Work", "Certification", "Training", "Skills Section Only"] },
-                                                        usage_context: { type: "STRING", description: "A concise, single-sentence summary of how/where the candidate used this skill (e.g., 'Built the frontend of a job portal with React'). Max 20 words. Do NOT concatenate multiple projects or copy entire paragraphs." }
-                                                    },
-                                                    required: ["skill", "category", "experience_level", "estimated_duration", "evidence_strength", "evidence_source", "usage_context"]
-                                                }
-                                            },
-                                            fully_demonstrated_skills: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            },
-                                            partially_demonstrated_skills: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            },
-                                            requirements_without_evidence: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            },
-                                            additional_skills: {
-                                                type: "ARRAY",
-                                                description: "Extract and list skills from the CV classified under the Additional Skills Category. For each skill, include context and evidence details.",
-                                                items: {
-                                                    type: "OBJECT",
-                                                    properties: {
-                                                        skill: { type: "STRING" },
-                                                        experience_level: { type: "STRING", enum: ["Expert", "Advanced", "Intermediate", "Basic", "Mentioned Only"] },
-                                                        estimated_duration: { type: "STRING", enum: ["Less than 3 Months", "3–6 Months", "6–12 Months", "1–2 Years", "2–3 Years", "3+ Years"] },
-                                                        evidence_strength: { type: "STRING", enum: ["Strong Evidence", "Moderate Evidence", "Weak Evidence", "Mentioned Only"] },
-                                                        evidence_source: { type: "STRING", description: "Strictly match the origin: 'Professional Experience' for job history, 'Internship' for student/graduate internships, 'Project' for distinct projects, 'Freelance Work' for contract gigs, 'Academic Work' for university/degree studies, 'Certification' for credentials, 'Training' for short workshops/courses, or 'Skills Section Only' for flat listings without context.", enum: ["Professional Experience", "Internship", "Project", "Freelance Work", "Academic Work", "Certification", "Training", "Skills Section Only"] },
-                                                        usage_context: { type: "STRING", description: "A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words." }
-                                                    },
-                                                    required: ["skill", "experience_level", "estimated_duration", "evidence_strength", "evidence_source", "usage_context"]
-                                                }
-                                            },
-                                            qualifications_found: {
-                                                type: "ARRAY",
-                                                description: "Academic qualifications found in the CV that are relevant or suitable for the job vacancy description.",
-                                                items: { type: "STRING" }
-                                            },
-                                            certifications_found: {
-                                                type: "ARRAY",
-                                                description: "Professional certifications found in the CV that are relevant or suitable for the job vacancy description.",
-                                                items: { type: "STRING" }
-                                            },
-                                            experience_summary: {
-                                                type: "STRING"
-                                            },
-                                            recruiter_insights: {
-                                                type: "ARRAY",
-                                                items: { type: "STRING" }
-                                            }
-                                        },
-                                        required: ["first_name", "last_name", "email", "contact_number", "qualification", "overall_experience", "relevant_experience", "skills_analysis"]
-                                    }
-                                }
-                            })
-                        }
-                    );
-
-                    if (res.ok) {
-                        response = res;
-                        successfulModel = model;
-                        console.log(`Successfully parsed resume using model: ${model}`);
-                        break;
-                    } else {
-                        let errorMsg = `API returned status ${res.status}`;
-                        try {
-                            const errorJson = await res.json();
-                            if (errorJson?.error?.message) {
-                                errorMsg += `: ${errorJson.error.message}`;
-                            }
-                        } catch (_) { }
-                        console.warn(`Model ${model} failed: ${errorMsg}`);
-                        lastError = new Error(errorMsg);
+                    const errorJson = await res.json();
+                    if (errorJson?.error) {
+                        errorMsg += `: ${errorJson.error}`;
                     }
-                } catch (fetchErr) {
-                    console.warn(`Network/fetch error for model ${model}:`, fetchErr);
-                    lastError = fetchErr;
-                }
+                } catch (_) { }
+                throw new Error(errorMsg);
             }
 
-            if (!response) {
-                throw lastError || new Error("All Gemini models failed to parse the resume.");
-            }
-
-            const data = await response.json();
-            const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            const data = await res.json();
+            const textResponse = data.response;
             if (!textResponse) {
-                throw new Error("No structured text response from AI.");
+                throw new Error("No structured response from Ollama server.");
             }
 
             const parsed = JSON.parse(textResponse);
@@ -1198,8 +1110,8 @@ Analyze the candidate and return the output matching the requested JSON schema.`
             clearInterval(progressInterval);
             console.error("CV parsing error:", err);
             let userFriendlyMessage = err.message || 'Please enter details manually.';
-            if (err.message && (err.message.includes('429') || err.message.toLowerCase().includes('quota'))) {
-                userFriendlyMessage = "Gemini API key quota exceeded (status 429). Please update your VITE_GEMINI_API_KEY in the frontend/.env file, or wait for the quota to reset. You can still fill out the form manually.";
+            if (err.message && (err.message.toLowerCase().includes('failed to fetch') || err.message.toLowerCase().includes('networkerror') || err.message.toLowerCase().includes('conn'))) {
+                userFriendlyMessage = "Failed to connect to local Ollama server. Please ensure the server is running at the configured URL and is accessible. You can still fill out the form manually.";
             }
             toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 10000 });
         } finally {
@@ -2071,7 +1983,7 @@ Analyze the candidate and return the output matching the requested JSON schema.`
                                         <span>Quick Apply: Upload Your CV</span>
                                         <span style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold', background: 'rgba(200, 169, 81, 0.08)', padding: '3px 10px', borderRadius: '100px', border: '1px solid rgba(200,169,81,0.15)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-                                            ✨ Gemini AI Auto-Fill Enabled
+                                            ✨ Ollama AI Auto-Fill Enabled
                                         </span>
                                     </div>
                                     <div className="apb-upload" style={{ position: 'relative', border: parsing ? '2px dashed var(--gold-accent)' : '2px dashed var(--border-light)', cursor: parsing ? 'not-allowed' : 'pointer' }} onClick={() => !parsing && document.getElementById('cv-file').click()}>
