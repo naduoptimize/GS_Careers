@@ -215,10 +215,16 @@ INSERT INTO companies (id, name, slug, logo, description, location) VALUES
 (1014, 'George Steuart Optimize', 'george-steuart-optimize', NULL, 'provides IT/project/cybersecurity support', 'No. 439, Galle Road, Colombo 03, Sri Lanka.');
 
 -- ========================================
--- SEED DATA: Admins (Default Superadmin password: admin123)
+-- SEED DATA: Admins (Default passwords are same as active database)
 -- ========================================
 INSERT INTO admins (id, username, email, password, full_name, role, company_id, is_active, require_password_change) VALUES
-(1, 'superadmin', 'admin@georgesteuart.com', '$2y$10$cUdT2ngu7OHP/42jb792QOwUyuxdw7n3CYTA993MIagvmqSSFVpdq', 'Super Administrator', 'super_admin', NULL, 1, 0);
+(1, 'superadmin', 'admin@georgesteuart.com', '$2y$10$cUdT2ngu7OHP/42jb792QOwUyuxdw7n3CYTA993MIagvmqSSFVpdq', 'Super Administrator', 'super_admin', NULL, 1, 0),
+(4, 'subadmin1', 'nadumi@gmail.com', '$2y$10$1AcNeBdhccszmSO72tjNzuP5.bmr7tKR3ua5YmeiGHyoByCcm3ZIa', 'subadmin1', 'sub_admin1', 3, 1, 0),
+(5, 'subadmin2', 'georgesteuartit@gmail.com', '$2y$10$1AcNeBdhccszmSO72tjNzuP5.bmr7tKR3ua5YmeiGHyoByCcm3ZIa', 'subadmin2', 'sub_admin2', 3, 1, 0),
+(994, 'HR', 'georgesteuartit6@gmail.com', '$2y$10$aOwCH7X.55mQ8.M3Zqa4guv3fGtpebdZJb3idss9nEVk48ZkILvlO', 'Admin', 'admin', NULL, 1, 0),
+(1000, 'HOD', 'nadumi672@gmail.com', '$2y$10$25qnvdhkef5BDyzH2G2EmO.Q6dH6mqYB4ViJa2mAwwBCjzM3RGkCW', 'HOD', 'sub_admin1', 1014, 1, 0),
+(1001, 'Manager', 'georgesteuartit2@gmail.com', '$2y$10$lkoRdbHyRw1WyJOfKnpteuIEHbBaOf5rlWehWlE0/2G5Sxt/e2dvm', 'Manager', 'sub_admin2', 1014, 1, 0);
+
 
 -- ========================================
 -- SEED DATA: Settings
