@@ -1,8 +1,8 @@
 -- George Steuart & Company Ltd - Job Portal Database
 -- Generated: 2026-07-07 07:20:04
 
-CREATE DATABASE IF NOT EXISTS gs_jobs1 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE gs_jobs1;
+CREATE DATABASE IF NOT EXISTS gs_jobs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE gs_jobs;
 
 SET FOREIGN_KEY_CHECKS=0;
 
