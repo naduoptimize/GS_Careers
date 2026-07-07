@@ -5,7 +5,7 @@
 
 // Error reporting (disable in production)
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 
 // Global Autoloader
 require_once __DIR__ . '/libs/autoload.php';
@@ -15,6 +15,11 @@ define('DB_HOST', 'localhost');
 define('DB_NAME', 'gs_jobs1');
 define('DB_USER', 'root');
 define('DB_PASS', '');
+
+// ---- OLLAMA SERVER ----
+define('OLLAMA_SERVER', 'http://172.16.7.21:11434');
+define('OLLAMA_MODEL', 'qwen2.5:3b'); // Change to qwen2.5:3b or qwen2.5:1.5b for faster responses
+define('GEMINI_API_KEY', 'AQ.Ab8RN6I_4IcLkZU-gYuGe7wfj7rMf0c7b9PzGruBHUskD3X4Sw'); // Define your fallback Gemini API key here if needed
 
 // ---- JWT SECRET ----
 define('JWT_SECRET', 'gs_job_portal_secret_key_2026');

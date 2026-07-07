@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE = "http://localhost/GS_Careers/backend/api";
+export const API_BASE = "http://localhost/gs-Job/backend/api";
 
 const api = axios.create({
     baseURL: API_BASE,

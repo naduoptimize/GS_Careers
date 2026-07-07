@@ -557,7 +557,7 @@ function saveSettings()
             $key = sanitize($key);
             $value = sanitize($value);
 
-            // Skip updating smtp_pass if it's masked
+            // Skip updating sensitive keys if they are masked
             if ($key === 'smtp_pass' && $value === '********') {
                 continue;
             }

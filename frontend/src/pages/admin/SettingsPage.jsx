@@ -4,7 +4,7 @@ import {
     FiSettings, FiMail, FiCheck, FiActivity, FiServer, 
     FiLock, FiUser, FiEye, FiEyeOff, FiPlay, FiInfo, 
     FiCheckCircle, FiAlertTriangle, FiChevronDown, FiChevronUp,
-    FiEdit, FiX, FiFileText
+    FiEdit, FiX, FiFileText, FiCpu
 } from 'react-icons/fi';
 import { getSettings, saveSettings, testSmtpSettings } from '../../services/api';
 
@@ -43,6 +43,13 @@ function SettingsPage({ admin }) {
         email_template_vacancy_approved_body: '',
         email_template_vacancy_rejected_subject: '',
         email_template_vacancy_rejected_body: '',
+        
+        // AI Settings
+        ai_provider: 'ollama',
+        gemini_api_key: '',
+        gemini_model: 'gemini-2.5-flash',
+        ollama_server: 'http://172.16.7.21:11434',
+        ollama_model: 'qwen2.5:3b',
         
         // Defaults
         default_email: '',
@@ -128,6 +135,54 @@ function SettingsPage({ admin }) {
         }
     };
 
+    const handleQuickAiSwitch = async (provider) => {
+        if (settings.ai_provider === provider) return;
+        try {
+            await saveSettings({
+                system_email: settings.system_email,
+                smtp_host: settings.smtp_host,
+                smtp_port: settings.smtp_port,
+                smtp_secure: settings.smtp_secure,
+                smtp_user: settings.smtp_user,
+                smtp_pass: settings.smtp_pass,
+                smtp_from_name: settings.smtp_from_name,
+                pdpa_title: settings.pdpa_title,
+                pdpa_description: settings.pdpa_description,
+                pdpa_purpose: settings.pdpa_purpose,
+                pdpa_retention: settings.pdpa_retention,
+                pdpa_security: settings.pdpa_security,
+                pdpa_rights: settings.pdpa_rights,
+                email_template_confirmation_subject: settings.email_template_confirmation_subject,
+                email_template_confirmation_body: settings.email_template_confirmation_body,
+                email_template_shortlist_subject: settings.email_template_shortlist_subject,
+                email_template_shortlist_body: settings.email_template_shortlist_body,
+                email_template_rejection_subject: settings.email_template_rejection_subject,
+                email_template_rejection_body: settings.email_template_rejection_body,
+                email_template_vacancy_pending_subject: settings.email_template_vacancy_pending_subject,
+                email_template_vacancy_pending_body: settings.email_template_vacancy_pending_body,
+                email_template_vacancy_approved_subject: settings.email_template_vacancy_approved_subject,
+                email_template_vacancy_approved_body: settings.email_template_vacancy_approved_body,
+                email_template_vacancy_rejected_subject: settings.email_template_vacancy_rejected_subject,
+                email_template_vacancy_rejected_body: settings.email_template_vacancy_rejected_body,
+                ai_provider: provider,
+                gemini_api_key: settings.gemini_api_key,
+                gemini_model: settings.gemini_model,
+                ollama_server: settings.ollama_server,
+                ollama_model: settings.ollama_model
+            });
+            
+            setSettings(prev => ({
+                ...prev,
+                ai_provider: provider
+            }));
+            
+            toast.success(`🚀 System AI engine switched to ${provider === 'gemini' ? 'Google Gemini (Cloud)' : 'Local Ollama (Offline)'}!`);
+        } catch (err) {
+            console.error('Failed to switch AI provider:', err);
+            toast.error('Failed to update AI engine selection');
+        }
+    };
+
     const handleStartEdit = () => {
         setBackupSettings({ ...settings });
         setIsEditing(true);
@@ -149,6 +204,19 @@ function SettingsPage({ admin }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Custom validation to prevent hidden tab validation blocks
+        if (!settings.system_email) {
+            toast.warning('Sender Email Address is required');
+            setActiveTab('mail');
+            return;
+        }
+        if (!settings.pdpa_title || !settings.pdpa_description || !settings.pdpa_purpose || !settings.pdpa_retention || !settings.pdpa_security || !settings.pdpa_rights) {
+            toast.warning('All PDPA Consent fields are required');
+            setActiveTab('pdpa');
+            return;
+        }
+        
         setSaving(true);
         try {
             await saveSettings({
@@ -176,7 +244,12 @@ function SettingsPage({ admin }) {
                 email_template_vacancy_approved_subject: settings.email_template_vacancy_approved_subject,
                 email_template_vacancy_approved_body: settings.email_template_vacancy_approved_body,
                 email_template_vacancy_rejected_subject: settings.email_template_vacancy_rejected_subject,
-                email_template_vacancy_rejected_body: settings.email_template_vacancy_rejected_body
+                email_template_vacancy_rejected_body: settings.email_template_vacancy_rejected_body,
+                ai_provider: settings.ai_provider,
+                gemini_api_key: settings.gemini_api_key,
+                gemini_model: settings.gemini_model,
+                ollama_server: settings.ollama_server,
+                ollama_model: settings.ollama_model
             });
             toast.success('System configurations updated successfully');
             setIsEditing(false);
@@ -337,6 +410,26 @@ function SettingsPage({ admin }) {
                 >
                     <FiInfo /> PDPA Consent Guidelines
                 </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('ai')}
+                    style={{
+                        padding: '12px 24px',
+                        fontWeight: 700,
+                        fontSize: '0.95rem',
+                        background: 'none',
+                        border: 'none',
+                        borderBottom: activeTab === 'ai' ? '3px solid var(--crimson)' : '3px solid transparent',
+                        color: activeTab === 'ai' ? 'var(--crimson)' : '#64748b',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <FiCpu /> AI Resume Parser Settings
+                </button>
             </div>
 
             {activeTab === 'mail' && (
@@ -420,7 +513,7 @@ function SettingsPage({ admin }) {
                                                     fontSize: '0.95rem',
                                                     transition: 'all 0.3s'
                                                 }}
-                                                required
+                                                
                                             />
                                         </div>
                                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.4' }}>
@@ -790,7 +883,7 @@ function SettingsPage({ admin }) {
                                             type="text"
                                             value={settings.pdpa_title}
                                             onChange={handleChange}
-                                            required
+                                            
                                             style={{
                                                 width: '100%',
                                                 padding: '12px 16px',
@@ -813,7 +906,7 @@ function SettingsPage({ admin }) {
                                             rows="3"
                                             value={settings.pdpa_description}
                                             onChange={handleChange}
-                                            required
+                                            
                                             style={{
                                                 width: '100%',
                                                 padding: '12px 16px',
@@ -839,7 +932,7 @@ function SettingsPage({ admin }) {
                                                 rows="2"
                                                 value={settings.pdpa_purpose}
                                                 onChange={handleChange}
-                                                required
+                                                
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px 16px',
@@ -864,7 +957,7 @@ function SettingsPage({ admin }) {
                                                 rows="2"
                                                 value={settings.pdpa_retention}
                                                 onChange={handleChange}
-                                                required
+                                                
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px 16px',
@@ -891,7 +984,7 @@ function SettingsPage({ admin }) {
                                                 rows="2"
                                                 value={settings.pdpa_security}
                                                 onChange={handleChange}
-                                                required
+                                                
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px 16px',
@@ -916,7 +1009,7 @@ function SettingsPage({ admin }) {
                                                 rows="2"
                                                 value={settings.pdpa_rights}
                                                 onChange={handleChange}
-                                                required
+                                                
                                                 style={{
                                                     width: '100%',
                                                     padding: '12px 16px',
@@ -1034,7 +1127,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_confirmation_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1048,7 +1141,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_confirmation_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1091,7 +1184,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_shortlist_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1105,7 +1198,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_shortlist_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1148,7 +1241,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_rejection_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1162,7 +1255,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_rejection_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1219,7 +1312,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_vacancy_pending_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1233,7 +1326,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_vacancy_pending_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1276,7 +1369,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_vacancy_approved_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1290,7 +1383,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_vacancy_approved_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1333,7 +1426,7 @@ function SettingsPage({ admin }) {
                                                     type="text"
                                                     value={settings.email_template_vacancy_rejected_subject}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
                                                 />
                                             </div>
@@ -1347,7 +1440,7 @@ function SettingsPage({ admin }) {
                                                     rows="15"
                                                     value={settings.email_template_vacancy_rejected_body}
                                                     onChange={handleChange}
-                                                    required
+                                                    
                                                     style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
                                                 />
                                             </div>
@@ -1507,6 +1600,406 @@ function SettingsPage({ admin }) {
                             )}
                         </div>
                     </div>
+                        </>
+                    )}
+
+                    {activeTab === 'ai' && (
+                        <>
+                            {/* TOP QUICK SWITCHER TOGGLE BAR */}
+                            {!isEditing && (
+                                <div style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'space-between',
+                                    background: '#fff', 
+                                    padding: '16px 24px', 
+                                    borderRadius: '16px', 
+                                    border: '1px solid var(--border-light)', 
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.01)', 
+                                    marginBottom: '20px' 
+                                }}>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 800 }}>Quick AI Engine Switcher</h4>
+                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>Instantly switch the system provider</p>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '5px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleQuickAiSwitch('gemini')}
+                                            title="Switch all system AI operations to Google Gemini Cloud API"
+                                            style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '10px',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 800,
+                                                border: 'none',
+                                                background: settings.ai_provider === 'gemini' ? '#ffffff' : 'transparent',
+                                                color: settings.ai_provider === 'gemini' ? 'var(--crimson)' : '#64748b',
+                                                boxShadow: settings.ai_provider === 'gemini' ? '0 4px 10px rgba(0,0,0,0.06)' : 'none',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.25s ease',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            ☁️ Cloud AI (Gemini)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleQuickAiSwitch('ollama')}
+                                            title="Switch all system AI operations to Local Ollama Server"
+                                            style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '10px',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 800,
+                                                border: 'none',
+                                                background: settings.ai_provider === 'ollama' ? '#ffffff' : 'transparent',
+                                                color: settings.ai_provider === 'ollama' ? 'var(--crimson)' : '#64748b',
+                                                boxShadow: settings.ai_provider === 'ollama' ? '0 4px 10px rgba(0,0,0,0.06)' : 'none',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.25s ease',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            💻 Local AI (Ollama)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ACTIVE CONFIGURATION SUMMARY CARD */}
+                            <div className="stat-glass-card gold settings-sender-card" style={{ 
+                                marginBottom: '24px', 
+                                display: 'flex', 
+                                flexDirection: 'row', 
+                                alignItems: 'center', 
+                                flexWrap: 'wrap',
+                                gap: '20px', 
+                                background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', 
+                                border: '1.5px solid #fde68a', 
+                                borderRadius: '20px', 
+                                padding: '24px',
+                                boxShadow: '0 10px 25px rgba(217, 119, 6, 0.04)'
+                            }}>
+                                <div style={{ 
+                                    width: '56px', 
+                                    height: '56px', 
+                                    borderRadius: '16px', 
+                                    background: '#fef3c7', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center', 
+                                    fontSize: '1.8rem', 
+                                    color: '#d97706', 
+                                    flexShrink: 0,
+                                    border: '1px solid #fde68a'
+                                }}>
+                                    <FiCpu />
+                                </div>
+                                <div style={{ flex: 1, minWidth: '250px' }}>
+                                    <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.75px' }}>Active AI Engine Summary</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                        <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#78350f' }}>
+                                            {settings.ai_provider === 'gemini' ? 'Google Gemini API' : 'Local Ollama Server'}
+                                        </span>
+                                        <span style={{ 
+                                            background: '#dcfce7', 
+                                            color: '#166534', 
+                                            fontSize: '0.75rem', 
+                                            fontWeight: 800, 
+                                            padding: '4px 10px', 
+                                            borderRadius: '20px', 
+                                            border: '1px solid #bbf7d0',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            ✓ ONLINE & ACTIVE
+                                        </span>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', borderLeft: '1px solid rgba(217,119,6,0.15)', paddingLeft: '24px' }}>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Target Model</span>
+                                        <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 700, color: '#78350f', marginTop: '2px', fontFamily: 'monospace' }}>
+                                            {settings.ai_provider === 'gemini' ? (settings.gemini_model || 'gemini-2.5-flash') : (settings.ollama_model || 'qwen2.5:3b')}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                            {settings.ai_provider === 'gemini' ? 'API Credentials' : 'Server Endpoint'}
+                                        </span>
+                                        <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 700, color: '#78350f', marginTop: '2px', fontFamily: 'monospace' }}>
+                                            {settings.ai_provider === 'gemini' ? 'Masked (********)' : (settings.ollama_server || 'http://172.16.7.21:11434')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* CARD: ACTIVE AI PROVIDER SELECTION */}
+                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
+                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
+                                    <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
+                                        <FiCpu /> AI Engine Selector
+                                    </h3>
+                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
+                                        Choose which AI parser engine the entire career portal should use to read CV files and match candidates.
+                                    </p>
+                                </div>
+                                
+                                <div style={{ padding: '32px' }}>
+                                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                                        <label style={{
+                                            flex: 1,
+                                            minWidth: '250px',
+                                            padding: '24px',
+                                            borderRadius: '16px',
+                                            border: settings.ai_provider === 'ollama' ? '2.5px solid var(--gold-accent)' : '1.5px solid #e2e8f0',
+                                            background: settings.ai_provider === 'ollama' ? 'rgba(200, 169, 81, 0.04)' : '#ffffff',
+                                            cursor: isEditing ? 'pointer' : 'default',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '16px',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.01)'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="ai_provider"
+                                                value="ollama"
+                                                checked={settings.ai_provider === 'ollama'}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ accentColor: 'var(--gold-accent)', width: '20px', height: '20px' }}
+                                            />
+                                            <div>
+                                                <strong style={{ display: 'block', fontSize: '1rem', color: '#1e293b' }}>Local Ollama Server</strong>
+                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'block' }}>Process documents locally & offline using open-source LLMs</span>
+                                            </div>
+                                            {settings.ai_provider === 'ollama' && (
+                                                <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.7rem', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid #bbf7d0' }}>ACTIVE</span>
+                                            )}
+                                        </label>
+
+                                        <label style={{
+                                            flex: 1,
+                                            minWidth: '250px',
+                                            padding: '24px',
+                                            borderRadius: '16px',
+                                            border: settings.ai_provider === 'gemini' ? '2.5px solid var(--gold-accent)' : '1.5px solid #e2e8f0',
+                                            background: settings.ai_provider === 'gemini' ? 'rgba(200, 169, 81, 0.04)' : '#ffffff',
+                                            cursor: isEditing ? 'pointer' : 'default',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '16px',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.01)'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="ai_provider"
+                                                value="gemini"
+                                                checked={settings.ai_provider === 'gemini'}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ accentColor: 'var(--gold-accent)', width: '20px', height: '20px' }}
+                                            />
+                                            <div>
+                                                <strong style={{ display: 'block', fontSize: '1rem', color: '#1e293b' }}>Google Gemini Cloud API</strong>
+                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'block' }}>Leverage high-speed, state-of-the-art Google Gemini models</span>
+                                            </div>
+                                            {settings.ai_provider === 'gemini' && (
+                                                <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.7rem', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid #bbf7d0' }}>ACTIVE</span>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* DUAL CONFIGURATION PANELS */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))', gap: '24px', marginBottom: '24px' }}>
+                                
+                                {/* CARD: GEMINI CONFIG (Left) */}
+                                <div className="card-p" style={{ 
+                                    background: '#fff', 
+                                    borderRadius: '20px', 
+                                    border: '1px solid var(--border-light)', 
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)', 
+                                    opacity: settings.ai_provider === 'gemini' ? 1 : 0.65,
+                                    transition: 'all 0.3s ease',
+                                    borderTop: settings.ai_provider === 'gemini' ? '4px solid var(--gold-accent)' : '1px solid var(--border-light)'
+                                }}>
+                                    <div className="orchestration-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <h4 style={{ fontSize: '1.1rem', margin: 0, color: '#1e293b' }}>Google Gemini Settings</h4>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Configure cloud LLM access</span>
+                                        </div>
+                                        {settings.ai_provider === 'gemini' && (
+                                            <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', fontWeight: 900, padding: '3px 8px', borderRadius: '12px' }}>ROUTING LIVE</span>
+                                        )}
+                                    </div>
+                                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div className="form-group-p">
+                                            <label htmlFor="gemini_api_key" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
+                                                Google Gemini API Key
+                                            </label>
+                                            <div className="input-with-icon" style={{ position: 'relative' }}>
+                                                <FiLock className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
+                                                <input
+                                                    id="gemini_api_key"
+                                                    name="gemini_api_key"
+                                                    type={showPassword ? 'text' : 'password'}
+                                                    value={settings.gemini_api_key}
+                                                    onChange={handleChange}
+                                                    disabled={!isEditing}
+                                                    placeholder="••••••••"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px 48px 12px 48px',
+                                                        borderRadius: '12px',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
+                                                        fontSize: '0.95rem',
+                                                        transition: 'all 0.3s'
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    disabled={!isEditing}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '16px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: isEditing ? 'pointer' : 'default',
+                                                        color: '#94a3b8',
+                                                        fontSize: '1.1rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        padding: 0
+                                                    }}
+                                                >
+                                                    {showPassword ? <FiEyeOff /> : <FiEye />}
+                                                </button>
+                                            </div>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+                                                Masked as <code>••••••••</code> when saved. Uses constant fallback if empty.
+                                            </p>
+                                        </div>
+
+                                        <div className="form-group-p">
+                                            <label htmlFor="gemini_model" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
+                                                Gemini Model Version
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <select
+                                                    id="gemini_model"
+                                                    name="gemini_model"
+                                                    value={settings.gemini_model}
+                                                    onChange={handleChange}
+                                                    disabled={!isEditing}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '12px',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
+                                                        fontSize: '0.95rem',
+                                                        transition: 'all 0.3s',
+                                                        cursor: isEditing ? 'pointer' : 'default'
+                                                    }}
+                                                >
+                                                    <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
+                                                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Fast & light)</option>
+                                                    <option value="gemini-2.5-pro">gemini-2.5-pro (High quality)</option>
+                                                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* CARD: OLLAMA CONFIG (Right) */}
+                                <div className="card-p" style={{ 
+                                    background: '#fff', 
+                                    borderRadius: '20px', 
+                                    border: '1px solid var(--border-light)', 
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)', 
+                                    opacity: settings.ai_provider === 'ollama' ? 1 : 0.65,
+                                    transition: 'all 0.3s ease',
+                                    borderTop: settings.ai_provider === 'ollama' ? '4px solid var(--gold-accent)' : '1px solid var(--border-light)'
+                                }}>
+                                    <div className="orchestration-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <h4 style={{ fontSize: '1.1rem', margin: 0, color: '#1e293b' }}>Local Ollama Settings</h4>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Configure offline local LLM</span>
+                                        </div>
+                                        {settings.ai_provider === 'ollama' && (
+                                            <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', fontWeight: 900, padding: '3px 8px', borderRadius: '12px' }}>ROUTING LIVE</span>
+                                        )}
+                                    </div>
+                                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div className="form-group-p">
+                                            <label htmlFor="ollama_server" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
+                                                Ollama Server URL
+                                            </label>
+                                            <input
+                                                id="ollama_server"
+                                                name="ollama_server"
+                                                type="text"
+                                                value={settings.ollama_server}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                placeholder="e.g. http://172.16.7.21:11434"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 16px',
+                                                    borderRadius: '12px',
+                                                    border: '1.5px solid #e2e8f0',
+                                                    background: isEditing ? '#f8fafc' : '#f1f5f9',
+                                                    fontSize: '0.95rem',
+                                                    transition: 'all 0.3s'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div className="form-group-p">
+                                            <label htmlFor="ollama_model" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
+                                                Ollama Model Name
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <select
+                                                    id="ollama_model"
+                                                    name="ollama_model"
+                                                    value={settings.ollama_model}
+                                                    onChange={handleChange}
+                                                    disabled={!isEditing}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px 16px',
+                                                        borderRadius: '12px',
+                                                        border: '1.5px solid #e2e8f0',
+                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
+                                                        fontSize: '0.95rem',
+                                                        transition: 'all 0.3s',
+                                                        cursor: isEditing ? 'pointer' : 'default'
+                                                    }}
+                                                >
+                                                    <option value="qwen2.5:3b">qwen2.5:3b (Recommended - Faster)</option>
+                                                    <option value="qwen2.5:7b">qwen2.5:7b (High Accuracy - Slower)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </>
                     )}
 

@@ -330,14 +330,13 @@ function ApplyPage() {
         setParsingProgress(0);
         const progressInterval = setInterval(() => {
             setParsingProgress(prev => {
-                if (prev >= 98) {
-                    clearInterval(progressInterval);
-                    return 98;
+                if (prev >= 65) {
+                    return 65;
                 }
-                const diff = Math.max(1, Math.floor((100 - prev) * 0.15));
-                return Math.min(98, prev + diff);
+                const diff = Math.max(1, Math.floor((65 - prev) * 0.15));
+                return Math.min(65, prev + diff);
             });
-        }, 300);
+        }, 200);
 
         try {
             const text = await extractTextFromPdf(file);
@@ -348,16 +347,10 @@ function ApplyPage() {
 
             const OLLAMA_SERVER = import.meta.env.VITE_OLLAMA_SERVER || "http://172.16.7.21:11434";
 
-            const promptText = `You are an advanced AI system for CV Skill Extraction and Job Matching Analysis.
+            const promptText = `You are a strict technical recruiter. Analyze the Candidate CV against the Job Description.
+Extract the candidate's personal details and skills strictly matching the requested JSON format. Do not guess, assume, or hallucinate.
 
-Your task is to analyze a Candidate CV and a Job Description, extract skills, and categorize them strictly based on relevance to the job requirements.
-
-You must behave like a strict technical recruiter. Do not guess or assume anything without evidence.
-
-📥 INPUT
-
-You will receive:
-
+INPUT:
 CV TEXT:
 ${text}
 
@@ -367,605 +360,16 @@ Description: ${vacancy?.description || 'No description provided'}
 Requirements & Qualifications: ${vacancy?.requirements || 'No requirements provided'}
 Mandatory Skills: ${vacancy?.required_skills || 'No mandatory skills specified'}
 
-⚙️ PROCESS
-
-You are an expert CV-to-Job Description skill analysis engine.
-
-Your task is to analyze the Candidate CV against the Job Description / Job Requirements and classify skills accurately using strict CV evidence, job relevance, and professional-domain alignment.
-
-You must never hallucinate, assume, exaggerate, or invent skills, experience, certifications, tools, or achievements.
-
-==================================================
-PHASE 1 - EXTRACT CV SKILLS
-===========================
-
-Extract skills that are explicitly found in the CV from any of the following sections:
-
-* Skills section
-* Professional experience
-* Internship experience
-* Projects
-* Freelance work
-* Academic work
-* Education
-* Certifications
-* Training
-* Profile / Summary
-* Achievements
-
-Extract skill types including:
-
-* Technical skills
-* Tools and platforms
-* Frameworks and libraries
-* Programming languages
-* Domain-specific skills
-* Administrative / operational skills
-* Soft skills
-* Academic or learning-based skills
-
-For each extracted CV skill, identify:
-
-* skill_name
-* where it appears in the CV
-* evidence_source
-* usage_context
-* evidence strength
-
-Do NOT extract random extra skills.
-
-Do NOT invent missing skills.
-
-Do NOT treat certification names, course names, or training titles as skills.
-
-Example:
-
-* "Python for Beginners" = certification/course name, not a skill.
-* "Python" = skill only if the CV supports it.
-* "Web Design for Beginners" = certification/course name, not a skill.
-* "Web Design" = skill only if the CV supports it.
-
-Certifications, courses, training programs, and credentials must be extracted separately under \`certifications_found\`.
-
-==================================================
-PHASE 2 - ANALYZE JOB DESCRIPTION
-=================================
-
-Analyze the Job Description / Job Requirements and extract:
-
-* Mandatory / must-have skills
-* Required skills
-* Nice-to-have skills
-* Tools, platforms, frameworks, or systems
-* Domain knowledge
-* Responsibilities
-* Professional domain of the job role
-
-Do not assume requirements that are not stated or clearly implied by the job description.
-
-If the job description is vague, infer only broad job-domain expectations that are professionally reasonable, and mark them as inferred from job context.
-
-==================================================
-PHASE 3 - CREATE JOB SKILL MATRIX
-=================================
-
-Create a structured Job Skill Matrix from the job description.
-
-Group job-related skills into:
-
-1. Core Required Skills
-
-* Skills directly required to perform the main job duties.
-* Usually mandatory or strongly emphasized in the job description.
-
-2. Supporting Skills
-
-* Skills that support the role but may not be the primary requirement.
-* These may include communication, documentation, reporting, coordination, or domain-adjacent skills.
-
-3. Optional Skills
-
-* Nice-to-have skills, bonus skills, preferred tools, or additional advantages.
-
-Important:
-The Job Skill Matrix should be based on the Job Description / Job Requirements, not on the candidate’s CV.
-
-==================================================
-PHASE 4 - SKILL CLASSIFICATION
-==============================
-
-For EACH extracted CV skill, compare it against:
-
-* Job Description / Job Requirements
-* Job Skill Matrix
-* Professional domain of the target job role
-* CV evidence and usage context
-
-Classify every CV skill into exactly ONE category only:
-
-1. Relevant Skills
-2. Related Skills
-3. Additional Skills
-
-Never place the same skill in more than one category.
-
----
-
-## 🟢 RELEVANT SKILLS
-
-Classify a CV skill as "Relevant Skills" only if ALL conditions are satisfied:
-
-1. The skill is directly mentioned in the Job Description / Job Requirements, OR clearly required by the Job Skill Matrix.
-2. The skill is directly useful for performing the target job responsibilities.
-3. The skill belongs to the same professional domain as the target job role.
-4. The CV provides clear usage evidence, learning evidence, work evidence, project evidence, or certification/training evidence.
-
-Examples for an HR / Payroll / Admin role:
-
-* Payroll Administration
-* HR Operations
-* HRIS
-* Employee Records Management
-* Attendance Management
-* Recruitment Support
-* Performance Management
-* Talent Development
-* EPF / ETF Claims
-* MS Excel
-* HR Correspondence
-* Office Administration
-* Documentation
-* Employee Onboarding
-
-Output Relevant Skills under \`skills_analysis\` with category \`"Relevant Skills"\`.
-
----
-
-## 🟡 RELATED SKILLS
-
-Classify a CV skill as "Related Skills" only if ALL conditions are satisfied:
-
-1. The skill is NOT explicitly listed in the Job Description / Job Requirements.
-2. The skill is NOT a direct/core requirement in the Job Skill Matrix.
-3. The skill belongs to the SAME professional / industry domain as the target job role.
-4. The skill can reasonably support performance in the target job.
-5. The CV provides evidence or context for the skill.
-
-Examples for an HR / Payroll / Admin role:
-
-* Labor Law Knowledge
-* Employee Relations
-* Conflict Management
-* Document Drafting
-* Meeting Scheduling
-* Time Management
-* Internal Communication
-* HR Compliance
-* Staff Coordination
-* Employee Grievance Handling
-* Administrative Coordination
-
-Important:
-Related Skills must be from the same professional domain as the target job role.
-
-Do NOT classify unrelated technical, software, programming, engineering, medical, finance, networking, cybersecurity, or other-domain skills as Related Skills unless the target job role itself belongs to that domain.
-
-Output Related Skills under \`skills_analysis\` with category \`"Related Skills"\`.
-
----
-
-## 🔵 ADDITIONAL SKILLS
-
-Classify a CV skill as "Additional Skills" if ANY condition is true:
-
-1. The skill belongs to a completely different professional domain from the target job role.
-2. The skill is unrelated to the Job Description / Job Requirements.
-3. The skill is not useful for the target job responsibilities.
-4. The skill is only mentioned in the CV without clear usage evidence.
-5. The skill is a technical/software/IT skill for a non-technical role.
-6. The skill may be valuable generally, but does not support the target role directly or professionally.
-
-For a non-technical HR / Payroll / Admin role, the following must always be Additional Skills:
-
-* Python
-* JavaScript
-* React
-* Laravel
-* Flask
-* PHP
-* HTML
-* CSS
-* Node.js
-* Java
-* C#
-* MySQL
-* MongoDB
-* Linux
-* AWS
-* Azure
-* Cloud Infrastructure
-* Network Routing
-* VAPT
-* Cyber Security
-* Software Engineering
-* Web Development
-* Mobile App Development
-
-Output Additional Skills in the \`additional_skills\` array using the required structured object format.
-
-==================================================
-STRICT PROFESSIONAL DOMAIN RULE
-===============================
-
-The professional domain of the target job must control skill classification.
-
-Examples:
-
-For an HR / Payroll / Admin role:
-
-* HR, payroll, recruitment, employee records, attendance, labor law, office administration, documentation = Relevant or Related
-* Programming, web development, networking, cybersecurity, cloud infrastructure = Additional
-
-For a Software Developer role:
-
-* Programming, frameworks, databases, APIs, Git, cloud, software architecture = Relevant or Related
-* Payroll, HR operations, employee relations, nursing, bookkeeping = Additional
-
-For an Accounting role:
-
-* Bookkeeping, tax, auditing, payroll finance, Excel, financial reporting = Relevant or Related
-* React, Laravel, cybersecurity, nursing, graphic design = Additional
-
-For a Nursing role:
-
-* Patient care, clinical procedures, medication administration, ward management = Relevant or Related
-* Laravel, React, payroll, digital marketing, network routing = Additional
-
-Under no circumstances should skills from a completely different professional domain than the target job be classified as Relevant Skills or Related Skills.
-
-They must go to Additional Skills.
-
-==================================================
-DECISION PRIORITY
-=================
-
-Use this decision order for every CV skill:
-
-Step 1:
-Check whether the skill is directly mentioned in the Job Description / Job Requirements or clearly required by the Job Skill Matrix.
-
-* If yes, and CV evidence exists, classify as Relevant Skills.
-
-Step 2:
-If not directly listed, check whether the skill belongs to the same professional domain as the target job role.
-
-* If yes, and it supports the role, classify as Related Skills.
-
-Step 3:
-If the skill belongs to a different professional domain, is unrelated, or has weak/no evidence:
-
-* Classify as Additional Skills.
-
-Conservative fallback rules:
-
-* If uncertain between Relevant Skills and Related Skills, choose Related Skills.
-* If uncertain between Related Skills and Additional Skills, choose Additional Skills.
-* If the skill is impressive but unrelated to the role, choose Additional Skills.
-* If the skill is only listed without context and not required by the JD, choose Additional Skills.
-* If the skill is directly required by the JD but only listed in the CV skills section, it may be Relevant Skills with low/medium confidence, but do not exaggerate proficiency.
-
-==================================================
-CRITICAL RULES
-==============
-
-* Do NOT extract random extra skills.
-* Only include skills found in the CV when classifying candidate skills.
-* Job-required skills that are not found in the CV may appear only in requirement validation, not as candidate skills.
-* Never hallucinate data.
-* Never assume missing skills.
-* Always stay CV-grounded.
-* Always stay job-relevant.
-* Always prioritize accuracy over completeness.
-* Never mix skill categories incorrectly.
-* Never mix Additional / Unrelated Skills with Relevant Skills or Related Skills.
-* Always treat CV-mentioned skills as valid input signals.
-* Consider skills from skills, projects, experience, education, certifications, training, and profile sections.
-* Do NOT assume deep expertise unless the CV clearly indicates strong usage.
-* Never exaggerate candidate experience beyond what is described in the CV.
-* Always base classification on job relevance + CV presence + context clarity.
-* Never invent years of experience.
-* Never invent proficiency levels.
-* Never create responsibilities that are not in the CV.
-* Never promote a skill to Relevant only because it sounds valuable.
-* Never promote a different-domain skill to Related only because it shows general ability.
-* All classification must be explainable using CV evidence and job relevance.
-
-==================================================
-USAGE_CONTEXT RULE
-==================
-
-The \`usage_context\` field for each skill must be:
-
-* A concise single sentence
-* Maximum 20 words
-* Based only on CV evidence
-* Specific to where or how the skill was used
-
-Do NOT concatenate multiple project descriptions.
-
-Do NOT copy/paste large paragraphs from the CV.
-
-Good examples:
-
-* "Built the frontend of a job portal using React."
-* "Used Excel to maintain payroll and attendance records."
-* "Applied communication skills while coordinating employee documentation."
-
-Bad examples:
-
-* "Worked on many projects including project A, project B, project C, and also used many tools..."
-* Full paragraphs copied from the CV.
-* Generic statements such as "Has good skills."
-
-==================================================
-EVIDENCE_SOURCE RULE
-====================
-
-Classify the \`evidence_source\` field strictly using only the following values:
-
-1. Professional Experience
-   Use only if the skill is used within permanent full-time or part-time job history.
-
-2. Internship
-   Use only if the skill is used in a designated student, graduate, industrial, or professional internship.
-
-3. Project
-   Use only if the skill is used in a specific individual, academic, personal, portfolio, or development project.
-
-4. Freelance Work
-   Use only if the skill is used in contract, freelance, client, or gig-based work.
-
-5. Academic Work
-   Use only if the skill is used during university, school, coursework, assignments, or degree-related academic work.
-
-6. Certification
-   Use only if the skill is supported by a certification credential.
-
-7. Training
-   Use only if the skill is supported by a short training program, workshop, bootcamp, or practical training.
-
-8. Skills Section Only
-   Use only if the skill is mentioned in a flat skills list without project, work, education, training, or certification context.
-
-Do not misuse evidence_source.
-
-If the skill appears in multiple places, choose the strongest evidence source using this priority:
-
-Professional Experience > Internship > Freelance Work > Project > Academic Work > Certification > Training > Skills Section Only
-
-==================================================
-CERTIFICATIONS EXCLUSION RULE
-=============================
-
-Do NOT extract names of certifications, online courses, training courses, or credentials as skills.
-
-Examples that must NOT be extracted as skills:
-
-* Python for Beginners
-* Web Design for Beginners
-* Introduction to Android Studio
-* Advanced Excel Course
-* Cyber Security Fundamentals
-* HR Management Certificate
-
-These must be extracted under \`certifications_found\`.
-
-Only extract the underlying skill separately if the CV supports it as a skill.
-
-Examples:
-
-* Certification: "Python for Beginners"
-
-* Skill: "Python", only if CV evidence supports Python knowledge or usage.
-
-* Certification: "Advanced Excel Course"
-
-* Skill: "MS Excel", only if CV evidence supports Excel knowledge or usage.
-
-==================================================
-PHASE 5 - REQUIREMENT VALIDATION
-================================
-
-For each mandatory job requirement from the Job Description / Job Requirements, determine whether the candidate demonstrates it.
-
-Classify each mandatory requirement as one of:
-
-1. Fully Demonstrated
-   Evidence exists in professional experience, internship, projects, freelance work, academic work, certification, training, or strong CV context.
-
-2. Partially Demonstrated
-   Some related evidence exists, but it is incomplete, indirect, weak, or not clearly proven.
-
-3. No Evidence Found
-   No clear CV evidence supports the requirement.
-
-Important:
-
-* Do not mark a requirement as Fully Demonstrated if it is only weakly implied.
-* Do not invent evidence.
-* Do not use unrelated skills as evidence.
-* Do not count additional skills as evidence for unrelated job requirements.
-* If evidence is only from Skills Section Only, classify carefully and usually mark as Partially Demonstrated unless the requirement is simple and directly listed.
-
-Output mandatory requirement validation with:
-
-* fully_demonstrated_requirements
-* partially_demonstrated_requirements
-* no_evidence_found_requirements
-
-Each item should include:
-
-* requirement_name
-* evidence_summary
-* evidence_source
-* confidence_level
-
-==================================================
-PHASE 6 - RECRUITER INSIGHTS
-============================
-
-Generate practical recruiter insights based only on the CV and Job Description comparison.
-
-Recruiter insights should include:
-
-1. Overall Match Summary
-   A short summary of how well the candidate matches the role.
-
-2. Key Strengths
-   Mention the strongest CV-backed skills or experiences relevant to the job.
-
-3. Related Value
-   Mention same-domain skills that may support the role even if not directly required.
-
-4. Skill Gaps
-   Mention mandatory or important job requirements with partial or no evidence.
-
-5. Additional Skills Observation
-   Mention unrelated/different-domain skills only as additional value, not as job-role strengths.
-
-6. Risk Notes
-   Mention concerns such as weak evidence, skills only listed without usage, missing mandatory requirements, or domain mismatch.
-
-7. Recruiter Recommendation
-   Give a practical recommendation such as:
-
-* Strong Match
-* Good Match
-* Moderate Match
-* Weak Match
-* Not Suitable
-
-Recommendation must be based on:
-
-* Mandatory requirement coverage
-* Relevant Skills strength
-* Related Skills support
-* Additional Skills separation
-* Evidence quality
-* Professional-domain alignment
-
-Do not overpraise the candidate.
-
-Do not penalize unrelated additional skills unless they create a domain mismatch or distract from the target role.
-
-==================================================
-FINAL QUALITY CONTROL
-=====================
-
-Before returning the final output, verify:
-
-1. Every extracted CV skill is classified into exactly one category.
-2. No skill appears in more than one category.
-3. Relevant Skills are directly aligned with the JD or Job Skill Matrix.
-4. Related Skills belong to the same professional domain but are not directly listed in the JD.
-5. Additional Skills contain unrelated, different-domain, weak-evidence, or non-role skills.
-6. Software engineering / IT / coding skills are not mixed into Relevant or Related Skills for non-technical roles.
-7. Certification names are not extracted as skills.
-8. Certifications are listed only under \`certifications_found\`.
-9. Usage context is concise and maximum 20 words.
-10. Evidence source uses only the approved evidence_source values.
-11. No invented data is included.
-12. No missing job requirement is falsely marked as demonstrated.
-13. No candidate skill is exaggerated beyond CV evidence.
-14. The final result is accurate, conservative, CV-grounded, and job-relevant.
-
-==================================================
-OUTPUT REQUIREMENTS
-===================
-
-Return the result using the existing structured output format.
-
-The output must include:
-
-1. \`cv_skills_extracted\`
-   All skills explicitly found in the CV with evidence details.
-
-2. \`job_skill_matrix\`
-   Grouped into:
-
-* core_required_skills
-* supporting_skills
-* optional_skills
-
-3. \`skills_analysis\`
-   Only Relevant Skills and Related Skills.
-
-Each item must include:
-
-* skill_name
-* category
-* evidence_source
-* usage_context
-* relevance_reason
-* confidence_level
-
-4. \`additional_skills\`
-   Only Additional Skills.
-
-Each item must include:
-
-* skill_name
-* evidence_source
-* usage_context
-* reason_why_additional
-* confidence_level
-
-5. \`certifications_found\`
-   Certification, course, training, or credential names found in the CV.
-
-Each item must include:
-
-* certification_name
-* provider_or_source if available
-* related_underlying_skill if clearly supported
-* evidence_summary
-
-6. \`mandatory_requirement_validation\`
-   Grouped into:
-
-* fully_demonstrated_requirements
-* partially_demonstrated_requirements
-* no_evidence_found_requirements
-
-7. \`recruiter_insights\`
-   Include:
-
-* overall_match_summary
-* key_strengths
-* related_value
-* skill_gaps
-* additional_skills_observation
-* risk_notes
-* recruiter_recommendation
-
-Final instruction:
-Return only the structured analysis.
-Do not include unnecessary explanations outside the output structure.
-Accuracy, CV evidence, job relevance, and professional-domain alignment are more important than completeness.
-
-==================================================
-PERSONAL PROFILE EXTRACTION
-===========================
-Also extract candidate's personal details to populate the profile fields.
-Important constraints:
-- first_name / last_name: Carefully split the candidate's full name. The first name part goes into 'first_name' and all remaining surname/middle/last name parts MUST go into 'last_name'. Never leave the 'last_name' empty if a multi-word name is present on the CV.
-- qualification: Extract the highest qualification matching the qualifications enum ONLY if it is relevant to the job requirements / target domain.
-- overall_experience / relevant_experience: Estimate the years of experience that are relevant and suitable to the job vacancy description. Do not count unrelated/non-professional experience.
-- Do not make up or guess any details that are not directly supported by factual evidence in the CV. All data must strictly reflect actual CV facts matching the job vacancy.
-
-Analyze the candidate and return the output matching the requested JSON schema.
-Return the output in the following JSON schema format:
-
+INSTRUCTIONS:
+1. Extract candidate contact info: first_name, last_name, email, contact_number.
+2. Determine qualification (choose from: O/L, A/L, Diploma, Bachelors Degree, Masters Degree, PhD, Professional Certification).
+3. Determine overall_experience and relevant_experience (choose from: 0 years, 0-1 years, 1-2 years, 3-4 years, 5-7 years, 8-10 years, 10+ years).
+4. Extract skills explicitly mentioned in the CV:
+   - "skills_analysis": Skills that are directly relevant or related to the job description requirements.
+   - "additional_skills": General professional skills mentioned in the CV but not directly required by the job.
+   - For each skill item, specify: skill name, category, experience_level, estimated_duration, evidence_strength, evidence_source, usage_context.
+
+Return the output in the following JSON schema:
 {
   "first_name": "string",
   "last_name": "string",
@@ -983,12 +387,9 @@ Return the output in the following JSON schema format:
       "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
       "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
       "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
-      "usage_context": "string (A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words.)"
+      "usage_context": "string (Max 20 words describing how they used the skill.)"
     }
   ],
-  "fully_demonstrated_skills": ["string"],
-  "partially_demonstrated_skills": ["string"],
-  "requirements_without_evidence": ["string"],
   "additional_skills": [
     {
       "skill": "string",
@@ -996,16 +397,12 @@ Return the output in the following JSON schema format:
       "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
       "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
       "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
-      "usage_context": "string (A concise, single-sentence summary of how/where the candidate used this skill. Max 20 words.)"
+      "usage_context": "string (Max 20 words describing how they used the skill.)"
     }
-  ],
-  "qualifications_found": ["string"],
-  "certifications_found": ["string"],
-  "experience_summary": "string",
-  "recruiter_insights": ["string"]
+  ]
 }
 
-Make sure to return only valid JSON matching this schema. Do not add any conversational text or explanation outside the JSON format.`;
+Return ONLY valid JSON matching this schema. Do not output markdown backticks or conversational text.`;
 
             console.log(`Attempting AI resume parsing with Ollama at: ${OLLAMA_SERVER}`);
             const res = await fetch(`${OLLAMA_SERVER}/api/generate`, {
@@ -1100,8 +497,22 @@ Make sure to return only valid JSON matching this schema. Do not add any convers
             setUserSkills(cleanedSkills);
 
             clearInterval(progressInterval);
-            setParsingProgress(100);
-            await new Promise(r => setTimeout(r, 450));
+            
+            // Fast closing sweep from current progress (which is 65) to 100%
+            await new Promise((resolveSweep) => {
+                const sweepInterval = setInterval(() => {
+                    setParsingProgress(prev => {
+                        if (prev >= 100) {
+                            clearInterval(sweepInterval);
+                            resolveSweep();
+                            return 100;
+                        }
+                        return Math.min(100, prev + 7);
+                    });
+                }, 40);
+            });
+
+            await new Promise(r => setTimeout(r, 200));
 
             toast.success(requiredSkillsList.length > 0
                 ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
@@ -1110,10 +521,10 @@ Make sure to return only valid JSON matching this schema. Do not add any convers
             clearInterval(progressInterval);
             console.error("CV parsing error:", err);
             let userFriendlyMessage = err.message || 'Please enter details manually.';
-            if (err.message && (err.message.toLowerCase().includes('failed to fetch') || err.message.toLowerCase().includes('networkerror') || err.message.toLowerCase().includes('conn'))) {
-                userFriendlyMessage = "Failed to connect to local Ollama server. Please ensure the server is running at the configured URL and is accessible. You can still fill out the form manually.";
+            if (err.name === 'TypeError' || err.message.toLowerCase().includes('failed to fetch') || err.message.toLowerCase().includes('networkerror')) {
+                userFriendlyMessage = "Failed to connect to the backend server. Please verify your network connection.";
             }
-            toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 10000 });
+            toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 15000 });
         } finally {
             clearInterval(progressInterval);
             setParsing(false);
