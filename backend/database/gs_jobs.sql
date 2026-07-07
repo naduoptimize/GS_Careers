@@ -1,149 +1,723 @@
 -- George Steuart & Company Ltd - Job Portal Database
--- Import this file into phpMyAdmin
--- Last synced with live database: 2026-06-03
+-- Generated: 2026-07-07 07:20:04
 
 CREATE DATABASE IF NOT EXISTS gs_jobs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE gs_jobs;
 
+SET FOREIGN_KEY_CHECKS=0;
+
 -- ========================================
--- COMPANIES TABLE
+-- TABLE: COMPANIES
 -- ========================================
-CREATE TABLE companies (
-    id INT(11) NOT NULL AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL,
-    logo VARCHAR(255) DEFAULT NULL,
-    description TEXT DEFAULT NULL,
-    location VARCHAR(255) DEFAULT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY slug (slug)
+CREATE TABLE `companies` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `slug` varchar(255) NOT NULL,
+  `logo` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
--- COMPANY LOCATIONS TABLE
+-- TABLE: COMPANY_LOCATIONS
 -- ========================================
-CREATE TABLE company_locations (
-    id INT(11) NOT NULL AUTO_INCREMENT,
-    company_id INT(11) NOT NULL,
-    location VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    KEY company_id (company_id),
-    CONSTRAINT company_locations_ibfk_1 FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+CREATE TABLE `company_locations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `company_id` int(11) NOT NULL,
+  `location` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `company_id` (`company_id`),
+  CONSTRAINT `company_locations_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
--- ADMINS TABLE
+-- TABLE: ADMINS
 -- ========================================
-CREATE TABLE admins (
-    id INT(11) NOT NULL AUTO_INCREMENT,
-    username VARCHAR(100) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    full_name VARCHAR(255) NOT NULL,
-    role ENUM('super_admin', 'admin', 'sub_admin') NOT NULL DEFAULT 'sub_admin',
-    company_id INT(11) DEFAULT NULL,
-    is_active TINYINT(1) DEFAULT 1,
-    require_password_change TINYINT(1) DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY username (username),
-    UNIQUE KEY email (email),
-    KEY company_id (company_id),
-    CONSTRAINT admins_ibfk_1 FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+CREATE TABLE `admins` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `role` enum('super_admin','admin','sub_admin','sub_admin1','sub_admin2') NOT NULL DEFAULT 'sub_admin2',
+  `company_id` int(11) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `require_password_change` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  KEY `company_id` (`company_id`),
+  CONSTRAINT `admins_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
--- VACANCIES TABLE
+-- TABLE: VACANCIES
 -- ========================================
-CREATE TABLE vacancies (
-    id INT(11) NOT NULL AUTO_INCREMENT,
-    company_id INT(11) NOT NULL,
-    reference_number VARCHAR(50) DEFAULT NULL,
-    title VARCHAR(255) NOT NULL,
-    designation VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    requirements TEXT DEFAULT NULL,
-    location VARCHAR(255) DEFAULT NULL,
-    employment_type ENUM('Full-Time', 'Part-Time', 'Contract', 'Internship') DEFAULT 'Full-Time',
-    min_experience ENUM('0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years') NOT NULL DEFAULT '0 years',
-    min_relevant_experience ENUM('0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years') NOT NULL DEFAULT '0 years',
-    publish_date DATE NOT NULL,
-    expire_date DATE NOT NULL,
-    is_active TINYINT(1) DEFAULT 1,
-    created_by INT(11) DEFAULT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    hired_application_id INT(11) DEFAULT NULL,
-    PRIMARY KEY (id),
-    KEY company_id (company_id),
-    KEY created_by (created_by),
-    KEY fk_hired_application (hired_application_id),
-    CONSTRAINT vacancies_ibfk_1 FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
-    CONSTRAINT vacancies_ibfk_2 FOREIGN KEY (created_by) REFERENCES admins(id) ON DELETE SET NULL
+CREATE TABLE `vacancies` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `company_id` int(11) NOT NULL,
+  `reference_number` varchar(50) DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `designation` varchar(255) NOT NULL,
+  `description` text NOT NULL,
+  `requirements` text DEFAULT NULL,
+  `required_skills` text DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `employment_type` enum('Full-Time','Part-Time','Contract','Internship') DEFAULT 'Full-Time',
+  `min_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL DEFAULT '0 years',
+  `min_relevant_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL DEFAULT '0 years',
+  `publish_date` date NOT NULL,
+  `expire_date` date NOT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `approval_status` enum('draft','pending_subadmin1','pending_global','approved','rejected') NOT NULL DEFAULT 'draft',
+  `rejection_reason` text DEFAULT NULL,
+  `sub1_approved_by` int(11) DEFAULT NULL,
+  `sub1_approved_at` timestamp NULL DEFAULT NULL,
+  `global_approved_by` int(11) DEFAULT NULL,
+  `global_approved_at` timestamp NULL DEFAULT NULL,
+  `rejected_by` int(11) DEFAULT NULL,
+  `rejected_at` timestamp NULL DEFAULT NULL,
+  `status` enum('pending_subadmin1','pending_globaladmin','approved','rejected') DEFAULT 'approved',
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `hired_application_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `company_id` (`company_id`),
+  KEY `created_by` (`created_by`),
+  KEY `fk_hired_application` (`hired_application_id`),
+  CONSTRAINT `fk_hired_application` FOREIGN KEY (`hired_application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `vacancies_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `vacancies_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
--- APPLICATIONS TABLE
+-- TABLE: APPLICATIONS
 -- ========================================
-CREATE TABLE applications (
-    id INT(11) NOT NULL AUTO_INCREMENT,
-    vacancy_id INT(11) NOT NULL,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    contact_number VARCHAR(20) NOT NULL,
-    overall_experience ENUM('0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years') NOT NULL,
-    relevant_experience ENUM('0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years') NOT NULL,
-    qualification ENUM('O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification') NOT NULL,
-    salary_expectation VARCHAR(100) DEFAULT NULL,
-    cv_path VARCHAR(500) NOT NULL,
-    status ENUM('pending', 'under_review', 'shortlisted', 'rejected') DEFAULT 'pending',
-    tags VARCHAR(255) DEFAULT NULL,
-    rejection_reason TEXT DEFAULT NULL,
-    interview_type VARCHAR(50) DEFAULT NULL,
-    interview_date DATE DEFAULT NULL,
-    interview_time VARCHAR(50) DEFAULT NULL,
-    interview_location TEXT DEFAULT NULL,
-    interview_location_link TEXT DEFAULT NULL,
-    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    future_consent TINYINT(1) DEFAULT 0,
-    is_blocked TINYINT(1) DEFAULT 0,
-    block_reason TEXT DEFAULT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY unique_email_vacancy (email, vacancy_id),
-    UNIQUE KEY unique_phone_vacancy (contact_number, vacancy_id),
-    KEY vacancy_id (vacancy_id),
-    CONSTRAINT applications_ibfk_1 FOREIGN KEY (vacancy_id) REFERENCES vacancies(id) ON DELETE CASCADE
+CREATE TABLE `applications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `vacancy_id` int(11) NOT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `contact_number` varchar(20) NOT NULL,
+  `overall_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL,
+  `relevant_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL,
+  `qualification` enum('O/L','A/L','Diploma','Bachelors Degree','Masters Degree','PhD','Professional Certification') NOT NULL,
+  `salary_expectation` varchar(100) DEFAULT NULL,
+  `cv_path` varchar(500) NOT NULL,
+  `status` enum('pending','under_review','shortlisted','rejected') DEFAULT 'pending',
+  `tags` varchar(255) DEFAULT NULL,
+  `skills_metadata` text DEFAULT NULL,
+  `rejection_reason` text DEFAULT NULL,
+  `interview_type` varchar(50) DEFAULT NULL,
+  `interview_date` date DEFAULT NULL,
+  `interview_time` varchar(50) DEFAULT NULL,
+  `interview_location` text DEFAULT NULL,
+  `interview_location_link` text DEFAULT NULL,
+  `applied_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `future_consent` tinyint(1) DEFAULT 0,
+  `is_blocked` tinyint(1) DEFAULT 0,
+  `block_reason` text DEFAULT NULL,
+  `interview_confirmed` varchar(50) DEFAULT 'pending',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_email_vacancy` (`email`,`vacancy_id`),
+  UNIQUE KEY `unique_phone_vacancy` (`contact_number`,`vacancy_id`),
+  KEY `vacancy_id` (`vacancy_id`),
+  CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`vacancy_id`) REFERENCES `vacancies` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
--- FOREIGN KEY: vacancies.hired_application_id -> applications.id
--- (Added after applications table is created)
+-- TABLE: EMAIL_QUEUE
 -- ========================================
-ALTER TABLE vacancies ADD CONSTRAINT fk_hired_application FOREIGN KEY (hired_application_id) REFERENCES applications(id) ON DELETE SET NULL;
+CREATE TABLE `email_queue` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `recipient_email` varchar(255) NOT NULL,
+  `recipient_name` varchar(255) NOT NULL,
+  `subject` varchar(255) NOT NULL,
+  `body` text NOT NULL,
+  `status` enum('pending','sent','failed') NOT NULL DEFAULT 'pending',
+  `attempts` int(11) DEFAULT 0,
+  `last_error` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ========================================
+-- TABLE: SETTINGS
+-- ========================================
+CREATE TABLE `settings` (
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value` text DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================
+-- TABLE: VACANCY_AUDIT_LOGS
+-- ========================================
+CREATE TABLE `vacancy_audit_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `vacancy_id` int(11) NOT NULL,
+  `admin_id` int(11) DEFAULT NULL,
+  `action` varchar(50) NOT NULL,
+  `old_status` varchar(50) DEFAULT NULL,
+  `new_status` varchar(50) DEFAULT NULL,
+  `reason` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `vacancy_id` (`vacancy_id`),
+  KEY `admin_id` (`admin_id`),
+  CONSTRAINT `vacancy_audit_logs_ibfk_1` FOREIGN KEY (`vacancy_id`) REFERENCES `vacancies` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `vacancy_audit_logs_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
 -- SEED DATA: Companies
 -- ========================================
-INSERT INTO companies (name, slug, description) VALUES
-('George Steuart & Company Ltd', 'george-steuart', 'Parent company - one of the oldest mercantile firms in Sri Lanka'),
-('Steuart Teas', 'steuart-teas', 'Premium tea exports and retail'),
-('George Steuart Health', 'gs-health', 'Healthcare and pharmaceutical solutions'),
-('George Steuart Engineering', 'gs-engineering', 'Engineering and construction services'),
-('George Steuart Travels', 'gs-travels', 'Travel and tourism services'),
-('George Steuart Finance', 'gs-finance', 'Financial services and insurance'),
-('Steuart Motors', 'steuart-motors', 'Automobile sales and servicing'),
-('George Steuart Solutions', 'gs-solutions', 'IT and business solutions'),
-('Steuart Foods', 'steuart-foods', 'Food and beverage manufacturing'),
-('George Steuart Retail', 'gs-retail', 'Retail and distribution'),
-('Steuart Property', 'steuart-property', 'Real estate and property management');
+INSERT INTO companies (id, name, slug, logo, description, location) VALUES
+(1, 'George Steuart & Company Ltd', 'george-steuart-company-ltd', NULL, 'Parent company - one of the oldest mercantile firms in Sri Lanka', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(2, 'George Steuart Teas (Pvt) Ltd', 'george-steuart-teas-pvt-ltd', NULL, 'Tea export company with industry veteran tea tasters and tea processing/packaging operations.', 'No. 350, Union Place, Colombo 02, Sri Lanka'),
+(3, 'George Steuart Health (Pvt) Ltd', 'george-steuart-health-pvt-ltd', NULL, 'Pharmaceuticals, diagnostics, surgical/medical devices, wellness and healthcare products.', 'No. 7E, Postmasters Place, Off Templers Road, Mount Lavinia, Sri Lanka'),
+(8, 'George Steuart Solutions (Pvt) Ltd', 'george-steuart-solutions-pvt-ltd', NULL, 'Supplies/installs solar panels, generators, elevators, escalators, stairlifts and air conditioners.', 'No. 12, Don Carolis Road, Colombo 05, Sri Lanka.'),
+(9, 'HVA Foods (Pvt) Ltd', 'hva-foods-pvt-ltd', NULL, 'Food and beverage manufacturing', 'No. 118, Braybrooke Place, Colombo 2 Sri Lanka'),
+(10, 'George Steuart Consumer (Pvt) Ltd', 'george-steuart-consumer-pvt-ltd', NULL, 'Local sales/distribution of FMCG products including teas, personal care, detergents and spices.', 'No. 439, Galle Road, Colombo 03, Sri Lanka'),
+(11, 'George Steuart Travels Ltd', 'george-steuart-travels-ltd', NULL, 'Outbound and inbound travel services, corporate travel, niche tours and event travel.', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(1008, 'George Steuart Aviation (Pvt) Ltd', 'george-steuart-aviation-pvt-ltd', NULL, 'Airline GSA/aviation representation services; represents Philippine Airlines in Sri Lanka/Maldives.', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(1009, 'Citrus Leisure PLC', 'citrus-leisure-plc', NULL, 'Hospitality company operating hotels, resorts, restaurants and leisure properties.', '56/1, Kynsey Road, Colombo 08, Sri Lanka.'),
+(1010, 'George Steuart Insurance Brokers (Pvt) Ltd', 'george-steuart-insurance-brokers-pvt-ltd', NULL, 'Corporate insurance broker offering risk, policy and claims management services.', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(1011, 'George Steuart Investments (Pvt) Ltd', 'george-steuart-investments-pvt-ltd', NULL, 'Inter-bank money dealer and financial-market intermediary services provider.', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(1012, 'George Steuart Asset Management (PVT) Limited', 'george-steuart-asset-management-pvt-limited', NULL, 'Wealth/portfolio management company operating under an investment manager licence.', '350, Union Place, Colombo 2, Sri Lanka.'),
+(1013, 'George Steuart Recruitment', 'george-steuart-recruitment', NULL, 'Overseas recruitment for professional, skilled, semi-skilled and unskilled workers.', 'No. 439, Galle Road, Colombo 03, Sri Lanka.'),
+(1014, 'George Steuart Optimize', 'george-steuart-optimize', NULL, 'provides IT/project/cybersecurity support', 'No. 439, Galle Road, Colombo 03, Sri Lanka.');
 
 -- ========================================
--- SEED DATA: Super Admin (password: admin123)
+-- SEED DATA: Admins (Default Superadmin password: admin123)
 -- ========================================
-INSERT INTO admins (username, email, password, full_name, role, company_id) VALUES
-('superadmin', 'admin@georgesteuart.com', '$2y$10$cUdT2ngu7OHP/42jb792QOwUyuxdw7n3CYTA993MIagvmqSSFVpdq', 'Super Administrator', 'super_admin', NULL);
+INSERT INTO admins (id, username, email, password, full_name, role, company_id, is_active, require_password_change) VALUES
+(1, 'superadmin', 'admin@georgesteuart.com', '$2y$10$cUdT2ngu7OHP/42jb792QOwUyuxdw7n3CYTA993MIagvmqSSFVpdq', 'Super Administrator', 'super_admin', NULL, 1, 0);
+
+-- ========================================
+-- SEED DATA: Settings
+-- ========================================
+INSERT INTO settings (setting_key, setting_value) VALUES
+('email_template_confirmation_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
+        .success-badge { display: inline-block; background-color: #f0fdf4; color: #166534; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; border: 1px solid #dcfce7; }
+        .info-card { background-color: #fdfaf3; border-radius: 12px; padding: 25px; margin: 25px 0; border-left: 4px solid #c8a951; }
+        .info-row { margin-bottom: 12px; }
+        .info-row:last-child { margin-bottom: 0; }
+        .info-label { color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .info-value { color: #1a1a2e; font-size: 15px; font-weight: 600; }
+        .next-steps { background-color: #f8fafc; border-radius: 12px; padding: 20px; margin-top: 30px; }
+        .next-steps h3 { margin-top: 0; font-size: 16px; color: #1a1a2e; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #ffffff; }
+        .footer-divider { border: 0; border-top: 1px solid #f1f5f9; margin: 0 35px; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <div class=\"greeting\">Hello {name},</div>
+                <div class=\"success-badge\">✓ Application Received Successfully</div>
+                <p>Thank you for your interest in joining <strong>George Steuart Group</strong>. We have successfully received your application and it is now being reviewed by our Talent Acquisition team.</p>
+                
+                <div class=\"info-card\">
+                    <div class=\"info-row\">
+                        <div class=\"info-label\">Position</div>
+                        <div class=\"info-value\">{job_title}</div>
+                    </div>
+                    <div class=\"info-row\">
+                        <div class=\"info-label\">Job Reference No</div>
+                        <div class=\"info-value\">{ref_no}</div>
+                    </div>
+                    <div class=\"info-row\">
+                        <div class=\"info-label\">Entity</div>
+                        <div class=\"info-value\">{company}</div>
+                    </div>
+                </div>
+
+                <div class=\"next-steps\">
+                    <h3>What\'s next?</h3>
+                    <p style=\"margin-bottom: 0; font-size: 14px;\">Our team will evaluate your profile against the role requirements. If your experience aligns with our needs, we will reach out to you directly for the next steps in the selection process.</p>
+                </div>
+                
+                <p style=\"margin-top: 30px;\">Best regards,<br>
+                <strong style=\"color: #1a1a2e;\">Talent Acquisition Team</strong><br>
+                George Steuart Group </p>
+            </div>
+            <hr class=\"footer-divider\">
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
+                <p style=\"font-size: 10px; margin-top: 15px;\">This is an automated system notification. Please do not reply to this email.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_confirmation_subject', 'Application Received - {job_title} | George Steuart Group'),
+('email_template_rejection_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #475569; margin: 0; padding: 0; background-color: #f8fafc; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 4px solid #ef4444; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #ef4444; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
+        .info-bar { background-color: #f1f5f9; padding: 12px 20px; border-radius: 8px; font-size: 13px; color: #64748b; margin-bottom: 25px; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <div class=\"greeting\">Dear {name},</div>
+                <div class=\"info-bar\">Position: {job_title} | Ref: {ref_no}</div>
+                <p>Thank you for the time and effort you invested in applying for the position of <strong>{job_title}</strong> at <strong>{company}</strong>.</p>
+                
+                <p>After a thorough review of all applications, we regret to inform you that we will not be moving forward with your candidacy at this time. Our team received a significant number of competitive applications, making our selection process extremely competitive.</p>
+                
+                <p>We truly appreciate your interest in George Steuart Group and encourage you to apply for other positions that align with your expertise in the future.</p>
+                
+                <p style=\"margin-bottom: 0;\">We wish you the very best in your professional endeavors.</p>
+                
+                <p style=\"margin-top: 30px;\">Sincerely,<br>
+                <strong style=\"color: #1a1a2e;\">Talent Acquisition Team</strong><br>
+                George Steuart Group</p>
+            </div>
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_rejection_subject', 'Application Status Update - {job_title} | George Steuart Group'),
+('email_template_shortlist_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f0f4f8; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f0f4f8; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 22px; color: #1a1a2e; margin-bottom: 20px; font-weight: 700; }
+        .details-box { background-color: #fffaf0; border-radius: 12px; padding: 30px; margin: 25px 0; border: 1px solid #fbd38d; }
+        .details-title { font-size: 16px; font-weight: 700; color: #1a1a2e; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #fbd38d; padding-bottom: 10px; }
+        .detail-item { margin-bottom: 15px; display: flex; align-items: baseline; }
+        .detail-label { font-weight: 700; color: #718096; width: 130px; font-size: 12px; text-transform: uppercase; }
+        .detail-value { font-weight: 600; color: #2d3748; flex: 1; font-size: 15px; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .confirm-btn { display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; }
+        .confirm-btn.yes { background-color: #10b981; }
+        .confirm-btn.no { background-color: #ef4444; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <div class=\"greeting\">Dear {name},</div>
+                <p>We are pleased to inform you that after reviewing your application for the position of <strong>{job_title}</strong> (Ref: {ref_no}), you have been <span style=\"color: #c8a951; font-weight: 800;\">SHORTLISTED</span> for the next stage of our selection process.</p>
+                
+                <div class=\"details-box\">
+                    <div class=\"details-title\">Interview Details</div>
+                    <div class=\"detail-item\">
+                        <div class=\"detail-label\">Type</div>
+                        <div class=\"detail-value\">{interview_type}</div>
+                    </div>
+                    <div class=\"detail-item\">
+                        <div class=\"detail-label\">Date</div>
+                        <div class=\"detail-value\">{interview_date}</div>
+                    </div>
+                    <div class=\"detail-item\">
+                        <div class=\"detail-label\">Time</div>
+                        <div class=\"detail-value\">{interview_time}</div>
+                    </div>
+                    <div class=\"detail-item\">
+                        <div class=\"detail-label\">Location</div>
+                        <div class=\"detail-value\">{interview_location}</div>
+                    </div>
+                </div>
+
+                <p style=\"margin-top: 25px; font-weight: bold;\">Please confirm your availability for this schedule by clicking one of the buttons below:</p>
+                <div style=\"text-align: center; margin: 25px 0;\">
+                    <a href=\"{confirm_url_yes}\" class=\"confirm-btn yes\" style=\"display: inline-block; padding: 12px 24px; background-color: #10b981; border-top: 12px solid #10b981; border-bottom: 12px solid #10b981; border-left: 24px solid #10b981; border-right: 24px solid #10b981; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; margin-right: 15px;\">Yes, I am available</a>
+                    <a href=\"{confirm_url_no}\" class=\"confirm-btn no\" style=\"display: inline-block; padding: 12px 24px; background-color: #ef4444; border-top: 12px solid #ef4444; border-bottom: 12px solid #ef4444; border-left: 24px solid #ef4444; border-right: 24px solid #ef4444; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important;\">No, I cannot attend</a>
+                </div>
+
+                <p>We look forward to discussing your potential contribution to George Steuart Group.</p>
+
+                <p style=\"margin-top: 30px;\">Best regards,<br>
+                <strong style=\"color: #1a1a2e;\">Talent Acquisition Team</strong><br>
+                George Steuart Group</p>
+            </div>
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                <p style=\"font-size: 10px; margin-top: 10px;\">This is an automated notification.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_shortlist_subject', 'Interview Invitation - {job_title} | George Steuart Group'),
+('email_template_vacancy_approved_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f0f4f8; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f0f4f8; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 14px; color: #64748b; margin-bottom: 6px; }
+        .status-pill { display: inline-block; background-color: #e2fbf0; color: #10b981; padding: 5px 14px; border-radius: 100px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #bbf7d0; }
+        .details-box { background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px solid #bbf7d0; }
+        .details-title { font-size: 11px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+        .info-table { width: 100%; border-collapse: collapse; }
+        .info-table td { padding: 8px 0; font-size: 14px; }
+        .info-label { color: #15803d; font-weight: 700; width: 150px; }
+        .info-value { color: #166534; font-weight: 600; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .btn-link { display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; background-color: #10b981; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <p class=\"greeting\">Dear <strong>{recipient_name}</strong>,</p>
+                <div class=\"status-pill\">Approved & Published</div>
+                <h2 style=\"margin:0 0 12px;font-size:20px;font-weight:800;color:#166534;line-height:1.3;\">🎉 Vacancy Approved & Published</h2>
+                
+                <p style=\"margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;\">Great news! The job vacancy requisition has been approved and is now successfully published and live on the careers portal. Candidates can now view and apply for this position.</p>
+                
+                <div class=\"details-box\">
+                    <div class=\"details-title\">Approved Requisition</div>
+                    <table class=\"info-table\">
+                        <tr>
+                            <td class=\"info-label\">Position / Title</td>
+                            <td class=\"info-value\">{job_title}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Reference No.</td>
+                            <td class=\"info-value\" style=\"color:#16a34a; font-family:monospace;\">{ref_no}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Company</td>
+                            <td class=\"info-value\">{company}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style=\"text-align:center;margin-bottom:8px;\">
+                    <a href=\"{review_url}\" class=\"btn-link\">View Vacancy in Portal</a>
+                </div>
+            </div>
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                <p style=\"font-size: 10px; margin-top: 10px;\">This is an automated system notification. Please do not reply.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_vacancy_approved_subject', 'Vacancy Approved & Published — {ref_no}'),
+('email_template_vacancy_pending_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f0f4f8; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f0f4f8; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 14px; color: #64748b; margin-bottom: 6px; }
+        .status-pill { display: inline-block; background-color: #ffedd5; color: #c2410c; padding: 5px 14px; border-radius: 100px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #fed7aa; }
+        .details-box { background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px solid #e2e8f0; }
+        .details-title { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+        .info-table { width: 100%; border-collapse: collapse; }
+        .info-table td { padding: 8px 0; font-size: 14px; }
+        .info-label { color: #64748b; font-weight: 700; width: 150px; }
+        .info-value { color: #1e293b; font-weight: 600; }
+        .note-box { background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 14px 18px; margin-bottom: 28px; }
+        .note-title { margin: 0 0 4px; font-size: 11px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 0.5px; }
+        .note-desc { margin: 0; font-size: 13px; color: #475569; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .btn-link { display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; background-color: #c8a951; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <p class=\"greeting\">Dear <strong>{reviewer_name}</strong>,</p>
+                <div class=\"status-pill\">Pending Your Approval</div>
+                <h2 style=\"margin:0 0 12px;font-size:20px;font-weight:800;color:#1a0208;line-height:1.3;\">Requisition Requires Your Review</h2>
+                
+                <p style=\"margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;\">A new job vacancy requisition has been submitted and is awaiting your approval before it proceeds to publication.</p>
+                
+                <div class=\"details-box\">
+                    <div class=\"details-title\">Requisition Details</div>
+                    <table class=\"info-table\">
+                        <tr>
+                            <td class=\"info-label\">Position / Title</td>
+                            <td class=\"info-value\">{job_title}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Reference No.</td>
+                            <td class=\"info-value\" style=\"color:#C8A951; font-family:monospace;\">{ref_no}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Company</td>
+                            <td class=\"info-value\">{company}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class=\"note-box\">
+                    <div class=\"note-title\">⚠️ Action Required</div>
+                    <p class=\"note-desc\">Please review the details carefully and either approve to publish/forward it, or reject it with comments.</p>
+                </div>
+
+                <div style=\"text-align:center;margin-bottom:8px;\">
+                    <a href=\"{review_url}\" class=\"btn-link\">Review & Approve Requisition</a>
+                </div>
+            </div>
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                <p style=\"font-size: 10px; margin-top: 10px;\">This is an automated system notification. Please do not reply.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_vacancy_pending_subject', 'Action Required: Vacancy Requisition Pending Approval - {ref_no}'),
+('email_template_vacancy_rejected_body', '<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <style>
+        body { font-family: \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f0f4f8; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f0f4f8; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #ef4444; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+        .header p { color: #ef4444; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
+        .content { padding: 40px 35px; }
+        .greeting { font-size: 14px; color: #64748b; margin-bottom: 6px; }
+        .status-pill { display: inline-block; background-color: #fff5f5; color: #c53030; padding: 5px 14px; border-radius: 100px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; border: 1px solid #feb2b2; }
+        .feedback-box { background: linear-gradient(135deg, #fff5f5 0%, #fffbfb 100%); border: 1px solid #feb2b2; border-left: 4px solid #e53e3e; border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+        .feedback-title { margin: 0 0 8px; font-size: 11px; font-weight: 800; color: #c53030; text-transform: uppercase; letter-spacing: 0.8px; }
+        .feedback-desc { margin: 0; font-size: 14px; color: #2d3748; font-weight: 600; line-height: 1.6; font-style: italic; }
+        .details-box { background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 28px; }
+        .details-title { font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 14px; }
+        .info-table { width: 100%; border-collapse: collapse; }
+        .info-table td { padding: 8px 0; font-size: 14px; }
+        .info-label { color: #64748b; font-weight: 700; width: 150px; }
+        .info-value { color: #1e293b; font-weight: 600; }
+        .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        .btn-link { display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: bold; text-decoration: none; color: #ffffff !important; background-color: #e53e3e; }
+    
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; margin-top: 10px !important; border-radius: 8px !important; }
+            .content { padding: 25px 20px !important; }
+            .detail-item { display: block !important; margin-bottom: 12px !important; }
+            .detail-label { width: 100% !important; display: block !important; margin-bottom: 4px !important; }
+            .detail-value { width: 100% !important; display: block !important; }
+            .confirm-btn { display: block !important; width: auto !important; margin-right: 0 !important; margin-bottom: 12px !important; text-align: center !important; padding: 12px 10px !important; border-left: 0 !important; border-right: 0 !important; }
+            .info-table td { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 4px 0 !important; }
+            .info-label { width: 100% !important; }
+            .btn-link { display: block !important; width: auto !important; text-align: center !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class=\"wrapper\">
+        <div class=\"container\">
+            <div class=\"header\">
+                <h1>GEORGE STEUART</h1>
+                <p>ESTABLISHED 1835</p>
+            </div>
+            <div class=\"content\">
+                <p class=\"greeting\">Dear <strong>{recipient_name}</strong>,</p>
+                <div class=\"status-pill\">Revision Required</div>
+                <h2 style=\"margin:0 0 12px;font-size:20px;font-weight:800;color:#e53e3e;line-height:1.3;\">Vacancy Requisition Returned for Revision</h2>
+                
+                <p style=\"margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;\">The vacancy requisition you submitted has been reviewed and has been returned with feedback for revision.</p>
+                
+                <div class=\"feedback-box\">
+                    <div class=\"feedback-title\">Reviewer Feedback & Reason</div>
+                    <p class=\"feedback-desc\">“{reason}”</p>
+                </div>
+
+                <div class=\"details-box\">
+                    <div class=\"details-title\">Requisition Details</div>
+                    <table class=\"info-table\">
+                        <tr>
+                            <td class=\"info-label\">Position / Title</td>
+                            <td class=\"info-value\">{job_title}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Reference No.</td>
+                            <td class=\"info-value\" style=\"color:#b91c1c; font-family:monospace;\">{ref_no}</td>
+                        </tr>
+                        <tr>
+                            <td class=\"info-label\">Company</td>
+                            <td class=\"info-value\">{company}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div style=\"text-align:center;margin-bottom:8px;\">
+                    <a href=\"{review_url}\" class=\"btn-link\">Edit & Resubmit Requisition</a>
+                </div>
+            </div>
+            <div class=\"footer\">
+                © {current_year} George Steuart Group. All Rights Reserved.<br>
+                <p style=\"font-size: 10px; margin-top: 10px;\">This is an automated system notification. Please do not reply.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>'),
+('email_template_vacancy_rejected_subject', 'Vacancy Requisition Rejected — {ref_no}'),
+('pdpa_description', 'In accordance with the Personal Data Protection Act (PDPA), we require your explicit consent to store, process, and retain your CV and personal information for future job openings.'),
+('pdpa_purpose', 'Your details will be accessed by our HR team to match you with suitable future career opportunities.'),
+('pdpa_retention', 'If consented, your data will be securely stored in our Talent Pool for a maximum duration of 1 year.'),
+('pdpa_rights', 'You can withdraw your consent at any time by contacting our HR department.'),
+('pdpa_security', 'All personal data is processed under strict confidentiality and industry-standard security measures.'),
+('pdpa_title', 'Personal Data Protection Act (PDPA) Compliance'),
+('smtp_from_name', 'George Steuart Careers'),
+('smtp_host', 'smtp.gmail.com'),
+('smtp_pass', 'tyjq cahg wakd qwnl'),
+('smtp_port', '587'),
+('smtp_secure', 'tls'),
+('smtp_user', 'prathibhajay098@gmail.com'),
+('system_email', 'prathibhajay098@gmail.com');
+
+SET FOREIGN_KEY_CHECKS=1;
