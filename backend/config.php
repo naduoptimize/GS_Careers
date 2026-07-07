@@ -12,7 +12,7 @@ require_once __DIR__ . '/libs/autoload.php';
 
 // ---- DATABASE ----
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'gs_jobs');
+define('DB_NAME', 'gs_jobs1');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 
