@@ -1,10 +1,19 @@
 -- George Steuart & Company Ltd - Job Portal Database
 -- Generated: 2026-07-07 07:20:04
 
-CREATE DATABASE IF NOT EXISTS gs_jobs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE gs_jobs;
+CREATE DATABASE IF NOT EXISTS gs_jobs1 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE gs_jobs1;
 
 SET FOREIGN_KEY_CHECKS=0;
+
+DROP TABLE IF EXISTS `vacancy_audit_logs`;
+DROP TABLE IF EXISTS `email_queue`;
+DROP TABLE IF EXISTS `settings`;
+DROP TABLE IF EXISTS `applications`;
+DROP TABLE IF EXISTS `vacancies`;
+DROP TABLE IF EXISTS `admins`;
+DROP TABLE IF EXISTS `company_locations`;
+DROP TABLE IF EXISTS `companies`;
 
 -- ========================================
 -- TABLE: COMPANIES
@@ -92,7 +101,6 @@ CREATE TABLE `vacancies` (
   KEY `company_id` (`company_id`),
   KEY `created_by` (`created_by`),
   KEY `fk_hired_application` (`hired_application_id`),
-  CONSTRAINT `fk_hired_application` FOREIGN KEY (`hired_application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL,
   CONSTRAINT `vacancies_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
   CONSTRAINT `vacancies_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -132,6 +140,13 @@ CREATE TABLE `applications` (
   KEY `vacancy_id` (`vacancy_id`),
   CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`vacancy_id`) REFERENCES `vacancies` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================
+-- FOREIGN KEY: vacancies.hired_application_id -> applications.id
+-- (Added after applications table is created)
+-- ========================================
+ALTER TABLE `vacancies` ADD CONSTRAINT `fk_hired_application` FOREIGN KEY (`hired_application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL;
+
 
 -- ========================================
 -- TABLE: EMAIL_QUEUE
