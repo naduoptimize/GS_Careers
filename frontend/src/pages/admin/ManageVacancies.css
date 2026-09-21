@@ -1,52 +1,39 @@
-/* ManageVacancies.css — Responsive v3 */
-
 /* ── TABLE WRAPPER ──────────────────────────── */
 .premium-table-container {
     background: #ffffff;
-    border-radius: 20px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-    border: 1px solid rgba(0,0,0,0.04);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.06);
     overflow-x: auto;
     margin-bottom: 24px;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
 }
 
 .premium-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    min-width: 860px;
-    table-layout: fixed;
+    min-width: 1150px;
+    table-layout: auto;
 }
 
-/* ── COLUMN WIDTHS ──────────────────────────── */
-.premium-table colgroup col:nth-child(1) { width: 220px; }   /* Position */
-.premium-table colgroup col:nth-child(2) { width: 110px; }   /* Classification */
-.premium-table colgroup col:nth-child(3) { width: 180px; }   /* Skills */
-.premium-table colgroup col:nth-child(4) { width: 80px;  }   /* Engagement */
-.premium-table colgroup col:nth-child(5) { width: 130px; }   /* Stages */
-.premium-table colgroup col:nth-child(6) { width: 130px; }   /* Timeline */
-.premium-table colgroup col:nth-child(7) { width: 100px; }   /* Status */
-.premium-table colgroup col:nth-child(8) { width: 120px; }   /* Actions */
-
 .premium-table th {
-    background: #fcfcfd;
-    padding: 12px 14px;
-    font-size: 0.65rem;
+    background: #f8fafc;
+    padding: 14px 12px;
+    font-size: 0.68rem;
     font-weight: 800;
     text-transform: uppercase;
-    color: #94a3b8;
-    letter-spacing: 1.5px;
-    border-bottom: 2px solid #f1f5f9;
+    color: #64748b;
+    letter-spacing: 0.8px;
+    border-bottom: 2px solid #e2e8f0;
     white-space: nowrap;
-    overflow: hidden;
 }
 
 .premium-table td {
-    padding: 14px 14px;
-    border-bottom: 1px solid #f8fafc;
+    padding: 14px 12px;
+    border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
-    overflow: hidden;
 }
 
 .premium-table tr:last-child td {

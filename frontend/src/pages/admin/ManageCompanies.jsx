@@ -289,31 +289,31 @@ function ManageCompanies({ admin }) {
 
             {/* PERFORMANCE SNAPSHOT */}
             <div className="stats-mosaic-grid admin-grid-3">
-                <div className="stat-glass-card gold">
-                    <div className="s-icon"><FiHome /></div>
-                    <div className="s-info">
-                        <span className="s-label">Registered Subsidiaries</span>
-                        <span className="s-value">{stats.total}</span>
+                <div className="db-stat-card gold">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Registered Subsidiaries</span>
+                        <div className="db-s-icon"><FiHome /></div>
                     </div>
-                    <div className="s-trend"><FiTrendingUp /> Global Entities</div>
+                    <span className="db-s-value">{stats.total}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Global Entities</div>
                 </div>
-                <div className="stat-glass-card green">
-                    <div className="s-icon"><FiMapPin /></div>
-                    <div className="s-info">
-                        <span className="s-label">Company Inside Locations</span>
-                        <span className="s-value">{stats.insideLocations}</span>
+                <div className="db-stat-card green">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Inside Locations</span>
+                        <div className="db-s-icon"><FiMapPin /></div>
                     </div>
-                    <div className="s-trend positive">Locations Registry</div>
+                    <span className="db-s-value">{stats.insideLocations}</span>
+                    <div className="db-s-trend positive"><FiTrendingUp /> Locations Registry</div>
                 </div>
-                <div className="stat-glass-card blue">
-                    <div className="s-icon"><FiInfo /></div>
-                    <div className="s-info">
-                        <span className="s-label">Lately Seeded Entities</span>
-                        <span className="s-value" style={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', display: 'block', marginTop: '12px' }}>
-                            {stats.recent || 'None'}
-                        </span>
+                <div className="db-stat-card blue">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Lately Seeded</span>
+                        <div className="db-s-icon"><FiInfo /></div>
                     </div>
-                    <div className="s-trend">New Sub-entities</div>
+                    <span className="db-s-value text-value" title={stats.recent || 'None'}>
+                        {stats.recent || 'None'}
+                    </span>
+                    <div className="db-s-trend"><FiTrendingUp /> New Sub-entities</div>
                 </div>
             </div>
 

@@ -542,76 +542,46 @@ function VacancyApprovals({ admin }) {
             {/* METRICS MOSAIC */}
             <div className="av-stats-grid">
                 {admin.role !== 'sub_admin2' && (
-                    <div className="av-stat-card av-crimson clickable-stat" onClick={() => { setActiveTab('action_required'); setStatusFilter(''); }}>
-                        <div className="av-card-body">
-                            <div className="av-card-meta">
-                                <span className="av-card-label">Your Action Required</span>
-                                <span className="av-card-value">{stats.actionRequired}</span>
-                                <span className="av-card-sub">Requisitions Pending Review</span>
-                            </div>
-                            <div className="av-card-icon"><FiAlertCircle /></div>
+                    <div className="db-stat-card rose clickable-stat" onClick={() => { setActiveTab('action_required'); setStatusFilter(''); }}>
+                        <div className="db-s-header">
+                            <span className="db-s-label">Action Required</span>
+                            <div className="db-s-icon"><FiAlertCircle /></div>
                         </div>
-                        <div className="av-card-footer">
-                            <span className="av-footer-dot"></span>
-                            <span>Needs Attention</span>
-                        </div>
+                        <span className="db-s-value">{stats.actionRequired}</span>
+                        <div className="db-s-trend urgent"><FiClock /> Pending Review</div>
                     </div>
                 )}
-                <div className="av-stat-card av-amber clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_subadmin1'); }}>
-                    <div className="av-card-body">
-                        <div className="av-card-meta">
-                            <span className="av-card-label">Pending Sub Admin 1</span>
-                            <span className="av-card-value">{stats.pendingSub1}</span>
-                            <span className="av-card-sub">1st Tier Evaluation</span>
-                        </div>
-                        <div className="av-card-icon"><FiClock /></div>
+                <div className="db-stat-card gold clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_subadmin1'); }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Sub Admin 1</span>
+                        <div className="db-s-icon"><FiClock /></div>
                     </div>
-                    <div className="av-card-footer">
-                        <span className="av-footer-dot"></span>
-                        <span>Awaiting Review</span>
-                    </div>
+                    <span className="db-s-value">{stats.pendingSub1}</span>
+                    <div className="db-s-trend"><FiClock /> 1st Tier Evaluation</div>
                 </div>
-                <div className="av-stat-card av-blue clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_global'); }}>
-                    <div className="av-card-body">
-                        <div className="av-card-meta">
-                            <span className="av-card-label">Pending GS Admin</span>
-                            <span className="av-card-value">{stats.pendingGlobal}</span>
-                            <span className="av-card-sub">Final Tier Authorization</span>
-                        </div>
-                        <div className="av-card-icon"><FiClock /></div>
+                <div className="db-stat-card blue clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_global'); }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">GS Admin</span>
+                        <div className="db-s-icon"><FiClock /></div>
                     </div>
-                    <div className="av-card-footer">
-                        <span className="av-footer-dot"></span>
-                        <span>In Final Review</span>
-                    </div>
+                    <span className="db-s-value">{stats.pendingGlobal}</span>
+                    <div className="db-s-trend"><FiClock /> Final Authorization</div>
                 </div>
-                <div className="av-stat-card av-purple clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('approved'); }}>
-                    <div className="av-card-body">
-                        <div className="av-card-meta">
-                            <span className="av-card-label">Approved Requisitions</span>
-                            <span className="av-card-value">{stats.approved}</span>
-                            <span className="av-card-sub">Published &amp; Live</span>
-                        </div>
-                        <div className="av-card-icon"><FiCheckCircle /></div>
+                <div className="db-stat-card green clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('approved'); }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Approved</span>
+                        <div className="db-s-icon"><FiCheckCircle /></div>
                     </div>
-                    <div className="av-card-footer">
-                        <span className="av-footer-dot"></span>
-                        <span>Active &amp; Visible</span>
-                    </div>
+                    <span className="db-s-value">{stats.approved}</span>
+                    <div className="db-s-trend positive"><FiCheckCircle /> Published &amp; Live</div>
                 </div>
-                <div className="av-stat-card av-rose clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('rejected'); }}>
-                    <div className="av-card-body">
-                        <div className="av-card-meta">
-                            <span className="av-card-label">Rejected Requisitions</span>
-                            <span className="av-card-value">{stats.rejected}</span>
-                            <span className="av-card-sub">Correction Required</span>
-                        </div>
-                        <div className="av-card-icon"><FiXCircle /></div>
+                <div className="db-stat-card purple clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('rejected'); }}>
+                    <div className="db-s-header">
+                        <span className="db-s-label">Rejected</span>
+                        <div className="db-s-icon"><FiXCircle /></div>
                     </div>
-                    <div className="av-card-footer">
-                        <span className="av-footer-dot"></span>
-                        <span>Needs Correction</span>
-                    </div>
+                    <span className="db-s-value">{stats.rejected}</span>
+                    <div className="db-s-trend"><FiXCircle /> Needs Correction</div>
                 </div>
             </div>
 

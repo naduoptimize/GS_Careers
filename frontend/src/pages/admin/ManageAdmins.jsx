@@ -169,39 +169,39 @@ function ManageAdmins({ admin }) {
                 <div className="hero-bg-accent"></div>
             </div>
 
-            {/* PERFORMANCE SNAPSHOT - GLASSMORPHISM */}
+            {/* PERFORMANCE SNAPSHOT */}
             <div className="stats-mosaic-grid admin-grid-4">
-                <div className="stat-glass-card gold">
-                    <div className="s-icon"><FiUser /></div>
-                    <div className="s-info">
-                        <span className="s-label">Total Administrators</span>
-                        <span className="s-value">{stats.total}</span>
+                <div className="db-stat-card gold">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Total Administrators</span>
+                        <div className="db-s-icon"><FiUser /></div>
                     </div>
-                    <div className="s-trend"><FiTrendingUp /> Global Registry</div>
+                    <span className="db-s-value">{stats.total}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Global Registry</div>
                 </div>
-                <div className="stat-glass-card green">
-                    <div className="s-icon"><FiShield /></div>
-                    <div className="s-info">
-                        <span className="s-label">Strategic (Super)</span>
-                        <span className="s-value">{stats.super}</span>
+                <div className="db-stat-card green">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Strategic (Super)</span>
+                        <div className="db-s-icon"><FiShield /></div>
                     </div>
-                    <div className="s-trend positive">Root Authority</div>
+                    <span className="db-s-value">{stats.super}</span>
+                    <div className="db-s-trend positive"><FiTrendingUp /> Root Authority</div>
                 </div>
-                <div className="stat-glass-card blue">
-                    <div className="s-icon"><FiUserCheck /></div>
-                    <div className="s-info">
-                        <span className="s-label">Operational (Admin / Sub)</span>
-                        <span className="s-value">{stats.adminRole} / {stats.sub}</span>
+                <div className="db-stat-card blue">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Operational (Admin/Sub)</span>
+                        <div className="db-s-icon"><FiUserCheck /></div>
                     </div>
-                    <div className="s-trend">Company Scoped</div>
+                    <span className="db-s-value">{stats.adminRole} / {stats.sub}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Company Scoped</div>
                 </div>
-                <div className="stat-glass-card purple">
-                    <div className="s-icon"><FiTarget /></div>
-                    <div className="s-info">
-                        <span className="s-label">Active Organizations</span>
-                        <span className="s-value">{stats.companies}</span>
+                <div className="db-stat-card purple">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Active Organizations</span>
+                        <div className="db-s-icon"><FiTarget /></div>
                     </div>
-                    <div className="s-trend">Stakeholders</div>
+                    <span className="db-s-value">{stats.companies}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Stakeholders</div>
                 </div>
             </div>
 

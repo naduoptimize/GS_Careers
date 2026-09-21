@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, FiCheckCircle, FiActivity } from 'react-icons/fi';
+import { 
+    FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, 
+    FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, 
+    FiCheckCircle, FiActivity, FiChevronsLeft, FiChevronsRight 
+} from 'react-icons/fi';
 import { API_BASE, getPendingApprovals } from '../../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
@@ -10,10 +14,40 @@ function AdminLayout({ admin, children }) {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const [vacanciesExpanded, setVacanciesExpanded] = useState(location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies'));
+    const [vacanciesExpanded, setVacanciesExpanded] = useState(
+        location.pathname.startsWith('/admin/vacancies') || location.pathname.startsWith('/admin/companies')
+    );
     const [approvalsExpanded, setApprovalsExpanded] = useState(location.pathname.startsWith('/admin/approvals'));
     const [pendingCount, setPendingCount] = useState(0);
 
+    // Auto-close mobile drawer on route change
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [location.pathname]);
+
+    // Handle ESC key to close mobile drawer
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setSidebarOpen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    // Handle window resize past desktop breakpoint
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth > 1024) {
+                setSidebarOpen(false);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Fetch live pending count
     useEffect(() => {
         const fetchPendingCount = async () => {
             try {
@@ -33,8 +67,6 @@ function AdminLayout({ admin, children }) {
 
         if (admin && admin.role !== 'sub_admin2') {
             fetchPendingCount();
-            
-            // Sync count every 30 seconds for live indicators
             const interval = setInterval(fetchPendingCount, 30000);
             return () => clearInterval(interval);
         }
@@ -89,85 +121,89 @@ function AdminLayout({ admin, children }) {
 
     return (
         <div className={`admin-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-            {/* Mobile header */}
+            {/* Mobile Header (Fixed Top Bar on screens <= 1024px) */}
             <div className="admin-mobile-header">
-                <button className="hamburger-btn" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Toggle Sidebar">
-                    {sidebarOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+                <button 
+                    className="hamburger-btn" 
+                    onClick={() => setSidebarOpen(!sidebarOpen)} 
+                    aria-label="Toggle Navigation Menu"
+                >
+                    {sidebarOpen ? <FiX size={22} /> : <FiMenu size={22} />}
                 </button>
-                <div className="mobile-brand" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="mobile-brand">
                     <img 
                         src={admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
-                        alt="George Steuart & Co" 
-                        className="sidebar-logo" 
-                        onError={(e) => e.target.src = "/gs-logo.png"}
-                        style={{ height: 32, width: 'auto', objectFit: 'contain', background: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '2px' : '0', borderRadius: '4px' }} 
+                        alt="George Steuart" 
+                        className="mobile-brand-logo" 
+                        onError={(e) => e.target.src = "/gs-logo.png"} 
                     />
-                    <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--crimson)' }}>Admin</span>
+                    <span className="mobile-brand-title">
+                        {admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}
+                    </span>
                 </div>
-                <div style={{ width: 44 }}></div>
+                <div className="mobile-page-badge">
+                    <span>{currentPage}</span>
+                </div>
             </div>
 
-            {/* Overlay for mobile */}
-            {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
+            {/* Mobile Backdrop Overlay */}
+            {sidebarOpen && (
+                <div 
+                    className="sidebar-overlay" 
+                    onClick={() => setSidebarOpen(false)}
+                    aria-hidden="true"
+                ></div>
+            )}
 
-            {/* Enhanced Sidebar */}
+            {/* Admin Sidebar Drawer */}
             <aside className={`admin-sidebar enhanced-sidebar ${sidebarOpen ? 'open' : ''}`}>
-                {/* Sidebar decorative top bar */}
                 <div className="sidebar-top-accent"></div>
 
-                <div className="sidebar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                    <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                <div className="sidebar-header">
+                    <div className="sidebar-brand">
                         <div className="sidebar-logo-wrapper">
                             <img 
                                 src={admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? `${BACKEND_ROOT}/uploads/logos/${admin.company_logo}` : "/gs-logo.png"} 
                                 alt="George Steuart & Co" 
                                 className="sidebar-logo" 
                                 onError={(e) => e.target.src = "/gs-logo.png"}
-                                style={{ background: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '#fff' : 'transparent', padding: admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_logo ? '4px' : '0', borderRadius: '8px', objectFit: 'contain' }}
                             />
                         </div>
-                        <div className="sidebar-brand-text" style={{ flex: 1, minWidth: 0 }}>
-                            <div className="sidebar-title" style={{ whiteSpace: 'normal', lineHeight: '1.3' }}>{admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}</div>
-                            {admin.role !== 'sub_admin1' && admin.role !== 'sub_admin2' && admin.role !== 'sub_admin' && (
-                                <div className="sidebar-role">
-                                    <span className="role-dot"></span>
-                                    {getRoleDisplayName(admin.role)}
-                                </div>
-                            )}
+                        <div className="sidebar-brand-text">
+                            <div className="sidebar-title">
+                                {admin.role !== 'super_admin' && admin.role !== 'admin' && admin.company_name ? admin.company_name : 'George Steuart'}
+                            </div>
+                            <div className="sidebar-role">
+                                <span className="role-dot"></span>
+                                {getRoleDisplayName(admin.role)}
+                            </div>
                         </div>
                     </div>
+
+                    {/* Desktop Collapse Toggle */}
                     <button 
-                        className="sidebar-collapse-toggle" 
-                        onClick={() => {
-                            if (window.innerWidth <= 1024) {
-                                setSidebarOpen(false);
-                            } else {
-                                setSidebarCollapsed(!sidebarCollapsed);
-                            }
-                        }}
-                        aria-label="Toggle Sidebar" 
-                        style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            color: 'var(--crimson)', 
-                            cursor: 'pointer', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            padding: '8px', 
-                            borderRadius: '8px', 
-                            transition: 'all 0.2s',
-                            flexShrink: 0
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(139, 26, 43, 0.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        className="sidebar-collapse-toggle desktop-toggle-btn" 
+                        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        aria-label="Collapse Sidebar"
+                        title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                     >
-                        <FiMenu size={20} />
+                        {sidebarCollapsed ? <FiChevronsRight size={18} /> : <FiChevronsLeft size={18} />}
+                    </button>
+
+                    {/* Mobile Close Button */}
+                    <button 
+                        className="sidebar-mobile-close-btn" 
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close Sidebar"
+                    >
+                        <FiX size={20} />
                     </button>
                 </div>
 
-                {/* Navigation label */}
-                <div className="sidebar-nav-label">NAVIGATION</div>
+                <div className="sidebar-nav-label">
+                    <span>NAVIGATION</span>
+                    <span className="nav-label-badge">SUITE</span>
+                </div>
 
                 <nav className="sidebar-nav">
                     {navItems.map(item => {
@@ -177,11 +213,13 @@ function AdminLayout({ admin, children }) {
                                 <div key={item.to} className="sidebar-dropdown-container">
                                     <div
                                         className={`sidebar-link ${isVacanciesActive ? 'active' : ''}`}
+                                        title={sidebarCollapsed ? "Vacancies" : ""}
                                         onClick={() => {
+                                            if (sidebarCollapsed) setSidebarCollapsed(false);
                                             setVacanciesExpanded(!vacanciesExpanded);
                                             navigate('/admin/vacancies');
+                                            if (window.innerWidth <= 1024) setSidebarOpen(false);
                                         }}
-                                        style={{ cursor: 'pointer' }}
                                     >
                                         <span className="sidebar-link-icon">{item.icon}</span>
                                         <span className="sidebar-link-text">{item.label}</span>
@@ -189,7 +227,7 @@ function AdminLayout({ admin, children }) {
                                             className="sidebar-link-arrow" 
                                             size={14} 
                                             style={{ 
-                                                transform: vacanciesExpanded ? 'rotate(90deg)' : 'translateX(-4px)',
+                                                transform: vacanciesExpanded ? 'rotate(90deg)' : 'translateX(0)',
                                                 opacity: 1,
                                                 transition: 'transform 0.2s ease'
                                             }} 
@@ -198,35 +236,35 @@ function AdminLayout({ admin, children }) {
                                     
                                     {vacanciesExpanded && (
                                         <div className="sidebar-submenu animate-slide-down">
-                                              <NavLink
-                                                  to="/admin/vacancies"
-                                                  end
-                                                  className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
-                                                  onClick={() => setSidebarOpen(false)}
-                                              >
-                                                  <span className="sidebar-sublink-bullet"></span>
-                                                  <span>Add Vacancies</span>
-                                              </NavLink>
-                                              {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                                                  <>
-                                                      <NavLink
-                                                          to="/admin/vacancies/reports"
-                                                          className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
-                                                          onClick={() => setSidebarOpen(false)}
-                                                      >
-                                                          <span className="sidebar-sublink-bullet"></span>
-                                                          <span>Manage Vacancies</span>
-                                                      </NavLink>
-                                                      <NavLink
-                                                          to="/admin/companies"
-                                                          className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
-                                                          onClick={() => setSidebarOpen(false)}
-                                                      >
-                                                          <span className="sidebar-sublink-bullet"></span>
-                                                          <span>Manage Company</span>
-                                                      </NavLink>
-                                                  </>
-                                              )}
+                                            <NavLink
+                                                to="/admin/vacancies"
+                                                end
+                                                className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                onClick={() => setSidebarOpen(false)}
+                                            >
+                                                <span className="sidebar-sublink-bullet"></span>
+                                                <span>Add Vacancies</span>
+                                            </NavLink>
+                                            {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                                <>
+                                                    <NavLink
+                                                        to="/admin/vacancies/reports"
+                                                        className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                    >
+                                                        <span className="sidebar-sublink-bullet"></span>
+                                                        <span>Manage Vacancies</span>
+                                                    </NavLink>
+                                                    <NavLink
+                                                        to="/admin/companies"
+                                                        className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                        onClick={() => setSidebarOpen(false)}
+                                                    >
+                                                        <span className="sidebar-sublink-bullet"></span>
+                                                        <span>Manage Company</span>
+                                                    </NavLink>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -239,20 +277,22 @@ function AdminLayout({ admin, children }) {
                                 <div key={item.to} className="sidebar-dropdown-container">
                                     <div
                                         className={`sidebar-link ${isApprovalsActive ? 'active' : ''}`}
+                                        title={sidebarCollapsed ? `Approvals ${item.badge ? `(${item.badge})` : ''}` : ""}
                                         onClick={() => {
+                                            if (sidebarCollapsed) setSidebarCollapsed(false);
                                             setApprovalsExpanded(!approvalsExpanded);
                                             navigate('/admin/approvals');
+                                            if (window.innerWidth <= 1024) setSidebarOpen(false);
                                         }}
-                                        style={{ cursor: 'pointer' }}
                                     >
                                         <span className="sidebar-link-icon">{item.icon}</span>
                                         <span className="sidebar-link-text">{item.label}</span>
-                                        {item.badge && <span className="sidebar-badge" style={{ marginRight: '8px' }}>{item.badge}</span>}
+                                        {item.badge && <span className="sidebar-badge">{item.badge}</span>}
                                         <FiChevronRight 
                                             className="sidebar-link-arrow" 
                                             size={14} 
                                             style={{ 
-                                                transform: approvalsExpanded ? 'rotate(90deg)' : 'translateX(-4px)',
+                                                transform: approvalsExpanded ? 'rotate(90deg)' : 'translateX(0)',
                                                 opacity: 1,
                                                 transition: 'transform 0.2s ease'
                                             }} 
@@ -290,6 +330,7 @@ function AdminLayout({ admin, children }) {
                                 to={item.to}
                                 end={item.end}
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+                                title={sidebarCollapsed ? item.label : ""}
                                 onClick={() => setSidebarOpen(false)}
                             >
                                 <span className="sidebar-link-icon">{item.icon}</span>
@@ -302,8 +343,7 @@ function AdminLayout({ admin, children }) {
                 </nav>
 
                 <div className="sidebar-footer">
-                    {/* User profile card */}
-                    <div className="sidebar-user-card">
+                    <div className="sidebar-user-card" title={sidebarCollapsed ? `${admin.full_name} (${getRoleDisplayName(admin.role)})` : ""}>
                         <div className="sidebar-avatar-enhanced">
                             <span>{initials}</span>
                             <div className="avatar-online-dot"></div>
@@ -315,8 +355,12 @@ function AdminLayout({ admin, children }) {
                             </div>
                         </div>
                     </div>
-                    <button className="sidebar-logout-btn" onClick={handleLogout}>
-                        <FiLogOut size={15} />
+                    <button 
+                        className="sidebar-logout-btn" 
+                        onClick={handleLogout}
+                        title={sidebarCollapsed ? "Sign Out" : ""}
+                    >
+                        <FiLogOut size={16} />
                         <span>Sign Out</span>
                     </button>
                 </div>
@@ -328,48 +372,110 @@ function AdminLayout({ admin, children }) {
             </main>
 
             <style jsx="true">{`
-                /* ── ENHANCED SIDEBAR STYLES ── */
+                /* ── ENHANCED ULTRA-MODERN SIDEBAR STYLES ── */
                 .enhanced-sidebar {
-                    background: #fff;
-                    border-right: 1px solid rgba(0,0,0,0.05);
-                    box-shadow: 4px 0 24px rgba(139, 26, 43, 0.06);
+                    background: #ffffff;
+                    border-right: 1px solid #e2e8f0;
+                    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.03);
+                    width: 260px;
+                    display: flex;
+                    flex-direction: column;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    bottom: 0;
+                    height: 100vh;
+                    z-index: 1000;
+                    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    overflow: hidden;
                 }
 
                 .sidebar-top-accent {
                     height: 3px;
-                    background: linear-gradient(90deg, var(--crimson), var(--gold-accent, #C8A951), var(--crimson));
+                    background: linear-gradient(90deg, #8B1A2B 0%, #C8A951 50%, #8B1A2B 100%);
                     position: absolute;
                     top: 0;
                     left: 0;
                     right: 0;
+                    z-index: 10;
                 }
 
-                .sidebar-logo-wrapper {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    border: 1px solid rgba(0,0,0,0.06);
+                .sidebar-header {
+                    padding: 14px 14px 10px;
+                    border-bottom: 1px solid #f1f5f9;
                     display: flex;
                     align-items: center;
-                    justify-content: center;
-                    background: #fafafa;
+                    justify-content: space-between;
+                    gap: 8px;
+                    background: #ffffff;
                     flex-shrink: 0;
                 }
 
-                .sidebar-role {
+                .sidebar-brand {
                     display: flex;
                     align-items: center;
-                    gap: 6px;
+                    gap: 10px;
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .sidebar-logo-wrapper {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    border: 1px solid #e2e8f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #ffffff;
+                    flex-shrink: 0;
+                    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+                }
+
+                .sidebar-logo {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                }
+
+                .sidebar-brand-text {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .sidebar-title {
+                    font-size: 0.86rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    line-height: 1.2;
+                    letter-spacing: -0.3px;
+                }
+
+                .sidebar-role {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 0.65rem;
+                    font-weight: 700;
+                    color: #8B1A2B;
+                    background: rgba(139, 26, 43, 0.06);
+                    padding: 1px 7px;
+                    border-radius: 100px;
+                    margin-top: 2px;
                 }
 
                 .role-dot {
-                    width: 6px;
-                    height: 6px;
+                    width: 5px;
+                    height: 5px;
                     border-radius: 50%;
                     background: #10b981;
-                    box-shadow: 0 0 6px rgba(16,185,129,0.5);
+                    box-shadow: 0 0 5px rgba(16,185,129,0.5);
                     animation: pulsate 2s infinite;
+                    flex-shrink: 0;
                 }
 
                 @keyframes pulsate {
@@ -377,98 +483,209 @@ function AdminLayout({ admin, children }) {
                     50% { opacity: 0.7; transform: scale(0.85); }
                 }
 
-                .sidebar-nav-label {
-                    font-size: 0.6rem;
-                    font-weight: 800;
-                    color: #cbd5e1;
-                    letter-spacing: 2px;
-                    text-transform: uppercase;
-                    padding: 16px 20px 6px;
+                .desktop-toggle-btn {
+                    width: 28px;
+                    height: 28px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    border-radius: 7px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    flex-shrink: 0;
                 }
 
+                .desktop-toggle-btn:hover {
+                    background: rgba(139, 26, 43, 0.08);
+                    color: #8B1A2B;
+                    border-color: rgba(139, 26, 43, 0.2);
+                    transform: scale(1.04);
+                }
+
+                .sidebar-mobile-close-btn {
+                    display: none;
+                    width: 28px;
+                    height: 28px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    color: #64748b;
+                    border-radius: 7px;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                }
+
+                .sidebar-nav-label {
+                    font-size: 0.58rem;
+                    font-weight: 800;
+                    color: #94a3b8;
+                    letter-spacing: 1.6px;
+                    text-transform: uppercase;
+                    padding: 8px 14px 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-shrink: 0;
+                }
+
+                .nav-label-badge {
+                    font-size: 0.55rem;
+                    font-weight: 800;
+                    color: #C8A951;
+                    background: rgba(200, 169, 81, 0.12);
+                    padding: 1px 5px;
+                    border-radius: 4px;
+                    letter-spacing: 1px;
+                }
+
+                /* Scrollable Nav Container - Fit All Items Without Scrollbar */
+                .sidebar-nav {
+                    flex: 1 1 auto;
+                    padding: 4px 8px;
+                    overflow-y: auto;
+                    scrollbar-width: none;
+                    -ms-overflow-style: none;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-start;
+                    gap: 1px;
+                }
+
+                .sidebar-nav::-webkit-scrollbar {
+                    display: none;
+                    width: 0;
+                    height: 0;
+                }
+
+                /* Navigation Links */
                 .sidebar-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 7px 10px;
+                    border-radius: 8px;
+                    font-size: 0.83rem;
+                    font-weight: 600;
+                    color: #475569;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    cursor: pointer;
+                    border: none;
+                    background: transparent;
+                    width: 100%;
+                    text-align: left;
+                    font-family: var(--font-body);
                     position: relative;
-                    overflow: hidden;
+                    margin-bottom: 1px;
+                    text-decoration: none;
+                    min-height: 35px;
                 }
 
                 .sidebar-link-icon {
                     display: flex;
                     align-items: center;
+                    justify-content: center;
                     flex-shrink: 0;
-                    font-size: 1.1rem;
-                    transition: all 0.3s ease;
+                    font-size: 1.05rem;
+                    transition: all 0.2s ease;
                     width: 20px;
+                    color: #64748b;
                 }
 
                 .sidebar-link-text {
                     flex: 1;
                     font-weight: 600;
-                    font-size: 0.88rem;
-                    transition: all 0.3s ease;
+                    font-size: 0.83rem;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
 
                 .sidebar-link-arrow {
-                    opacity: 0;
-                    transform: translateX(-4px);
-                    transition: all 0.3s ease;
-                    color: var(--gold-accent, #C8A951);
-                }
-
-                .sidebar-link:hover .sidebar-link-arrow,
-                .sidebar-link.active .sidebar-link-arrow {
-                    opacity: 1;
-                    transform: translateX(0);
-                }
-
-                .sidebar-badge {
-                    background: var(--crimson);
-                    color: #fff;
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    padding: 2px 7px;
-                    border-radius: 100px;
-                    min-width: 20px;
-                    text-align: center;
-                }
-
-                .sidebar-link.active {
-                    background: linear-gradient(135deg, rgba(139, 26, 43, 0.08), rgba(139, 26, 43, 0.04));
-                    color: var(--crimson);
-                    border-right: 3px solid var(--crimson);
-                    font-weight: 700;
-                }
-
-                .sidebar-link.active .sidebar-link-icon {
-                    color: var(--crimson);
-                    transform: scale(1.1);
+                    opacity: 0.5;
+                    transition: all 0.2s ease;
+                    color: #94a3b8;
+                    flex-shrink: 0;
                 }
 
                 .sidebar-link:hover:not(.active) {
-                    background: rgba(0,0,0,0.025);
-                    padding-left: 26px;
+                    background: rgba(15, 23, 42, 0.04);
+                    color: #0f172a;
+                    transform: translateX(2px);
                 }
 
-                /* Submenu / Dropdown Styles */
+                .sidebar-link:hover:not(.active) .sidebar-link-icon {
+                    color: #0f172a;
+                    transform: scale(1.05);
+                }
+
+                .sidebar-link:hover:not(.active) .sidebar-link-arrow {
+                    opacity: 1;
+                    color: #8B1A2B;
+                }
+
+                /* Active Link State - Unified Deep Crimson Gradient Matching Page Banner */
+                .sidebar-link.active {
+                    background: linear-gradient(135deg, #8B1A2B 0%, #6B1420 100%) !important;
+                    color: #ffffff !important;
+                    font-weight: 700 !important;
+                    box-shadow: 0 4px 14px rgba(139, 26, 43, 0.28) !important;
+                    border-radius: 8px !important;
+                }
+
+                .sidebar-link.active::before {
+                    display: none !important;
+                }
+
+                .sidebar-link.active .sidebar-link-icon {
+                    color: #F3E5AB !important;
+                    transform: scale(1.1) !important;
+                }
+
+                .sidebar-link.active .sidebar-link-arrow {
+                    opacity: 1 !important;
+                    color: #F3E5AB !important;
+                }
+
+                .sidebar-badge {
+                    background: #8B1A2B;
+                    color: #ffffff;
+                    font-size: 0.62rem;
+                    font-weight: 800;
+                    padding: 1px 6px;
+                    border-radius: 100px;
+                    min-width: 16px;
+                    text-align: center;
+                    box-shadow: 0 2px 5px rgba(139, 26, 43, 0.3);
+                    flex-shrink: 0;
+                }
+
+                /* Submenu Tree Layout */
                 .sidebar-submenu {
-                    padding-left: 24px;
-                    margin-top: 4px;
-                    margin-bottom: 8px;
+                    padding-left: 8px;
+                    margin-top: 1px;
+                    margin-bottom: 3px;
                     display: flex;
                     flex-direction: column;
-                    gap: 4px;
+                    gap: 1px;
+                    border-left: 2px solid #f1f5f9;
+                    margin-left: 18px;
                 }
 
                 .sidebar-sublink {
                     display: flex;
                     align-items: center;
-                    gap: 10px;
-                    padding: 10px 16px;
+                    gap: 8px;
+                    padding: 5px 10px;
                     color: #64748b;
-                    font-size: 0.82rem;
+                    font-size: 0.78rem;
                     font-weight: 600;
                     text-decoration: none;
-                    border-radius: 10px;
-                    transition: all 0.25s ease;
+                    border-radius: 6px;
+                    transition: all 0.2s ease;
+                    min-height: 30px;
                 }
 
                 .sidebar-sublink-bullet {
@@ -476,78 +693,85 @@ function AdminLayout({ admin, children }) {
                     height: 5px;
                     border-radius: 50%;
                     background: #cbd5e1;
-                    transition: all 0.25s ease;
+                    transition: all 0.2s ease;
+                    flex-shrink: 0;
                 }
 
                 .sidebar-sublink:hover {
-                    color: var(--crimson);
-                    background: rgba(139, 26, 43, 0.03);
-                    padding-left: 20px;
+                    color: #8B1A2B;
+                    background: rgba(139, 26, 43, 0.04);
+                    padding-left: 14px;
                 }
 
                 .sidebar-sublink:hover .sidebar-sublink-bullet {
-                    background: var(--crimson);
-                    transform: scale(1.3);
+                    background: #8B1A2B;
+                    transform: scale(1.2);
                 }
 
                 .sidebar-sublink.active {
-                    color: var(--crimson);
-                    background: linear-gradient(135deg, rgba(139, 26, 43, 0.05), rgba(139, 26, 43, 0.02));
+                    color: #8B1A2B;
+                    background: linear-gradient(135deg, rgba(139, 26, 43, 0.08), rgba(139, 26, 43, 0.02));
                     font-weight: 700;
                 }
 
                 .sidebar-sublink.active .sidebar-sublink-bullet {
-                    background: var(--crimson);
-                    transform: scale(1.4);
-                    box-shadow: 0 0 6px rgba(139, 26, 43, 0.4);
+                    background: #8B1A2B;
+                    transform: scale(1.3);
+                    box-shadow: 0 0 5px rgba(139, 26, 43, 0.5);
                 }
 
                 .animate-slide-down {
-                    animation: slideDown 0.25s ease-out;
+                    animation: slideDown 0.22s ease-out;
                 }
 
                 @keyframes slideDown {
-                    from { opacity: 0; transform: translateY(-8px); }
+                    from { opacity: 0; transform: translateY(-3px); }
                     to { opacity: 1; transform: translateY(0); }
                 }
 
-                /* User Card */
+                /* Sidebar Footer & User Profile Card */
+                .sidebar-footer {
+                    padding: 10px 12px;
+                    border-top: 1px solid #f1f5f9;
+                    background: #ffffff;
+                    flex-shrink: 0;
+                }
+
                 .sidebar-user-card {
                     display: flex;
                     align-items: center;
-                    gap: 12px;
-                    padding: 12px;
-                    background: linear-gradient(135deg, #fafafa, #f1f5f9);
-                    border-radius: 14px;
-                    border: 1px solid #f1f5f9;
-                    margin-bottom: 12px;
-                    cursor: default;
+                    gap: 10px;
+                    padding: 7px 10px;
+                    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+                    border-radius: 10px;
+                    border: 1px solid #e2e8f0;
+                    margin-bottom: 6px;
                 }
 
                 .sidebar-avatar-enhanced {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 12px;
-                    background: linear-gradient(135deg, var(--crimson), #6B1420);
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: linear-gradient(135deg, #8B1A2B, #5c0f1b);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 0.85rem;
+                    font-size: 0.8rem;
                     font-weight: 800;
-                    color: #fff;
+                    color: #ffffff;
                     flex-shrink: 0;
                     position: relative;
-                    box-shadow: 0 4px 12px rgba(139, 26, 43, 0.25);
+                    box-shadow: 0 2px 7px rgba(139, 26, 43, 0.2);
                 }
 
                 .avatar-online-dot {
                     position: absolute;
                     bottom: -2px;
                     right: -2px;
-                    width: 10px;
-                    height: 10px;
+                    width: 8px;
+                    height: 8px;
                     background: #10b981;
-                    border: 2px solid #fff;
+                    border: 2px solid #ffffff;
                     border-radius: 50%;
                 }
 
@@ -557,54 +781,96 @@ function AdminLayout({ admin, children }) {
                 }
 
                 .sidebar-user-name {
-                    font-size: 0.82rem;
+                    font-size: 0.8rem;
                     font-weight: 700;
-                    color: var(--text-primary);
+                    color: #0f172a;
                     white-space: nowrap;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
 
                 .sidebar-user-role {
-                    font-size: 0.7rem;
-                    color: var(--text-muted);
-                    white-space: normal;
-                    line-height: 1.3;
+                    font-size: 0.65rem;
+                    color: #64748b;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
 
                 .sidebar-logout-btn {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    justify-content: center;
+                    gap: 6px;
                     width: 100%;
-                    padding: 10px 14px;
-                    background: rgba(220, 38, 38, 0.06);
-                    border: 1px solid rgba(220, 38, 38, 0.1);
+                    padding: 7px 10px;
+                    background: rgba(220, 38, 38, 0.05);
+                    border: 1px solid rgba(220, 38, 38, 0.12);
                     color: #dc2626;
-                    border-radius: 12px;
-                    font-size: 0.85rem;
+                    border-radius: 8px;
+                    font-size: 0.8rem;
                     font-weight: 700;
                     cursor: pointer;
-                    transition: all 0.2s;
+                    transition: all 0.2s ease;
                     font-family: var(--font-body);
-                    justify-content: center;
+                    min-height: 34px;
                 }
 
                 .sidebar-logout-btn:hover {
-                    background: rgba(220, 38, 38, 0.1);
-                    border-color: rgba(220, 38, 38, 0.2);
+                    background: rgba(220, 38, 38, 0.12);
+                    border-color: rgba(220, 38, 38, 0.25);
                     transform: translateY(-1px);
-                    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+                    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.12);
                 }
 
-                /* ── COLLAPSED STATE STYLES ── */
+                /* Mobile Header Styles */
+                .admin-mobile-header {
+                    display: none;
+                }
+
+                .mobile-brand {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    min-width: 0;
+                }
+
+                .mobile-brand-logo {
+                    height: 32px;
+                    width: auto;
+                    object-fit: contain;
+                }
+
+                .mobile-brand-title {
+                    font-weight: 800;
+                    font-size: 0.85rem;
+                    letter-spacing: 0.5px;
+                    color: #0f172a;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 160px;
+                }
+
+                .mobile-page-badge {
+                    background: rgba(139, 26, 43, 0.08);
+                    color: #8B1A2B;
+                    font-size: 0.7rem;
+                    font-weight: 800;
+                    padding: 4px 10px;
+                    border-radius: 100px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                /* ── DESKTOP COLLAPSED STATE STYLES ── */
                 @media (min-width: 1025px) {
                     .admin-layout.sidebar-collapsed .enhanced-sidebar {
-                        width: 76px;
+                        width: 78px;
                     }
                     
                     .admin-layout.sidebar-collapsed .admin-content {
-                        margin-left: 76px;
+                        margin-left: 78px;
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-brand-text,
@@ -628,17 +894,29 @@ function AdminLayout({ admin, children }) {
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-header {
-                        padding: 0 10px 20px;
+                        padding: 16px 8px;
+                        justify-content: center;
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-link {
                         justify-content: center;
-                        padding: 12px;
+                        padding: 10px;
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-link-icon {
                         margin: 0;
                         width: auto;
+                    }
+
+                    .admin-layout.sidebar-collapsed .sidebar-badge {
+                        position: absolute;
+                        top: 4px;
+                        right: 8px;
+                        font-size: 0.6rem;
+                        padding: 1px 4px;
+                        min-width: 16px;
+                        min-height: 16px;
+                        border-radius: 50%;
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-user-card {
@@ -657,11 +935,94 @@ function AdminLayout({ admin, children }) {
                         background: none;
                         border: none;
                         color: #dc2626;
+                        justify-content: center;
                     }
                     
                     .admin-layout.sidebar-collapsed .sidebar-logout-btn:hover {
                         background: rgba(220, 38, 38, 0.08);
                         box-shadow: none;
+                    }
+                }
+
+                /* ── MOBILE & TABLET RESPONSIVE STYLES ── */
+                @media (max-width: 1024px) {
+                    .admin-mobile-header {
+                        display: flex !important;
+                        align-items: center;
+                        justify-content: space-between;
+                        height: 60px;
+                        padding: 0 16px;
+                        background: rgba(255, 255, 255, 0.98);
+                        backdrop-filter: blur(12px);
+                        border-bottom: 1px solid #e2e8f0;
+                        position: fixed !important;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        z-index: 1010;
+                        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+                    }
+
+                    .hamburger-btn {
+                        background: rgba(139, 26, 43, 0.05);
+                        border: 1px solid rgba(139, 26, 43, 0.12);
+                        color: #8B1A2B;
+                        padding: 8px;
+                        border-radius: 8px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    }
+
+                    .hamburger-btn:active {
+                        transform: scale(0.92);
+                    }
+
+                    .admin-sidebar {
+                        position: fixed !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        bottom: 0 !important;
+                        width: 280px !important;
+                        max-width: 85vw !important;
+                        height: 100vh !important;
+                        z-index: 1025 !important;
+                        background: #ffffff !important;
+                        transform: translateX(-100%) !important;
+                        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                        box-shadow: 10px 0 40px rgba(15, 23, 42, 0.15) !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+
+                    .admin-sidebar.open {
+                        transform: translateX(0) !important;
+                    }
+
+                    .sidebar-mobile-close-btn {
+                        display: flex !important;
+                    }
+
+                    .desktop-toggle-btn {
+                        display: none !important;
+                    }
+
+                    .sidebar-overlay {
+                        position: fixed !important;
+                        inset: 0 !important;
+                        background: rgba(15, 23, 42, 0.4) !important;
+                        backdrop-filter: blur(4px) !important;
+                        z-index: 1020 !important;
+                        animation: fadeIn 0.22s ease !important;
+                    }
+
+                    .admin-content {
+                        margin-left: 0 !important;
+                        margin-top: 60px !important;
+                        padding: 20px 16px !important;
+                        min-height: calc(100vh - 60px) !important;
                     }
                 }
             `}</style>

@@ -108,46 +108,13 @@ function AuditLog({ admin }) {
     return (
         <div className="audit-log-page" style={{ animation: 'fadeIn 0.5s ease-out' }}>
             {/* ── HERO BANNER ── */}
-            <div className="dashboard-hero-premium" style={{
-                background: 'linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%)',
-                borderRadius: '24px',
-                padding: '36px 40px',
-                marginBottom: '28px',
-                position: 'relative',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.05)',
-                boxShadow: '0 12px 30px rgba(0, 0, 0, 0.15)'
-            }}>
-                <div style={{ position: 'relative', zIndex: 2 }}>
-                    <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: 'rgba(200, 169, 81, 0.15)',
-                        border: '1px solid rgba(200, 169, 81, 0.25)',
-                        color: '#C8A951',
-                        padding: '5px 14px',
-                        borderRadius: '100px',
-                        fontSize: '0.68rem',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1.5px',
-                        marginBottom: '14px'
-                    }}>
+            <div className="dashboard-hero-premium">
+                <div className="hero-content-p">
+                    <div className="hero-badge-p">
                         <FiActivity /> System Audit Trail
                     </div>
-                    <h1 style={{
-                        fontFamily: 'var(--font-heading)',
-                        fontSize: '2rem',
-                        color: '#fff',
-                        margin: '0 0 8px 0',
-                        letterSpacing: '-0.5px'
-                    }}>Activity Audit Logs</h1>
-                    <p style={{
-                        color: 'rgba(255,255,255,0.55)',
-                        fontSize: '0.85rem',
-                        margin: 0
-                    }}>
+                    <h1 className="hero-title-p">Activity Audit Logs</h1>
+                    <p className="hero-subtitle-p">
                         {admin.role === 'super_admin' || admin.role === 'admin'
                             ? 'Monitor, track, and audit recruitment processes globally across all subsidiary establishments.'
                             : `Audit trail history for ${admin.company_name} recruitment operations.`

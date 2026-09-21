@@ -95,42 +95,39 @@ function CompanyReports({ admin }) {
 
             {/* PERFORMANCE SNAPSHOT */}
             <div className="stats-mosaic-grid admin-grid-4">
-                <div className="stat-glass-card gold">
-                    <div className="s-icon"><FiUsers /></div>
-                    <div className="s-info">
-                        <span className="s-label">Total Submissions Received</span>
-                        <span className="s-value">{totalGroupApplications}</span>
+                <div className="db-stat-card gold">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Total Submissions</span>
+                        <div className="db-s-icon"><FiUsers /></div>
                     </div>
-                    <div className="s-trend"><FiTrendingUp /> Group-wide Engagement</div>
+                    <span className="db-s-value">{totalGroupApplications}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Group-wide Engagement</div>
                 </div>
-                <div className="stat-glass-card green">
-                    <div className="s-icon"><FiBriefcase /></div>
-                    <div className="s-info">
-                        <span className="s-label">Active Vacancy Channels</span>
-                        <span className="s-value">{totalActiveVacancies} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/ {totalGroupVacancies} total</span></span>
+                <div className="db-stat-card green">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Active Channels</span>
+                        <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
-                    <div className="s-trend positive">Recruitment Pipelines Open</div>
+                    <span className="db-s-value">{totalActiveVacancies} <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>/ {totalGroupVacancies}</span></span>
+                    <div className="db-s-trend positive"><FiBarChart2 /> Pipelines Open</div>
                 </div>
-                <div className="stat-glass-card blue">
-                    <div className="s-icon"><FiPercent /></div>
-                    <div className="s-info">
-                        <span className="s-label">Highest Engagement Rate</span>
-                        <span className="s-value" style={{ fontSize: '1.25rem', fontWeight: 800, marginTop: '8px' }}>
-                            {topPerformer && topPerformer.totalVacancies > 0 ? `${topPerformer.avgApplicationsPerJob} apps/job` : 'N/A'}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--crimson)', marginTop: '4px' }}>
-                            {topPerformer ? topPerformer.name : ''}
-                        </span>
+                <div className="db-stat-card blue">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Engagement Rate</span>
+                        <div className="db-s-icon"><FiPercent /></div>
                     </div>
-                    <div className="s-trend">Top Performer</div>
+                    <span className="db-s-value" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                        {topPerformer && topPerformer.totalVacancies > 0 ? `${topPerformer.avgApplicationsPerJob} apps/job` : 'N/A'}
+                    </span>
+                    <div className="db-s-trend" style={{ color: 'var(--crimson)' }}>{topPerformer ? topPerformer.name : 'Top Performer'}</div>
                 </div>
-                <div className="stat-glass-card purple">
-                    <div className="s-icon"><FiBarChart2 /></div>
-                    <div className="s-info">
-                        <span className="s-label">Active Corporate Divisions</span>
-                        <span className="s-value">{activeCompaniesCount} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/ {companies.length}</span></span>
+                <div className="db-stat-card purple">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Corporate Divisions</span>
+                        <div className="db-s-icon"><FiBarChart2 /></div>
                     </div>
-                    <div className="s-trend">Group Subsidiaries List</div>
+                    <span className="db-s-value">{activeCompaniesCount} <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>/ {companies.length}</span></span>
+                    <div className="db-s-trend"><FiTrendingUp /> Subsidiaries List</div>
                 </div>
             </div>
 

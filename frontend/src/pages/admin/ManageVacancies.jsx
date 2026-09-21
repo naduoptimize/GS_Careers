@@ -535,45 +535,44 @@ function ManageVacancies({ admin }) {
             </div>
 
             {/* STATS MOSAIC */}
-            <div className="stats-mosaic-p">
-                <div className="mosaic-card-p glass-card-p">
-                    <div className="m-icon blue"><FiBriefcase /></div>
-                    <div className="m-info">
-                        <span className="m-label">Total Listings</span>
-                        <span className="m-value">{stats.total_vacancies}</span>
+            <div className="stats-mosaic-grid admin-grid-4">
+                <div className="db-stat-card blue">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Total Listings</span>
+                        <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
-                    <div className="m-footer">Global Overview</div>
+                    <span className="db-s-value">{stats.total_vacancies}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Global Overview</div>
                 </div>
-                <div className="mosaic-card-p glass-card-p">
-                    <div className="m-icon green"><FiCheckCircle /></div>
-                    <div className="m-info">
-                        <span className="m-label">Live Channels</span>
-                        <span className="m-value">{stats.active_vacancies}</span>
+                <div className="db-stat-card green">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Live Channels</span>
+                        <div className="db-s-icon"><FiCheckCircle /></div>
                     </div>
-                    <div className="m-footer active">Active & Viral</div>
+                    <span className="db-s-value">{stats.active_vacancies}</span>
+                    <div className="db-s-trend positive"><FiTrendingUp /> Active &amp; Live</div>
                 </div>
-                <div className="mosaic-card-p glass-card-p">
-                    <div className="m-icon gold"><FiUsers /></div>
-                    <div className="m-info">
-                        <span className="m-label">Engagement</span>
-                        <span className="m-value">{stats.total_applications}</span>
+                <div className="db-stat-card gold">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Engagement</span>
+                        <div className="db-s-icon"><FiUsers /></div>
                     </div>
-                    <div className="m-footer">Total Submissions</div>
+                    <span className="db-s-value">{stats.total_applications}</span>
+                    <div className="db-s-trend"><FiTrendingUp /> Total Submissions</div>
                 </div>
-                <div className="mosaic-card-p glass-card-p">
-                    <div className="m-icon crimson"><FiAlertCircle /></div>
-                    <div className="m-info">
-                        <span className="m-label">Expiring Soon</span>
-                        <span className="m-value">
-                            {vacancies.filter(v => daysLeft(v.expire_date) > 0 && daysLeft(v.expire_date) <= 7).length}
-                        </span>
+                <div className="db-stat-card rose">
+                    <div className="db-s-header">
+                        <span className="db-s-label">Expiring Soon</span>
+                        <div className="db-s-icon"><FiAlertCircle /></div>
                     </div>
-                    <div className="m-footer urgent">Urgent Action</div>
+                    <span className="db-s-value">
+                        {vacancies.filter(v => daysLeft(v.expire_date) > 0 && daysLeft(v.expire_date) <= 7).length}
+                    </span>
+                    <div className="db-s-trend urgent"><FiClock /> Urgent Action</div>
                 </div>
             </div>
 
             {/* CONTROL BAR */}
-            {/* REFINED CONSOLE TOOLBAR */}
             <div className="console-toolbar-p">
                 <div className="toolbar-search-row">
                     <div className="search-orchestrator">
@@ -587,15 +586,11 @@ function ManageVacancies({ admin }) {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setCompanyFilter(''); }}>
-                        <FiX /> <span>Reset Console</span>
-                    </button>
                 </div>
 
                 <div className="toolbar-filters-row">
                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div className="filter-group">
-                            <label>Establishment</label>
                             <div className="select-orchestrator">
                                 <FiFilter className="f-icon" />
                                 <select 
@@ -610,6 +605,11 @@ function ManageVacancies({ admin }) {
                                 </select>
                             </div>
                         </div>
+                    )}
+                    {(searchTerm || companyFilter) && (
+                        <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setCompanyFilter(''); }}>
+                            <FiX /> <span>Reset Console</span>
+                        </button>
                     )}
                 </div>
             </div>
@@ -645,11 +645,11 @@ function ManageVacancies({ admin }) {
                                 <tr>
                                     <th>Position &amp; Establishment</th>
                                     <th>Classification</th>
-                                    <th>Skills</th>
-                                    <th>Engagement Pulse</th>
+                                    <th>Required Skills</th>
+                                    <th>Applicants</th>
                                     <th style={{ textAlign: 'center' }}>
                                         <div className="stages-col-header">
-                                            <div style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94a3b8', fontWeight: 800 }}>Stages</div>
+                                            <div style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', fontWeight: 800 }}>Stages</div>
                                             <div className="stages-icons-row">
                                                 <span title="Pending (Orange)"><FiClock size={12} style={{ color: '#d97706' }} /></span>
                                                 <span title="Under Review (Blue)"><FiEye size={12} style={{ color: '#2563eb' }} /></span>
@@ -658,9 +658,9 @@ function ManageVacancies({ admin }) {
                                             </div>
                                         </div>
                                     </th>
-                                    <th>Registry Timeline</th>
+                                    <th>Timeline</th>
                                     <th>Status</th>
-                                    <th style={{ textAlign: 'right' }}>Operations</th>
+                                    <th style={{ textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -770,7 +770,7 @@ function ManageVacancies({ admin }) {
                                             </td>
                                             <td>
                                                 <div className="orchestration-actions">
-                                                    {admin.role !== 'super_admin' && (v.approval_status === 'draft' || v.approval_status === 'rejected') && (
+                                                    {(v.approval_status === 'draft' || v.approval_status === 'rejected') && (
                                                         <button className="o-btn submit-approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval" style={{ color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }}>
                                                             <FiCheckCircle />
                                                         </button>
@@ -778,19 +778,15 @@ function ManageVacancies({ admin }) {
                                                     <button className="o-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Job Description">
                                                         <FiEye />
                                                     </button>
-                                                    {admin.role !== 'super_admin' && (
-                                                        <button className="o-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit Configuration">
-                                                            <FiEdit2 />
-                                                        </button>
-                                                    )}
+                                                    <button className="o-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit Vacancy">
+                                                        <FiEdit2 />
+                                                    </button>
                                                     <button className="o-btn applicants" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Pipeline">
                                                         <FiArrowRight />
                                                     </button>
-                                                    {admin.role !== 'super_admin' && (
-                                                        <button className="o-btn delete" onClick={() => setConfirmDelete(v.id)} title="Decommission">
-                                                            <FiTrash2 />
-                                                        </button>
-                                                    )}
+                                                    <button className="o-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete Vacancy">
+                                                        <FiTrash2 />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>

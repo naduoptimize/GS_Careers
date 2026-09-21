@@ -314,8 +314,8 @@ function SettingsPage({ admin }) {
     return (
         <div className="premium-settings-page" style={{ maxWidth: '1000px', margin: '0 auto', animation: 'fadeIn 0.4s ease-out' }}>
             {/* HERO */}
-            <div className="dashboard-hero-premium" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-                <div className="hero-content-p" style={{ zIndex: 1 }}>
+            <div className="dashboard-hero-premium">
+                <div className="hero-content-p">
                     <div className="hero-badge-p"><FiActivity /> System Executive Suite</div>
                     <h1 className="hero-title-p">Portal Settings</h1>
                     <p className="hero-subtitle-p">George Steuart Recruitment Orchestration | Global System Configurations</p>
