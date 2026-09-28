@@ -234,6 +234,14 @@ function AuditLog({ admin }) {
                 ) : (
                     <div className="premium-table-container" style={{ margin: 0, border: 'none', boxShadow: 'none', borderRadius: 0 }}>
                         <table className="premium-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
+                            <colgroup>
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '22%' }} />
+                                {(admin.role === 'super_admin' || admin.role === 'admin') && <col style={{ width: '16%' }} />}
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '24%' }} />
+                            </colgroup>
                             <thead>
                                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                                     <th style={{ padding: '16px 20px', fontSize: '0.68rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', width: '160px', minWidth: '160px' }}>Timestamp</th>

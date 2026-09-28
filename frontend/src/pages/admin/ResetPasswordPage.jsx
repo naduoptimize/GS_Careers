@@ -69,7 +69,6 @@ function ResetPasswordPage() {
                     <div className="branding-text">
                         <span className="est-badge">SECURITY PROTOCOL</span>
                         <h1 className="serif-title">Credential <br/>Renewal <br/>Gateway.</h1>
-                        <p>Recruitment Orchestration Console v4.0</p>
                     </div>
                 </div>
             </div>

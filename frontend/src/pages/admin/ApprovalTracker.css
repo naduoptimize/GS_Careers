@@ -64,119 +64,171 @@
     border-color: rgba(139, 26, 43, 0.15);
 }
 
-/* Search Form */
+/* ── PREMIUM SEARCH CONSOLE CARD ── */
+.search-card-premium {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    margin-bottom: 24px;
+}
+
 .tracker-search-form {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
     gap: 20px;
-    flex-wrap: wrap;
+    width: 100%;
+}
+
+.search-primary-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    width: 100%;
 }
 
 .search-field {
-    flex: 1;
-    min-width: 280px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.search-field label {
-    font-size: 0.78rem;
+.search-field-label {
+    font-size: 0.72rem;
     font-weight: 800;
-    color: #64748b;
+    color: #475569;
     text-transform: uppercase;
     letter-spacing: 0.8px;
+    margin: 0;
 }
 
-.search-input-wrapper {
-    position: relative;
+.search-field-id {
+    flex: 1.2;
+    min-width: 280px;
+}
+
+.search-field-company {
+    flex: 1;
+    min-width: 240px;
+}
+
+.search-field-pipeline {
+    width: 100%;
+}
+
+/* 1. SEAMLESS SEARCH INPUT GROUP (INPUT + INTEGRATED BUTTON) */
+.seamless-search-group {
     display: flex;
     align-items: center;
+    height: 46px;
+    width: 100%;
     border: 1.5px solid #cbd5e1;
-    border-radius: 10px;
+    border-radius: 12px;
     background: #ffffff;
-    transition: border-color 0.25s, box-shadow 0.25s;
-    height: 44px;
+    transition: all 0.25s ease;
     overflow: hidden;
 }
 
-.search-input-wrapper:focus-within {
+.seamless-search-group:focus-within {
     border-color: var(--crimson, #8b1a2b);
     box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.1);
 }
 
-.search-icon-prefix {
-    color: #94a3b8;
-    margin-left: 12px;
-    flex-shrink: 0;
-}
-
-.search-input-wrapper input {
-    border: none;
-    outline: none;
-    padding: 8px 12px;
-    width: 100%;
-    font-size: 0.92rem;
-    color: #1e293b;
-}
-
-/* Hide standard HTML number input arrows */
-.search-input-wrapper input::-webkit-outer-spin-button,
-.search-input-wrapper input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-.search-input-wrapper input[type=number] {
-    -moz-appearance: textfield;
-}
-
-.search-action-btn {
-    background: var(--crimson, #8b1a2b);
-    color: #ffffff;
-    border: none;
-    padding: 0 18px;
-    height: 100%;
-    font-weight: 700;
-    font-size: 0.88rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.2s;
-}
-
-.search-action-btn:hover {
-    background: #721422;
-}
-
-.search-divider {
+.input-prefix-box {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 44px;
+    padding-left: 14px;
+    padding-right: 4px;
+    color: #94a3b8;
+    font-size: 1rem;
     flex-shrink: 0;
 }
 
-.search-divider span {
-    background: #f1f5f9;
+.seamless-search-input {
+    flex: 1;
+    height: 100%;
+    border: none !important;
+    outline: none !important;
+    padding: 0 12px !important;
+    font-size: 0.9rem !important;
+    color: #1e293b !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.seamless-search-input::-webkit-outer-spin-button,
+.seamless-search-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.seamless-search-input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.seamless-search-btn {
+    height: 100%;
+    padding: 0 20px;
+    background: linear-gradient(135deg, var(--crimson, #8b1a2b) 0%, #6b1420 100%);
+    color: #ffffff;
+    border: none;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.seamless-search-btn:hover {
+    background: linear-gradient(135deg, #721422 0%, #520f18 100%);
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.15);
+}
+
+/* 2. OR DIVIDER BADGE */
+.search-or-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 46px;
+    flex-shrink: 0;
+    padding-bottom: 2px;
+}
+
+.search-or-divider span {
+    background: #f8fafc;
     color: #64748b;
-    padding: 4px 12px;
+    padding: 5px 14px;
     border-radius: 20px;
     font-size: 0.72rem;
     font-weight: 800;
-    border: 1px solid #cbd5e1;
+    border: 1.5px solid #e2e8f0;
+    letter-spacing: 0.5px;
 }
 
-.search-field select {
+/* 3. CUSTOM SELECT CONTROL */
+.select-wrapper-custom {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-control {
+    width: 100%;
+    height: 46px;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
     border: 1.5px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 8px 36px 8px 16px;
-    font-size: 0.92rem;
+    border-radius: 12px;
+    padding: 0 40px 0 16px;
+    font-size: 0.9rem;
     color: #1e293b;
-    height: 44px;
+    font-weight: 500;
     outline: none;
     background-color: #ffffff;
     background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b1a2b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
@@ -184,12 +236,18 @@
     background-position: right 14px center;
     background-size: 16px;
     cursor: pointer;
-    transition: border-color 0.25s, box-shadow 0.25s;
+    transition: all 0.25s ease;
 }
 
-.search-field select:focus {
+.custom-select-control:focus {
     border-color: var(--crimson, #8b1a2b);
     box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.1);
+}
+
+.custom-select-control:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
 }
 
 /* Loader & Errors */
@@ -784,24 +842,203 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .flowchart-arrow-connector {
-        transform: rotate(90deg);
-        margin: 10px 0;
+/* ── RESPONSIVE MEDIA QUERIES FOR ALL DEVICES ── */
+
+/* 1. TABLET & MEDIUM DESKTOP (769px to 1024px) */
+@media (max-width: 1024px) {
+    .tracker-wrapper {
+        padding: 16px;
     }
-    
+
+    .flowchart-box-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
     .flowchart-step-wrapper {
-        flex-direction: column;
+        min-width: 0;
         width: 100%;
     }
-    
-    .tracker-search-form {
+
+    .flowchart-arrow-connector {
+        display: none;
+    }
+}
+
+/* 2. MOBILE DEVICES (<= 768px) */
+@media (max-width: 768px) {
+    .tracker-header-bar {
+        padding: 18px 20px;
+        border-radius: 14px;
+        margin-bottom: 16px;
+    }
+
+    .tracker-title-area h2 {
+        font-size: 1.35rem;
+        line-height: 1.25;
+    }
+
+    .tracker-title-area p {
+        font-size: 0.82rem;
+        margin-top: 4px;
+    }
+
+    .tracker-card {
+        padding: 16px;
+        border-radius: 14px;
+        margin-bottom: 16px;
+    }
+
+    /* Search form layout */
+    .search-top-grid {
         flex-direction: column;
         align-items: stretch;
+        gap: 12px;
     }
-    
+
+    .search-field-id,
+    .search-field-company,
+    .search-field-dropdown {
+        width: 100%;
+        min-width: 0;
+    }
+
     .search-divider {
-        margin: 5px 0;
+        height: auto;
+        margin: 2px 0;
+        align-self: center;
+    }
+
+    /* Welcome Card Steps on Mobile */
+    .welcome-card {
+        padding: 24px 16px;
+    }
+
+    .welcome-description {
+        font-size: 0.88rem;
+    }
+
+    .tracker-welcome-steps {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .welcome-step {
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        width: 100%;
+        text-align: left;
+    }
+
+    .step-txt {
+        text-align: left;
+        font-size: 0.85rem;
+    }
+
+    .step-divider {
+        transform: rotate(90deg);
+        margin: 2px 0;
+        align-self: center;
+    }
+
+    /* Status Info Card */
+    .status-info-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .vacancy-title-main {
+        font-size: 1.2rem;
+        line-height: 1.3;
+    }
+
+    .vacancy-meta-sub {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .dot-sep {
+        display: none;
+    }
+
+    /* Flowchart Grid on Mobile: Vertical Timeline */
+    .flowchart-box-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        width: 100%;
+    }
+
+    .flowchart-step-wrapper {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+
+    .flowchart-box {
+        width: 100%;
+        min-height: auto;
+        padding: 14px;
+        box-sizing: border-box;
+    }
+
+    .flowchart-arrow-connector {
+        display: flex;
+        transform: rotate(90deg);
+        margin: 12px 0;
+        color: #94a3b8;
+    }
+
+    /* Audit Logs on Mobile */
+    .audit-log-item-box {
+        padding: 12px 14px;
+    }
+
+    .audit-log-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+}
+
+/* 3. SMALL MOBILE PHONES (<= 440px) */
+@media (max-width: 440px) {
+    .tracker-header-bar {
+        padding: 16px;
+    }
+
+    .tracker-title-area h2 {
+        font-size: 1.2rem;
+    }
+
+    .search-input-wrapper input {
+        font-size: 0.85rem;
+        padding: 6px 8px;
+    }
+
+    .search-action-btn {
+        padding: 0 10px;
+        font-size: 0.8rem;
+    }
+
+    .search-btn-text {
+        display: none;
+    }
+
+    .search-action-btn svg {
+        font-size: 1.1rem;
+    }
+
+    .status-pill-large {
+        font-size: 0.7rem;
+        padding: 4px 12px;
     }
 }

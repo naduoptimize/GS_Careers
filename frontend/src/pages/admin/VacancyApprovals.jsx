@@ -5,11 +5,12 @@ import {
     FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiSearch, FiFilter,
     FiEye, FiArrowLeft, FiCheck, FiX, FiCalendar, FiBriefcase, FiMapPin,
     FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser, FiEdit2,
-    FiTarget, FiTrendingUp, FiMail, FiPhone
+    FiTarget, FiTrendingUp, FiMail, FiPhone, FiHome
 } from 'react-icons/fi';
 import { getPendingApprovals, approveVacancy, rejectVacancy, getVacancyAuditLog, API_BASE } from '../../services/api';
 import { formatDate, daysLeft } from '../../utils/constants';
 import './VacancyApprovals.css';
+import PaginationFooter from '../../components/PaginationFooter';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -604,9 +605,9 @@ function VacancyApprovals({ admin }) {
                     </div>
                 )}
 
-                {/* FILTERS */}
+                {/* FILTERS TOOLBAR */}
                 <div className="console-toolbar-p">
-                    <div className="toolbar-search-row">
+                    <div className="toolbar-inline-row">
                         <div className="search-orchestrator">
                             <FiSearch className="s-icon" />
                             <input 
@@ -617,16 +618,20 @@ function VacancyApprovals({ admin }) {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    className="clear-search-btn"
+                                    onClick={() => setSearchTerm('')}
+                                    title="Clear search"
+                                >
+                                    <FiX />
+                                </button>
+                            )}
                         </div>
-                        <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setStatusFilter(''); setCompanyFilter(''); }}>
-                            <FiX /> <span>Reset Filter</span>
-                        </button>
-                    </div>
 
-                    <div className="toolbar-filters-row">
                         {activeTab === 'pipeline' && (
-                            <div className="filter-group">
-                                <label>Approval Status</label>
+                            <div className="filter-item-orchestrator">
                                 <div className="select-orchestrator">
                                     <FiFilter className="f-icon" />
                                     <select 
@@ -634,34 +639,44 @@ function VacancyApprovals({ admin }) {
                                         name="status_filter" 
                                         value={statusFilter} 
                                         onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="select-lg"
+                                        aria-label="Filter by Status"
                                     >
                                         <option value="">All Statuses</option>
                                         <option value="pending_subadmin1">Pending Sub Admin 1</option>
                                         <option value="pending_global">Pending GS Admin</option>
-                                        <option value="approved">Approved & Published</option>
+                                        <option value="approved">Approved &amp; Published</option>
                                         <option value="rejected">Rejected</option>
                                     </select>
                                 </div>
                             </div>
                         )}
+
                         {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                            <div className="filter-group">
-                                <label>Establishment</label>
+                            <div className="filter-item-orchestrator">
                                 <div className="select-orchestrator">
-                                    <FiFilter className="f-icon" />
+                                    <FiHome className="f-icon" />
                                     <select 
                                         id="company_filter" 
                                         name="company_filter" 
                                         value={companyFilter} 
                                         onChange={(e) => setCompanyFilter(e.target.value)}
-                                        className="select-lg"
+                                        aria-label="Filter by Establishment"
                                     >
                                         <option value="">All GS Entities</option>
                                         {uniqueCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
                                 </div>
                             </div>
+                        )}
+
+                        {(searchTerm || statusFilter || companyFilter) && (
+                            <button 
+                                className="btn-reset-p" 
+                                onClick={() => { setSearchTerm(''); setStatusFilter(''); setCompanyFilter(''); }}
+                                title="Reset all filters"
+                            >
+                                <FiX size={14} /> <span>Reset Filter</span>
+                            </button>
                         )}
                     </div>
                 </div>
@@ -762,29 +777,14 @@ function VacancyApprovals({ admin }) {
                 </div>
 
                 {/* PAGINATION */}
-                {totalPages > 1 && (
-                    <div className="pagination-footer">
-                        <div className="page-info">
-                            Showing <strong>{startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredVacancies.length)}</strong> of <strong>{filteredVacancies.length}</strong> requisitions
-                        </div>
-                        <div className="pagination-controls" style={{ display: 'flex', gap: '12px' }}>
-                            <button 
-                                className="page-btn"
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                disabled={currentPage === 1}
-                            >
-                                <FiChevronLeft /> Previous
-                            </button>
-                            <button 
-                                className="page-btn"
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                            >
-                                Next <FiChevronRight />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <PaginationFooter
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredVacancies.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    label="requisitions"
+                />
             </div>
 
             {/* DETAIL MODAL */}

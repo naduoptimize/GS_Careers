@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_BASE = "http://localhost:8000/api";
+export const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
 
 const api = axios.create({
     baseURL: API_BASE,
@@ -139,5 +139,14 @@ export const getSettings = () => api.get('/settings.php');
 export const saveSettings = (data) => api.post('/settings.php', data);
 export const testSmtpSettings = (data) => api.post('/settings.php?action=test', data);
 export const getPublicPdpa = () => api.get('/public_pdpa.php');
+
+// CV Extractions
+export const getExtractions = (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return api.get(`/applications.php?action=list_extractions&${query}`);
+};
+export const extractCvAdmin = (data) => api.post('/applications.php?action=extract_cv', data);
+export const getExtractionSetting = () => api.get('/applications.php?action=get_extraction_setting');
+export const updateExtractionSetting = (data) => api.post('/applications.php?action=update_extraction_setting', data);
 
 export default api;

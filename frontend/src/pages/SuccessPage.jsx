@@ -12,7 +12,7 @@ function SuccessPage() {
         <div className="success-page-v2">
             <div className="success-v2-bg"></div>
 
-            <nav className="navbar" style={{ background: 'transparent', border: 'none', position: 'absolute', top: 0, width: '100%', zIndex: 20 }}>
+            <nav className="navbar" style={{ background: 'transparent', border: 'none', position: 'absolute', top: 0, width: '100%', zIndex: 20, padding: '16px 28px' }}>
                 <Link to="/" className="navbar-brand">
                     <img src="/gs-logo.png" alt="George Steuart & Co" className="navbar-logo" style={{ filter: 'brightness(0) invert(1)' }} />
                     <div>
@@ -25,8 +25,8 @@ function SuccessPage() {
             <div className="success-v2-container">
                 <div className="success-v2-card">
                     {/* Dynamic Company Logo */}
-                    <div className="success-v2-company-logo animate-fade-in" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
-                        <div style={{ width: '80px', height: '80px', background: '#fff', borderRadius: '16px', padding: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="success-v2-company-logo animate-fade-in" style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{ width: '64px', height: '64px', background: '#fff', borderRadius: '14px', padding: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <img 
                                 src={vacancy?.company_logo ? `${BACKEND_ROOT}/uploads/logos/${vacancy.company_logo}` : "/gs-logo.png"} 
                                 alt={vacancy?.company_name || "George Steuart"}

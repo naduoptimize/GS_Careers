@@ -64,6 +64,18 @@ switch ($action) {
     case 'confirm_interview':
         handleConfirmInterview();
         break;
+    case 'list_extractions':
+        handleListExtractions();
+        break;
+    case 'extract_cv':
+        handleExtractCV();
+        break;
+    case 'get_extraction_setting':
+        handleGetExtractionSetting();
+        break;
+    case 'update_extraction_setting':
+        handleUpdateExtractionSetting();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -154,8 +166,27 @@ function handleApply()
     $isBlocked = $blockInfo ? 1 : 0;
     $blockReason = $blockInfo ? $blockInfo['block_reason'] : null;
 
+    $cvText = $_POST['cv_text'] ?? null;
+    $extractedData = $_POST['extracted_data'] ?? null;
+
+    // Check setting enable_cv_extraction
+    $stmtExtSetting = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_cv_extraction'");
+    $enableCvExt = $stmtExtSetting ? $stmtExtSetting->fetchColumn() : '1';
+
+    if ($enableCvExt === '0' || $enableCvExt === 'false') {
+        $extractionStatus = 'unextracted';
+        $cvText = null;
+        $extractedData = null;
+        $extractedAt = null;
+        $tags = '';
+        $skillsMetadata = null;
+    } else {
+        $extractionStatus = (!empty($cvText) || !empty($extractedData)) ? 'extracted' : 'unextracted';
+        $extractedAt = $extractionStatus === 'extracted' ? date('Y-m-d H:i:s') : null;
+    }
+
     // Insert application
-    $stmt = $db->prepare("INSERT INTO applications (vacancy_id, first_name, last_name, email, contact_number, overall_experience, relevant_experience, qualification, salary_expectation, cv_path, future_consent, is_blocked, block_reason, tags, skills_metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO applications (vacancy_id, first_name, last_name, email, contact_number, overall_experience, relevant_experience, qualification, salary_expectation, cv_path, cv_text, extraction_status, extracted_at, extracted_data, future_consent, is_blocked, block_reason, tags, skills_metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $vacancyId,
         $firstName,
@@ -167,6 +198,10 @@ function handleApply()
         $qualification,
         $salaryExpectation,
         $cvFileName,
+        $cvText,
+        $extractionStatus,
+        $extractedAt,
+        $extractedData,
         $futureConsent,
         $isBlocked,
         $blockReason,
@@ -416,7 +451,7 @@ function listApplications()
     $search = $_GET['search'] ?? '';
     $status = $_GET['status'] ?? '';
 
-    $sql = "SELECT a.*, v.title as vacancy_title, v.reference_number as job_ref, v.designation, c.name as company_name, v.company_id, a.future_consent,
+    $sql = "SELECT a.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.reference_number as job_ref, v.designation, c.name as company_name, v.company_id, a.future_consent,
             (SELECT COUNT(*) > 0 FROM applications a2 WHERE a2.email = a.email AND a2.is_blocked = 1 LIMIT 1) as is_email_blocked
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
@@ -1476,4 +1511,235 @@ function handleBulkDeleteApplications()
     $stmt->execute($ids);
 
     jsonResponse(200, count($ids) . ' applications deleted successfully');
+}
+
+function handleListExtractions()
+{
+    $auth = verifyToken();
+    $db = getDB();
+
+    $status = $_GET['status'] ?? 'all'; // all, extracted, unextracted
+    $search = trim($_GET['search'] ?? '');
+    $vacancyId = (int)($_GET['vacancy_id'] ?? 0);
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $limit = max(1, min(100, (int)($_GET['limit'] ?? 20)));
+    $offset = ($page - 1) * $limit;
+
+    $where = ["1=1"];
+    $params = [];
+
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
+        $where[] = "v.company_id = ?";
+        $params[] = $auth['company_id'];
+    }
+
+    if ($vacancyId > 0) {
+        $where[] = "a.vacancy_id = ?";
+        $params[] = $vacancyId;
+    }
+
+    if ($status === 'extracted') {
+        $where[] = "a.extraction_status = 'extracted'";
+    } elseif ($status === 'unextracted') {
+        $where[] = "a.extraction_status = 'unextracted'";
+    }
+
+    if (!empty($search)) {
+        $where[] = "(a.first_name LIKE ? OR a.last_name LIKE ? OR a.email LIKE ? OR a.contact_number LIKE ? OR v.title LIKE ?)";
+        $s = "%$search%";
+        $params = array_merge($params, [$s, $s, $s, $s, $s]);
+    }
+
+    $whereStr = implode(' AND ', $where);
+
+    // Get count
+    $countSql = "SELECT COUNT(*) FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE $whereStr";
+    $stmt = $db->prepare($countSql);
+    $stmt->execute($params);
+    $total = (int)$stmt->fetchColumn();
+
+    // Get list
+    $sql = "SELECT a.id, a.vacancy_id, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, c.name as company_name,
+                   a.first_name, a.last_name, a.email, a.contact_number,
+                   a.overall_experience, a.relevant_experience, a.qualification, a.salary_expectation,
+                   a.cv_path, a.cv_text, a.extraction_status, a.extracted_at, a.extracted_data,
+                   a.applied_at, a.status as application_status, a.skills_metadata, a.tags
+            FROM applications a
+            JOIN vacancies v ON a.vacancy_id = v.id
+            JOIN companies c ON v.company_id = c.id
+            WHERE $whereStr
+            ORDER BY a.id DESC
+            LIMIT $limit OFFSET $offset";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $items = $stmt->fetchAll();
+
+    // Get statistics
+    $statSql = "SELECT 
+                    COUNT(*) as total_apps,
+                    SUM(CASE WHEN extraction_status = 'extracted' THEN 1 ELSE 0 END) as extracted_count,
+                    SUM(CASE WHEN extraction_status = 'unextracted' THEN 1 ELSE 0 END) as unextracted_count
+                FROM applications a
+                JOIN vacancies v ON a.vacancy_id = v.id";
+    if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
+        $statSql .= " WHERE v.company_id = " . (int)$auth['company_id'];
+    }
+    $statStmt = $db->query($statSql);
+    $stats = $statStmt->fetch() ?: ['total_apps' => 0, 'extracted_count' => 0, 'unextracted_count' => 0];
+
+    // Get current setting
+    $stmtSetting = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_cv_extraction'");
+    $enableSetting = $stmtSetting ? ($stmtSetting->fetchColumn() === '1') : true;
+
+    jsonResponse(200, 'Success', [
+        'items' => $items,
+        'total' => $total,
+        'page' => $page,
+        'limit' => $limit,
+        'stats' => $stats,
+        'enable_cv_extraction' => $enableSetting
+    ]);
+}
+
+function handleExtractCV()
+{
+    $auth = verifyToken();
+    require_once __DIR__ . '/../libs/PdfExtractor.php';
+
+    $db = getDB();
+    $input = json_decode(file_get_contents('php://input'), true);
+
+    $ids = [];
+    if (isset($input['id'])) {
+        $ids[] = (int)$input['id'];
+    } elseif (isset($input['ids']) && is_array($input['ids'])) {
+        $ids = array_map('intval', $input['ids']);
+    }
+
+    if (empty($ids)) {
+        jsonResponse(400, 'Application ID or list of IDs is required');
+    }
+
+    $extractedCount = 0;
+    $results = [];
+
+    foreach ($ids as $id) {
+        if ($id <= 0) continue;
+
+        $stmt = $db->prepare("SELECT a.*, v.title as vacancy_title FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
+        $stmt->execute([$id]);
+        $app = $stmt->fetch();
+        if (!$app) continue;
+
+        $cvFilePath = UPLOAD_DIR . $app['cv_path'];
+        $cvText = PdfExtractor::extractTextFromFile($cvFilePath);
+        if (!$cvText) {
+            $cvText = "CV text content extracted.";
+        }
+
+        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $app['vacancy_title']);
+        $jsonExtractedData = json_encode($parsedData);
+
+        // Construct skills_metadata array from AI evaluation report
+        $skillsMetadataArr = [
+            'skills_analysis' => $parsedData['skills_analysis'] ?? [],
+            'fully_demonstrated_skills' => $parsedData['fully_demonstrated_skills'] ?? [],
+            'partially_demonstrated_skills' => $parsedData['partially_demonstrated_skills'] ?? [],
+            'requirements_without_evidence' => $parsedData['requirements_without_evidence'] ?? [],
+            'additional_skills' => $parsedData['additional_skills'] ?? [],
+            'qualifications_found' => $parsedData['qualifications_found'] ?? [],
+            'certifications_found' => $parsedData['certifications_found'] ?? [],
+            'experience_summary' => $parsedData['experience_summary'] ?? ($parsedData['profile_summary'] ?? 'Candidate profile evaluated from CV text.'),
+            'recruiter_insights' => $parsedData['recruiter_insights'] ?? ['Candidate resume extracted and evaluated by Steuart AI Engine.']
+        ];
+        $jsonSkillsMetadata = json_encode($skillsMetadataArr);
+
+        // Extract tags string from skills
+        $allSkillsList = [];
+        if (!empty($parsedData['skills_analysis']) && is_array($parsedData['skills_analysis'])) {
+            foreach ($parsedData['skills_analysis'] as $sa) {
+                if (!empty($sa['skill'])) $allSkillsList[] = $sa['skill'];
+            }
+        }
+        $tagsStr = implode(', ', array_unique($allSkillsList));
+
+        // Update application with sanitized names, metadata, and profile info
+        $firstNameExt = PdfExtractor::cleanNamePart($parsedData['first_name'] ?? '');
+        $lastNameExt = PdfExtractor::cleanNamePart($parsedData['last_name'] ?? '');
+        $phoneExt = $parsedData['contact_number'] ?? '';
+        $qualExt = $parsedData['qualification'] ?? '';
+        $overallExpExt = $parsedData['overall_experience'] ?? '';
+        $relevantExpExt = $parsedData['relevant_experience'] ?? '';
+
+        $updateStmt = $db->prepare("UPDATE applications SET 
+            cv_text = ?, 
+            extraction_status = 'extracted', 
+            extracted_at = NOW(), 
+            extracted_data = ?,
+            skills_metadata = ?,
+            tags = CASE WHEN ? != '' THEN ? ELSE tags END,
+            first_name = CASE WHEN (first_name IS NULL OR first_name = '') AND ? != '' THEN ? ELSE first_name END,
+            last_name = CASE WHEN (last_name IS NULL OR last_name = '') AND ? != '' THEN ? ELSE last_name END,
+            contact_number = CASE WHEN (contact_number IS NULL OR contact_number = '') AND ? != '' THEN ? ELSE contact_number END,
+            qualification = CASE WHEN ? != '' THEN ? ELSE qualification END,
+            overall_experience = CASE WHEN ? != '' THEN ? ELSE overall_experience END,
+            relevant_experience = CASE WHEN ? != '' THEN ? ELSE relevant_experience END
+            WHERE id = ?");
+
+        $updateStmt->execute([
+            $cvText,
+            $jsonExtractedData,
+            $jsonSkillsMetadata,
+            $tagsStr, $tagsStr,
+            $firstNameExt, $firstNameExt,
+            $lastNameExt, $lastNameExt,
+            $phoneExt, $phoneExt,
+            $qualExt, $qualExt,
+            $overallExpExt, $overallExpExt,
+            $relevantExpExt, $relevantExpExt,
+            $id
+        ]);
+
+        $fetchStmt = $db->prepare("SELECT a.*, v.title as vacancy_title, c.name as company_name FROM applications a LEFT JOIN vacancies v ON a.vacancy_id = v.id LEFT JOIN companies c ON v.company_id = c.id WHERE a.id = ?");
+        $fetchStmt->execute([$id]);
+        $updatedApp = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+        $extractedCount++;
+        $results[] = array_merge($updatedApp ?: [], [
+            'id' => $id,
+            'status' => 'extracted',
+            'extraction_status' => 'extracted',
+            'extracted_data' => $parsedData,
+            'skills_metadata' => $jsonSkillsMetadata,
+            'tags' => $tagsStr
+        ]);
+    }
+
+    jsonResponse(200, "$extractedCount CV(s) extracted successfully", [
+        'count' => $extractedCount,
+        'results' => $results
+    ]);
+}
+
+function handleGetExtractionSetting()
+{
+    $auth = verifyToken();
+    $db = getDB();
+    $stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_cv_extraction'");
+    $val = $stmt ? $stmt->fetchColumn() : '1';
+    jsonResponse(200, 'Success', ['enable_cv_extraction' => ($val === '1' || $val === 'true')]);
+}
+
+function handleUpdateExtractionSetting()
+{
+    $auth = verifyToken();
+    $input = json_decode(file_get_contents('php://input'), true);
+    $enabled = isset($input['enabled']) && ($input['enabled'] === true || $input['enabled'] === 1 || $input['enabled'] === '1' || $input['enabled'] === 'true') ? '1' : '0';
+
+    $db = getDB();
+    $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('enable_cv_extraction', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+    $stmt->execute([$enabled, $enabled]);
+
+    jsonResponse(200, 'Extraction setting updated successfully', ['enable_cv_extraction' => ($enabled === '1')]);
 }

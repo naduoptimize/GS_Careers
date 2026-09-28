@@ -278,29 +278,7 @@ function Dashboard({ admin }) {
                         </div>
                     </div>
 
-                    {/* SYSTEM STATUS */}
-                    <div className="status-console-card">
-                        <div className="console-header">
-                            <div className="live-dot pulse"></div>
-                            <span>System Status: Healthy</span>
-                        </div>
-                        <div className="status-metrics">
-                            <div className="status-metric">
-                                <span>Uptime</span>
-                                <div className="metric-bar"><div className="metric-fill" style={{ width: '99%' }}></div></div>
-                                <span className="metric-val">99%</span>
-                            </div>
-                            <div className="status-metric">
-                                <span>Database</span>
-                                <div className="metric-bar"><div className="metric-fill" style={{ width: '95%' }}></div></div>
-                                <span className="metric-val">Sync</span>
-                            </div>
-                        </div>
-                        <p>All recruitment services are operational. GS legacy cloud is synchronized.</p>
-                        <div className="console-footer">
-                            <span>V 2.5.0 · Premium Edition</span>
-                        </div>
-                    </div>
+
 
                     <div className="heritage-footer-p">
                         <img src="/gs-logo.png" alt="GS" />

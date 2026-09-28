@@ -4,6 +4,7 @@ import { getTalentPool, getCompanies, updateCandidateTags, API_BASE, deleteAppli
 import { OVERALL_EXPERIENCE_OPTIONS, QUALIFICATION_OPTIONS, formatDate } from '../../utils/constants';
 import { FiSearch, FiMail, FiPhone, FiFileText, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiUserCheck, FiChevronRight, FiChevronLeft, FiTag, FiPlus, FiAlertCircle, FiBarChart, FiBookOpen, FiDownload, FiTrash2, FiSlash, FiShield } from 'react-icons/fi';
 import './TalentPool.css';
+import PaginationFooter from '../../components/PaginationFooter';
 import { renderAsync } from 'docx-preview';
 import axios from 'axios';
 
@@ -286,38 +287,54 @@ function TalentPool({ admin }) {
                             value={filters.search}
                             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                         />
+                        {filters.search && (
+                            <button
+                                type="button"
+                                className="clear-search-btn"
+                                onClick={() => setFilters({ ...filters, search: '' })}
+                                title="Clear search"
+                            >
+                                <FiX />
+                            </button>
+                        )}
                     </div>
-                    <button className="btn-reset-p" onClick={clearFilters}>
-                        <FiX /> <span>Reset Discovery</span>
-                    </button>
+                    {(filters.search || filters.company_id || filters.overall_experience || filters.tag || filters.qualification || filters.status) && (
+                        <button className="btn-reset-p" onClick={clearFilters}>
+                            <FiX /> <span>Reset Discovery</span>
+                        </button>
+                    )}
+
+                    {/* Pool Mode Toggle */}
+                    <div className="pool-toggle-group" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e2e8f0', flexShrink: 0, height: 44 }}>
+                        <button
+                            type="button"
+                            onClick={() => setFilters({ ...filters, show_blocked: '' })}
+                            style={{
+                                padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
+                                background: filters.show_blocked !== '1' ? 'linear-gradient(135deg, #1a1a2e, #2a050b)' : '#fff',
+                                color: filters.show_blocked !== '1' ? '#c8a951' : '#94a3b8',
+                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
+                            }}
+                        >
+                            <FiUserCheck size={14} /> Active Pool ({activeCount})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setFilters({ ...filters, show_blocked: '1' })}
+                            style={{
+                                padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
+                                borderLeft: '1.5px solid #e2e8f0',
+                                background: filters.show_blocked === '1' ? '#fef2f2' : '#fff',
+                                color: filters.show_blocked === '1' ? '#dc2626' : '#94a3b8',
+                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
+                            }}
+                        >
+                            <FiSlash size={14} /> Blocked ({blockedCount})
+                        </button>
+                    </div>
                 </div>
 
-                {/* Pool Mode Toggle */}
-                <div style={{ display: 'flex', gap: 0, borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e2e8f0', alignSelf: 'flex-start' }}>
-                    <button
-                        onClick={() => setFilters({ ...filters, show_blocked: '' })}
-                        style={{
-                            padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
-                            background: filters.show_blocked !== '1' ? 'linear-gradient(135deg, #1a1a2e, #2a050b)' : '#fff',
-                            color: filters.show_blocked !== '1' ? '#c8a951' : '#94a3b8',
-                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8
-                        }}
-                    >
-                        <FiUserCheck size={14} /> Active Pool ({activeCount})
-                    </button>
-                    <button
-                        onClick={() => setFilters({ ...filters, show_blocked: '1' })}
-                        style={{
-                            padding: '10px 20px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
-                            borderLeft: '1.5px solid #e2e8f0',
-                            background: filters.show_blocked === '1' ? '#fef2f2' : '#fff',
-                            color: filters.show_blocked === '1' ? '#dc2626' : '#94a3b8',
-                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 8
-                        }}
-                    >
-                        <FiSlash size={14} /> Blocked ({blockedCount})
-                    </button>
-                </div>
+                <div className="toolbar-divider" />
 
                 <div className="toolbar-filters-row">
                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
@@ -362,24 +379,6 @@ function TalentPool({ admin }) {
                     </div>
 
                     <div className="filter-group">
-                        <label>Talent Tag</label>
-                        <div className="select-orchestrator">
-                            <FiTag className="f-icon" />
-                            <select 
-                                id="tag_filter" 
-                                name="tag" 
-                                value={filters.tag} 
-                                onChange={(e) => setFilters({ ...filters, tag: e.target.value })}
-                            >
-                                <option value="">Filter by Tag</option>
-                                {uniqueTags.map(tag => (
-                                    <option key={tag} value={tag}>{tag}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="filter-group">
                         <label>Academic Status</label>
                         <div className="select-orchestrator">
                             <FiFileText className="f-icon" />
@@ -418,12 +417,19 @@ function TalentPool({ admin }) {
             {/* Data Orchestration Table */}
             <div className="premium-table-container">
                 <table className="premium-table">
+                    <colgroup>
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '22%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '10%' }} />
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Candidate Identity</th>
-                            <th>Credentials & Tags</th>
+                            <th>Credentials &amp; Tags</th>
                             <th>Prior Submission</th>
-                            <th>Timeline & Seniority</th>
+                            <th>Timeline &amp; Seniority</th>
                             <th style={{ textAlign: 'right' }}>Actions</th>
                         </tr>
                     </thead>
@@ -452,14 +458,16 @@ function TalentPool({ admin }) {
                                 <td>
                                     <div className="candidate-cell">
                                         <div className="avatar-p"><FiUser /></div>
-                                        <div className="info-p">
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <span className="name-p">{cand.first_name} {cand.last_name}</span>
-                                            {cand.last_status === 'shortlisted' && <span className="status-badge-p badge-shortlisted">Favored</span>}
+                                        <div className="info-p" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                            <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.88rem' }}>
+                                                {cand.first_name} {cand.last_name}
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                {cand.last_status === 'shortlisted' && <span className="status-badge-p badge-shortlisted">Favored</span>}
                                                 {cand.last_status === 'rejected' && <span className="status-badge-p badge-rejected">Refused</span>}
                                                 {cand.is_blocked == 1 && <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 100, fontSize: '0.6rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 3 }}><FiSlash size={9} /> Blocked</span>}
                                             </div>
-                                            <span className="email-p"><FiMail size={11} /> {cand.email}</span>
+                                            <span className="email-p" style={{ margin: 0 }}><FiMail size={11} /> {cand.email}</span>
                                         </div>
                                     </div>
                                 </td>
@@ -530,27 +538,14 @@ function TalentPool({ admin }) {
                     </tbody>
                 </table>
 
-                <div className="pagination-footer">
-                        <div className="page-info">
-                            Showing <strong>{startIndex + 1}-{Math.min(startIndex + itemsPerPage, candidates.length)}</strong> of <strong>{candidates.length}</strong> candidates
-                        </div>
-                        <div className="pagination-controls">
-                            <button 
-                                className="page-btn"
-                                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
-                                disabled={currentPage === 1}
-                            >
-                                <FiChevronLeft /> Previous
-                            </button>
-                            <button 
-                                className="page-btn"
-                                onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, totalPages)); }}
-                                disabled={currentPage === totalPages || totalPages === 0}
-                            >
-                            Next <FiChevronRight />
-                        </button>
-                    </div>
-                </div>
+                <PaginationFooter
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={candidates.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    label="candidates"
+                />
             </div>
 
             {/* Detail Modal - Fixing the Top/Bottom cut-off issue */}
@@ -1083,56 +1078,67 @@ function TalentPool({ admin }) {
                 }
 
                 .toolbar-filters-row {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 16px;
-                    padding-top: 16px;
-                    border-top: 1px solid #f1f5f9;
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+                    gap: 14px;
+                    width: 100%;
+                    align-items: end;
+                    box-sizing: border-box;
                 }
 
                 .filter-group {
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
-                    flex: 1;
-                    min-width: 160px;
+                    gap: 4px;
+                    width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
 
                 .filter-group label {
-                    font-size: 0.65rem;
+                    font-size: 0.68rem;
                     font-weight: 800;
-                    color: #94a3b8;
+                    color: #64748b;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
-                    padding-left: 4px;
+                    letter-spacing: 0.06em;
+                    margin-bottom: 2px;
                 }
 
                 .select-orchestrator {
                     position: relative;
+                    width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
 
                 .f-icon {
                     position: absolute;
-                    left: 14px;
+                    left: 11px;
                     top: 50%;
                     transform: translateY(-50%);
                     color: var(--crimson);
                     pointer-events: none;
-                    z-index: 10;
+                    z-index: 5;
+                    font-size: 0.92rem;
                 }
 
                 .select-orchestrator select {
                     width: 100%;
-                    padding: 0 32px 0 38px;
-                    height: 46px;
+                    box-sizing: border-box;
+                    padding: 0 28px 0 34px;
+                    height: 42px;
                     border-radius: 12px;
-                    border: 1.5px solid #f1f5f9;
+                    border: 1.5px solid #e2e8f0;
                     background: #f8fafc;
-                    font-size: 0.8rem;
-                    font-weight: 700;
+                    font-size: 0.82rem;
+                    font-weight: 600;
                     appearance: none;
+                    -webkit-appearance: none;
                     cursor: pointer;
                     color: var(--text-primary);
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
                     transition: all 0.2s;
                     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
                     background-repeat: no-repeat;
@@ -1144,10 +1150,10 @@ function TalentPool({ admin }) {
                     outline: none;
                     border-color: var(--crimson);
                     background: #fff;
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
+                    box-shadow: 0 0 0 3.5px rgba(139, 26, 43, 0.08);
                 }
 
-                .select-lg { min-width: 200px; }
+                .select-lg { min-width: 0; }
 
                 /* TABLE */
                 .orchestration-table-wrapper {

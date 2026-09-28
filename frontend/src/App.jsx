@@ -28,6 +28,7 @@ import VacancyApprovals from './pages/admin/VacancyApprovals';
 import ApprovalTracker from './pages/admin/ApprovalTracker';
 import AuditLog from './pages/admin/AuditLog';
 import SettingsPage from './pages/admin/SettingsPage';
+import CvExtractionsPage from './pages/admin/CvExtractionsPage';
 
 function ProtectedRoute({ children }) {
     const [auth, setAuth] = useState(null);
@@ -106,7 +107,10 @@ function App() {
                                     </>
                                 )}
                                 {admin.role === 'super_admin' && (
-                                    <Route path="/settings" element={<SettingsPage admin={admin} />} />
+                                    <>
+                                        <Route path="/cv-extractions" element={<CvExtractionsPage admin={admin} />} />
+                                        <Route path="/settings" element={<SettingsPage admin={admin} />} />
+                                    </>
                                 )}
                                 <Route path="*" element={<Navigate to="/admin" />} />
                             </Routes>

@@ -244,8 +244,9 @@ function CompanyReports({ admin }) {
                                                 </span>
                                             </td>
                                             <td data-label="Analysis" style={{ textAlign: 'center' }}>
-                                                <button className="o-btn view" title="Expand Recruitment Breakdown" style={{ border: 'none', background: isSelected ? 'var(--crimson)' : 'rgba(139,26,43,0.05)', color: isSelected ? '#fff' : 'var(--crimson)', transition: 'all 0.2s', margin: '0 auto' }}>
+                                                <button className="o-btn view mobile-analysis-btn" title="Expand Recruitment Breakdown" style={{ border: 'none', background: isSelected ? 'var(--crimson)' : 'rgba(139,26,43,0.05)', color: isSelected ? '#fff' : 'var(--crimson)', transition: 'all 0.2s', margin: '0 auto' }}>
                                                     <FiExternalLink />
+                                                    <span className="mobile-btn-text" style={{ display: 'none' }}>{isSelected ? 'Close Details' : 'View Details'}</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -258,13 +259,13 @@ function CompanyReports({ admin }) {
 
                 {/* RIGHT COLUMN: DIVISION DETAIL BREAKDOWN PANEL */}
                 {selectedCompanyId && selectedCompanyReport && (
-                    <div className="results-card-p animate-slide-left" style={{ border: '1px solid rgba(200, 169, 81, 0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.06)' }}>
-                        <div className="orchestration-header" style={{ padding: '24px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(to right, #fff, #fafafa)', position: 'relative' }}>
+                    <div className="results-card-p animate-slide-left breakdown-sidebar-panel" style={{ border: '1px solid rgba(200, 169, 81, 0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.06)' }}>
+                        <div className="orchestration-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(to right, #fff, #fafafa)', position: 'relative' }}>
                             <button className="close-btn-p" style={{ position: 'absolute', right: '16px', top: '16px', border: 'none', background: '#f1f5f9', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }} onClick={(e) => { e.stopPropagation(); setSelectedCompanyId(null); }}>
                                 <FiX size={14} />
                             </button>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                                <div style={{ width: '48px', height: '48px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', overflow: 'hidden', padding: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                                <div style={{ width: '44px', height: '44px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', overflow: 'hidden', padding: '4px', flexShrink: 0 }}>
                                     <img
                                         src={selectedCompanyReport.logo ? `${BACKEND_ROOT}/uploads/logos/${selectedCompanyReport.logo}` : "/gs-logo.png"}
                                         alt={selectedCompanyReport.name}
@@ -272,18 +273,18 @@ function CompanyReports({ admin }) {
                                         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                                     />
                                 </div>
-                                <div style={{ minWidth: 0 }}>
-                                    <h3 style={{ fontSize: '1.1rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#1e293b' }}>{selectedCompanyReport.name}</h3>
+                                <div style={{ minWidth: 0, flex: 1, paddingRight: '24px' }}>
+                                    <h3 style={{ fontSize: '1.05rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#1e293b', fontWeight: 800 }}>{selectedCompanyReport.name}</h3>
                                     <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{selectedCompanyReport.location || 'Colombo, Sri Lanka'}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ padding: '24px' }}>
+                        <div style={{ padding: '20px 24px' }}>
                             <h4 style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--crimson)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '16px' }}>Active Pipelines ({selectedCompanyReport.totalVacancies})</h4>
                             
                             {selectedCompanyReport.vacanciesList.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px 20px', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #e2e8f0' }}>
+                                <div style={{ textAlign: 'center', padding: '36px 20px', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #e2e8f0' }}>
                                     <FiBriefcase size={28} style={{ color: '#cbd5e1', marginBottom: '8px' }} />
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>No vacancies registered under this subsidiary.</p>
                                 </div>
@@ -341,6 +342,237 @@ function CompanyReports({ admin }) {
                 .pipeline-drilldown-list::-webkit-scrollbar-thumb {
                     background: #cbd5e1;
                     border-radius: 10px;
+                }
+
+                /* ── RESPONSIVE COMPONENT STYLES ── */
+                .premium-admins-page {
+                    width: 100%;
+                    max-width: 100%;
+                    box-sizing: border-box;
+                }
+
+                /* 1. HERO BANNER RESPONSIVENESS */
+                @media (max-width: 768px) {
+                    .dashboard-hero-premium {
+                        padding: 20px 18px !important;
+                        flex-direction: column !important;
+                        align-items: flex-start !important;
+                        gap: 16px !important;
+                        border-radius: 16px !important;
+                    }
+                    .hero-badge-p {
+                        font-size: 0.68rem !important;
+                        padding: 4px 12px !important;
+                        margin-bottom: 10px !important;
+                    }
+                    .hero-title-p {
+                        font-size: 1.35rem !important;
+                        line-height: 1.25 !important;
+                    }
+                    .hero-subtitle-p {
+                        font-size: 0.8rem !important;
+                        margin-top: 6px !important;
+                        line-height: 1.4 !important;
+                    }
+                    .hero-actions-p {
+                        width: 100% !important;
+                        margin-top: 4px !important;
+                    }
+                    .hero-actions-p .btn-hero-p {
+                        width: 100% !important;
+                        justify-content: center !important;
+                        padding: 10px 16px !important;
+                        font-size: 0.85rem !important;
+                        border-radius: 10px !important;
+                    }
+                }
+
+                /* 2. STATS MOSAIC GRID RESPONSIVENESS */
+                @media (min-width: 1025px) {
+                    .stats-mosaic-grid.admin-grid-4 {
+                        grid-template-columns: repeat(4, 1fr) !important;
+                        gap: 16px !important;
+                    }
+                }
+
+                @media (max-width: 1024px) and (min-width: 601px) {
+                    .stats-mosaic-grid.admin-grid-4 {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 14px !important;
+                    }
+                }
+
+                @media (max-width: 600px) {
+                    .stats-mosaic-grid.admin-grid-4 {
+                        grid-template-columns: repeat(2, 1fr) !important;
+                        gap: 10px !important;
+                    }
+                }
+
+                @media (max-width: 440px) {
+                    .stats-mosaic-grid.admin-grid-4 {
+                        grid-template-columns: 1fr !important;
+                        gap: 10px !important;
+                    }
+                }
+
+                /* 3. SEARCH TOOLBAR RESPONSIVENESS */
+                @media (max-width: 768px) {
+                    .console-toolbar-p {
+                        padding: 10px 12px !important;
+                        margin-bottom: 16px !important;
+                        border-radius: 14px !important;
+                    }
+                    .console-toolbar-p input {
+                        font-size: 0.82rem !important;
+                        padding-top: 10px !important;
+                        padding-bottom: 10px !important;
+                    }
+                }
+
+                /* 4. SPLIT LAYOUT RESPONSIVENESS */
+                .analytics-layout-split {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 20px;
+                    align-items: start;
+                    transition: all 0.3s ease;
+                }
+
+                @media (min-width: 1100px) {
+                    .analytics-layout-split.has-sidebar {
+                        grid-template-columns: 1fr 380px !important;
+                    }
+                }
+
+                @media (max-width: 1099px) {
+                    .analytics-layout-split.has-sidebar {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+
+                /* 5. TABLE & DESKTOP STYLING */
+                .table-wrapper-p {
+                    width: 100%;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+
+                .premium-table.orchestration-table th {
+                    font-size: 0.68rem;
+                    letter-spacing: 1.2px;
+                    padding: 12px 14px;
+                    white-space: nowrap;
+                }
+
+                .premium-table.orchestration-table td {
+                    padding: 12px 14px;
+                    vertical-align: middle;
+                }
+
+                /* 6. MOBILE CARD TRANSFORM FOR TABLE (SCREENS <= 768px) */
+                @media (max-width: 768px) {
+                    .table-wrapper-p {
+                        overflow-x: visible !important;
+                    }
+
+                    .premium-table.orchestration-table {
+                        min-width: 0 !important;
+                        width: 100% !important;
+                        display: block !important;
+                    }
+
+                    .premium-table.orchestration-table thead {
+                        display: none !important;
+                    }
+
+                    .premium-table.orchestration-table tbody {
+                        display: flex !important;
+                        flex-direction: column !important;
+                        gap: 12px !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr.orchestration-row {
+                        display: grid !important;
+                        grid-template-columns: 1fr 1fr !important;
+                        gap: 10px 12px !important;
+                        background: #ffffff !important;
+                        border-radius: 16px !important;
+                        border: 1px solid #e2e8f0 !important;
+                        padding: 14px 16px !important;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.03) !important;
+                        box-sizing: border-box !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr.orchestration-row.selected-row-active {
+                        border-color: var(--crimson) !important;
+                        background: rgba(139,26,43,0.02) !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td[data-label="Subsidiary Company"] {
+                        grid-column: 1 / -1 !important;
+                        padding-bottom: 8px !important;
+                        border-bottom: 1px dashed #e2e8f0 !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td[data-label="Headquarters"] {
+                        grid-column: 1 / -1 !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td[data-label="Share of Pipeline"] {
+                        grid-column: 1 / -1 !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td[data-label="Analysis"] {
+                        grid-column: 1 / -1 !important;
+                        padding-top: 8px !important;
+                        border-top: 1px solid #f1f5f9 !important;
+                        display: flex !important;
+                        justify-content: flex-end !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td {
+                        display: block !important;
+                        padding: 0 !important;
+                        border: none !important;
+                        text-align: left !important;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td::before {
+                        content: attr(data-label);
+                        display: block;
+                        font-size: 0.65rem;
+                        font-weight: 800;
+                        text-transform: uppercase;
+                        letter-spacing: 0.8px;
+                        color: #94a3b8;
+                        margin-bottom: 4px;
+                    }
+
+                    .premium-table.orchestration-table tbody tr td[data-label="Subsidiary Company"]::before,
+                    .premium-table.orchestration-table tbody tr td[data-label="Analysis"]::before {
+                        display: none !important;
+                    }
+
+                    .share-metric-container {
+                        width: 100% !important;
+                    }
+
+                    .mobile-analysis-btn {
+                        width: 100% !important;
+                        height: 38px !important;
+                        border-radius: 10px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        gap: 8px !important;
+                        font-size: 0.82rem !important;
+                        font-weight: 700 !important;
+                    }
+
+                    .mobile-btn-text {
+                        display: inline-block !important;
+                    }
                 }
             `}</style>
         </div>

@@ -7,6 +7,7 @@ import {
     FiCopy
 } from 'react-icons/fi';
 import './ManageAdmins.css';
+import PaginationFooter from '../../components/PaginationFooter';
 import { getAdmins, createAdmin, updateAdmin, deleteAdmin, getCompanies, resetAdminPassword } from '../../services/api';
 
 function ManageAdmins({ admin }) {
@@ -23,6 +24,8 @@ function ManageAdmins({ admin }) {
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
+    const [companyFilter, setCompanyFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
@@ -124,17 +127,26 @@ function ManageAdmins({ admin }) {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, roleFilter]);
+    }, [searchTerm, roleFilter, companyFilter, statusFilter]);
 
     const filteredAdmins = admins.filter(a => {
-        const matchesSearch = 
-            a.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-            a.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            a.username?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = !searchTerm || (
+            (a.full_name && a.full_name.toLowerCase().includes(searchTerm.toLowerCase())) || 
+            (a.email && a.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (a.username && a.username.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
         
         const matchesRole = !roleFilter || a.role === roleFilter;
+        const matchesCompany = !companyFilter || String(a.company_id) === String(companyFilter);
+
+        let matchesStatus = true;
+        if (statusFilter === 'active') {
+            matchesStatus = !!a.is_active;
+        } else if (statusFilter === 'inactive') {
+            matchesStatus = !a.is_active;
+        }
         
-        return matchesSearch && matchesRole;
+        return matchesSearch && matchesRole && matchesCompany && matchesStatus;
     });
 
     const totalPages = Math.ceil(filteredAdmins.length / itemsPerPage);
@@ -218,15 +230,29 @@ function ManageAdmins({ admin }) {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="clear-search-btn"
+                                onClick={() => setSearchTerm('')}
+                                title="Clear search"
+                            >
+                                <FiX />
+                            </button>
+                        )}
                     </div>
-                    <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setRoleFilter(''); }}>
-                        <FiX /> <span>Reset Registry</span>
-                    </button>
+                    {(searchTerm || roleFilter || companyFilter || statusFilter) && (
+                        <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setRoleFilter(''); setCompanyFilter(''); setStatusFilter(''); }}>
+                            <FiX size={14} /> <span>Reset Registry</span>
+                        </button>
+                    )}
                 </div>
+
+                <div className="toolbar-divider" />
 
                 <div className="toolbar-filters-row">
                     <div className="filter-group">
-                        <label>Authority Role</label>
+                        <label className="filter-label">Authority Role</label>
                         <div className="select-orchestrator">
                             <FiFilter className="f-icon" />
                             <select 
@@ -248,6 +274,43 @@ function ManageAdmins({ admin }) {
                             </select>
                         </div>
                     </div>
+
+                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                        <div className="filter-group">
+                            <label className="filter-label">Establishment</label>
+                            <div className="select-orchestrator">
+                                <FiHome className="f-icon" />
+                                <select 
+                                    id="admin_company_filter" 
+                                    name="company_filter" 
+                                    value={companyFilter} 
+                                    onChange={(e) => setCompanyFilter(e.target.value)}
+                                    className="select-lg"
+                                >
+                                    <option value="">All GS Entities</option>
+                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="filter-group">
+                        <label className="filter-label">Account Status</label>
+                        <div className="select-orchestrator">
+                            <FiCheckCircle className="f-icon" />
+                            <select 
+                                id="admin_status_filter" 
+                                name="status_filter" 
+                                value={statusFilter} 
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="select-lg"
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="active">Active Only</option>
+                                <option value="inactive">Inactive Only</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -264,6 +327,13 @@ function ManageAdmins({ admin }) {
                 </div>
                 <div className="table-wrapper-p">
                     <table className="premium-table orchestration-table">
+                        <colgroup>
+                            <col style={{ width: '28%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '15%' }} />
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>IDENTIFIER</th>
@@ -353,29 +423,14 @@ function ManageAdmins({ admin }) {
                     </table>
                 </div>
 
-                <div className="pagination-footer">
-                    <div className="page-info">
-                        Showing <strong>{startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredAdmins.length)}</strong> of <strong>{filteredAdmins.length}</strong> administrators
-                    </div>
-                    <div className="pagination-controls" style={{ display: 'flex', gap: '12px' }}>
-                        <button 
-                            className="page-btn"
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            title="Previous Page"
-                        >
-                            <FiChevronLeft /> Previous
-                        </button>
-                        <button 
-                            className="page-btn"
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                            title="Next Page"
-                        >
-                            Next <FiChevronRight />
-                        </button>
-                    </div>
-                </div>
+                <PaginationFooter
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredAdmins.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    label="administrators"
+                />
             </div>
 
             {/* Create/Edit Modal */}

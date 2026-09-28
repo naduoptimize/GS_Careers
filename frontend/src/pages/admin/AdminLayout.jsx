@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { 
     FiGrid, FiBriefcase, FiUsers, FiUserPlus, FiLogOut, 
     FiMenu, FiX, FiTarget, FiChevronRight, FiSettings, 
-    FiCheckCircle, FiActivity, FiChevronsLeft, FiChevronsRight 
+    FiCheckCircle, FiActivity, FiChevronsLeft, FiChevronsRight, FiCpu 
 } from 'react-icons/fi';
 import { API_BASE, getPendingApprovals } from '../../services/api';
 
@@ -111,6 +111,7 @@ function AdminLayout({ admin, children }) {
     }
 
     if (admin.role === 'super_admin') {
+        navItems.push({ to: '/admin/cv-extractions', icon: <FiCpu />, label: 'CV Extractions', badge: null });
         navItems.push({ to: '/admin/settings', icon: <FiSettings />, label: 'Settings', badge: null });
     }
 

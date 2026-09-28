@@ -9,9 +9,10 @@ import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
     FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity,
-    FiUser, FiMail, FiPhone
+    FiUser, FiMail, FiPhone, FiHome, FiLayers
 } from 'react-icons/fi';
 import './ManageVacancies.css';
+import PaginationFooter from '../../components/PaginationFooter';
 
 // Helper to render job description/requirements with better formatting
 const renderFormattedText = (text) => {
@@ -294,6 +295,8 @@ function ManageVacancies({ admin }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [companyFilter, setCompanyFilter] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [employmentTypeFilter, setEmploymentTypeFilter] = useState('');
     const [viewDetail, setViewDetail] = useState(null);
     const [modalTab, setModalTab] = useState('details'); // 'details', 'history'
     const [currentPage, setCurrentPage] = useState(1);
@@ -481,12 +484,38 @@ function ManageVacancies({ admin }) {
         }
     };
 
-    const filteredVacancies = vacancies.filter(v =>
-        v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (v.reference_number && v.reference_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        v.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.designation.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredVacancies = vacancies.filter(v => {
+        const matchesSearch = !searchTerm || (
+            v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (v.reference_number && v.reference_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (v.company_name && v.company_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (v.designation && v.designation.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+
+        const matchesCompany = !companyFilter || String(v.company_id) === String(companyFilter);
+
+        let matchesStatus = true;
+        if (statusFilter) {
+            const isExpired = daysLeft(v.expire_date) <= 0;
+            const isActive = v.is_active && !isExpired && v.approval_status === 'approved';
+            if (statusFilter === 'active') {
+                matchesStatus = isActive;
+            } else if (statusFilter === 'pending') {
+                matchesStatus = v.approval_status === 'pending_subadmin1' || v.approval_status === 'pending_global';
+            } else if (statusFilter === 'draft') {
+                matchesStatus = v.approval_status === 'draft';
+            } else if (statusFilter === 'closed') {
+                matchesStatus = isExpired || !v.is_active || v.approval_status === 'rejected';
+            }
+        }
+
+        let matchesType = true;
+        if (employmentTypeFilter) {
+            matchesType = (v.employment_type || '').toLowerCase().includes(employmentTypeFilter.toLowerCase());
+        }
+
+        return matchesSearch && matchesCompany && matchesStatus && matchesType;
+    });
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredVacancies.length / itemsPerPage);
@@ -496,7 +525,7 @@ function ManageVacancies({ admin }) {
     // Reset to page 1 when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, companyFilter]);
+    }, [searchTerm, companyFilter, statusFilter, employmentTypeFilter]);
 
     // Handle card/row highlighting and scroll into view when redirecting from email
     const searchParams = new URLSearchParams(window.location.search);
@@ -581,18 +610,44 @@ function ManageVacancies({ admin }) {
                             id="vacancy_search"
                             name="vacancy_search"
                             type="text"
-                            placeholder="Search position, reference or establishment..."
+                            placeholder="Search position, reference, designation or establishment..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                className="clear-search-btn"
+                                onClick={() => setSearchTerm('')}
+                                title="Clear search"
+                            >
+                                <FiX />
+                            </button>
+                        )}
                     </div>
+                    {(searchTerm || companyFilter || statusFilter || employmentTypeFilter) && (
+                        <button 
+                            className="btn-reset-p" 
+                            onClick={() => { 
+                                setSearchTerm(''); 
+                                setCompanyFilter(''); 
+                                setStatusFilter(''); 
+                                setEmploymentTypeFilter(''); 
+                            }}
+                        >
+                            <FiX size={14} /> <span>Reset Filters</span>
+                        </button>
+                    )}
                 </div>
+
+                <div className="toolbar-divider" />
 
                 <div className="toolbar-filters-row">
                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
                         <div className="filter-group">
+                            <label htmlFor="company_filter" className="filter-label">Establishment</label>
                             <div className="select-orchestrator">
-                                <FiFilter className="f-icon" />
+                                <FiHome className="f-icon" />
                                 <select 
                                     id="company_filter" 
                                     name="company_id" 
@@ -606,11 +661,44 @@ function ManageVacancies({ admin }) {
                             </div>
                         </div>
                     )}
-                    {(searchTerm || companyFilter) && (
-                        <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setCompanyFilter(''); }}>
-                            <FiX /> <span>Reset Console</span>
-                        </button>
-                    )}
+
+                    <div className="filter-group">
+                        <label htmlFor="status_filter" className="filter-label">Vacancy Status</label>
+                        <div className="select-orchestrator">
+                            <FiActivity className="f-icon" />
+                            <select 
+                                id="status_filter" 
+                                name="status_filter" 
+                                value={statusFilter} 
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="">All Statuses</option>
+                                <option value="active">Active &amp; Live</option>
+                                <option value="pending">Pending Approval</option>
+                                <option value="draft">Draft Requisition</option>
+                                <option value="closed">Closed / Expired</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="filter-group">
+                        <label htmlFor="employment_type_filter" className="filter-label">Employment Type</label>
+                        <div className="select-orchestrator">
+                            <FiLayers className="f-icon" />
+                            <select 
+                                id="employment_type_filter" 
+                                name="employment_type_filter" 
+                                value={employmentTypeFilter} 
+                                onChange={(e) => setEmploymentTypeFilter(e.target.value)}
+                            >
+                                <option value="">All Classifications</option>
+                                <option value="Full Time">Full-Time</option>
+                                <option value="Part Time">Part-Time</option>
+                                <option value="Contract">Contract</option>
+                                <option value="Internship">Internship</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -632,54 +720,39 @@ function ManageVacancies({ admin }) {
                     <div className="premium-table-container">
                         <table className="premium-table vacancies-table">
                             <colgroup>
-                                <col />
-                                <col />
-                                <col />
-                                <col />
-                                <col />
-                                <col />
-                                <col />
-                                <col />
+                                <col style={{ width: '28%' }} />
+                                <col style={{ width: '19%' }} />
+                                <col style={{ width: '18%' }} />
+                                <col style={{ width: '22%' }} />
+                                <col style={{ width: '13%' }} />
                             </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Position &amp; Establishment</th>
-                                    <th>Classification</th>
-                                    <th>Required Skills</th>
-                                    <th>Applicants</th>
-                                    <th style={{ textAlign: 'center' }}>
-                                        <div className="stages-col-header">
-                                            <div style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', fontWeight: 800 }}>Stages</div>
-                                            <div className="stages-icons-row">
-                                                <span title="Pending (Orange)"><FiClock size={12} style={{ color: '#d97706' }} /></span>
-                                                <span title="Under Review (Blue)"><FiEye size={12} style={{ color: '#2563eb' }} /></span>
-                                                <span title="Rejected (Red)"><FiXCircle size={12} style={{ color: '#dc2626' }} /></span>
-                                                <span title="Shortlisted (Green)"><FiCheckCircle size={12} style={{ color: '#16a34a' }} /></span>
-                                            </div>
-                                        </div>
-                                    </th>
-                                    <th>Timeline</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
+                                    <th>Position &amp; Entity</th>
+                                    <th>Type &amp; Skills</th>
+                                    <th>Applicants &amp; Pipeline</th>
+                                    <th>Timeline &amp; Status</th>
+                                    <th style={{ textAlign: 'right', paddingRight: '14px' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedVacancies.map(v => {
                                     const active = v.is_active && daysLeft(v.expire_date) > 0;
+                                    const isExpired = daysLeft(v.expire_date) <= 0;
                                     return (
                                         <tr key={v.id} id={`vacancy-card-${v.id}`}>
                                             <td>
                                                 <div className="pos-entity-cell">
-                                                    {v.reference_number && <span className="ref-badge-inline">#{v.reference_number}</span>}
                                                     <span className="pos-name">{v.title}</span>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                                    <div className="pos-sub-row">
                                                         <img
                                                             src={v.company_logo ? `${BACKEND_ROOT}/uploads/logos/${v.company_logo}` : '/gs-logo.png'}
                                                             alt={v.company_name}
                                                             onError={(e) => e.target.src = '/gs-logo.png'}
-                                                            style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '4px', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '2px', flexShrink: 0 }}
+                                                            className="pos-company-logo"
                                                         />
-                                                        <span className="entity-name" style={{ margin: 0 }}>{v.company_name}</span>
+                                                        <span className="entity-name">{v.company_name}</span>
+                                                        {v.reference_number && <span className="ref-badge-inline">#{v.reference_number}</span>}
                                                     </div>
                                                     {v.selected_first_name && (
                                                         <div className="table-emp-badge" title={`Assigned: ${v.selected_first_name} ${v.selected_last_name} (${v.selected_email})`}>
@@ -690,88 +763,82 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="classification-cell">
-                                                    <span className="class-badge">{v.employment_type}</span>
-                                                    {v.designation && v.designation.toLowerCase() !== v.title.toLowerCase() && (
-                                                        <span className="designation-sub">{v.designation}</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="skills-cell">
-                                                    {v.required_skills
-                                                        ? v.required_skills.split(',').filter(s => s.trim()).slice(0, 3).map((skill, idx) => (
-                                                            <span key={idx} className="skill-pill">{skill.trim()}</span>
-                                                          ))
-                                                        : <span className="no-skills">—</span>
-                                                    }
-                                                    {v.required_skills && v.required_skills.split(',').filter(s => s.trim()).length > 3 && (
-                                                        <span className="skill-pill-more">+{v.required_skills.split(',').filter(s => s.trim()).length - 3}</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="pulse-cell" style={{ maxWidth: '80px' }}>
-                                                    <div className="pulse-info">
-                                                        <strong style={{ fontSize: '1.1rem' }}>{v.application_count || 0}</strong>
+                                                <div className="type-skills-cell">
+                                                    <div className="type-row">
+                                                        <span className="class-badge">{v.employment_type || 'Full-Time'}</span>
+                                                        {v.designation && v.designation.toLowerCase() !== v.title.toLowerCase() && (
+                                                            <span className="designation-sub">{v.designation}</span>
+                                                        )}
                                                     </div>
-                                                    <div className="mini-bar" style={{ marginTop: '4px' }}>
-                                                        <div className="bar-fill" style={{ width: `${Math.min((v.application_count || 0) * 5, 100)}%` }}></div>
+                                                    <div className="skills-cell">
+                                                        {v.required_skills && (
+                                                            v.required_skills.split(',').filter(s => s.trim()).slice(0, 2).map((skill, idx) => (
+                                                                <span key={idx} className="skill-pill">{skill.trim()}</span>
+                                                            ))
+                                                        )}
+                                                        {v.required_skills && v.required_skills.split(',').filter(s => s.trim()).length > 2 && (
+                                                            <span className="skill-pill-more">+{v.required_skills.split(',').filter(s => s.trim()).length - 2}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="stages-cell-row">
-                                                    <span className="stage-num" style={{ color: v.pending_count > 0 ? '#b8860b' : '#cbd5e1' }}>{v.pending_count || 0}</span>
-                                                    <span className="stage-num" style={{ color: v.review_count > 0 ? '#1e40af' : '#cbd5e1' }}>{v.review_count || 0}</span>
-                                                    <span className="stage-num" style={{ color: v.rejected_count > 0 ? '#991b1b' : '#cbd5e1' }}>{v.rejected_count || 0}</span>
-                                                    <span className="stage-num" style={{ color: v.shortlisted_count > 0 ? '#15803d' : '#cbd5e1' }}>{v.shortlisted_count || 0}</span>
+                                                <div className="simple-pipeline-cell">
+                                                    <div className="app-main-count">
+                                                        <strong className="app-num-text">{v.application_count || 0}</strong>
+                                                        <span className="app-lbl-text">Applicants</span>
+                                                    </div>
+                                                    <div className="pipeline-mini-summary">
+                                                        <span className="p-dot pending" title="Pending"><strong>{v.pending_count || 0}</strong> pending</span>
+                                                        <span className="p-sep">•</span>
+                                                        <span className="p-dot shortlisted" title="Shortlisted"><strong>{v.shortlisted_count || 0}</strong> shortlisted</span>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="timeline-cell">
-                                                    <span><FiCalendar size={12} /> {formatDate(v.publish_date)}</span>
-                                                    <span className={`${daysLeft(v.expire_date) <= 7 ? 'critical' : ''}`}>
-                                                        <FiClock size={12} /> Exp: {formatDate(v.expire_date)}
-                                                    </span>
+                                                <div className="timeline-status-cell">
+                                                    <div className="status-row">
+                                                        {v.approval_status === 'draft' && (
+                                                            <span className="status-orb-p expired" title="Draft Requisition">
+                                                                <span className="orb" style={{ background: '#64748b' }}></span>
+                                                                <span className="orb-text">Draft</span>
+                                                            </span>
+                                                        )}
+                                                        {v.approval_status === 'pending_subadmin1' && (
+                                                            <span className="status-orb-p warning" title="Pending Sub Admin 1 Approval">
+                                                                <span className="orb" style={{ background: '#d97706' }}></span>
+                                                                <span className="orb-text">Pending Sub 1</span>
+                                                            </span>
+                                                        )}
+                                                        {v.approval_status === 'pending_global' && (
+                                                            <span className="status-orb-p info" title="Pending GS Admin Approval">
+                                                                <span className="orb" style={{ background: '#2563eb' }}></span>
+                                                                <span className="orb-text">Pending Global</span>
+                                                            </span>
+                                                        )}
+                                                        {v.approval_status === 'rejected' && (
+                                                            <span className="status-orb-p expired" title={`Rejected: ${v.rejection_reason || 'No reason provided'}`}>
+                                                                <span className="orb" style={{ background: '#dc2626' }}></span>
+                                                                <span className="orb-text" style={{ color: '#dc2626' }}>Rejected</span>
+                                                            </span>
+                                                        )}
+                                                        {v.approval_status === 'approved' && (
+                                                            <span className={`status-orb-p ${active ? 'live' : 'expired'}`}>
+                                                                <span className="orb"></span>
+                                                                <span className="orb-text">{active ? 'Live' : 'Ended'}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="date-range-sub">
+                                                        <FiCalendar size={11} className="calendar-icon" />
+                                                        <span>{formatDate(v.publish_date)} – {formatDate(v.expire_date)}</span>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                {v.approval_status === 'draft' && (
-                                                    <div className="status-orb-p warning" title="Draft Requisition">
-                                                        <span className="orb" style={{ background: '#64748b', boxShadow: '0 0 8px rgba(100,116,139,0.5)' }}></span>
-                                                        <span className="orb-text" style={{ color: '#64748b' }}>Draft</span>
-                                                    </div>
-                                                )}
-                                                {v.approval_status === 'pending_subadmin1' && (
-                                                    <div className="status-orb-p warning" title="Pending Sub Admin 1 Approval">
-                                                        <span className="orb" style={{ background: '#d97706', boxShadow: '0 0 8px rgba(217,119,6,0.5)' }}></span>
-                                                        <span className="orb-text" style={{ color: '#d97706' }}>Pending Sub 1</span>
-                                                    </div>
-                                                )}
-                                                {v.approval_status === 'pending_global' && (
-                                                    <div className="status-orb-p info" title="Pending GS Admin Approval">
-                                                        <span className="orb" style={{ background: '#2563eb', boxShadow: '0 0 8px rgba(37,99,235,0.5)' }}></span>
-                                                        <span className="orb-text" style={{ color: '#2563eb' }}>Pending Global</span>
-                                                    </div>
-                                                )}
-                                                {v.approval_status === 'rejected' && (
-                                                    <div className="status-orb-p expired" title={`Rejected: ${v.rejection_reason || 'No reason provided'}`}>
-                                                        <span className="orb" style={{ background: '#dc2626', boxShadow: '0 0 8px rgba(220,38,38,0.5)' }}></span>
-                                                        <span className="orb-text" style={{ color: '#dc2626' }}>Rejected</span>
-                                                    </div>
-                                                )}
-                                                {v.approval_status === 'approved' && (
-                                                    <div className={`status-orb-p ${active ? 'live' : 'expired'}`}>
-                                                        <span className="orb"></span>
-                                                        <span className="orb-text">{active ? 'Live' : 'Ended'}</span>
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td>
+                                            <td style={{ textAlign: 'right' }}>
                                                 <div className="orchestration-actions">
                                                     {(v.approval_status === 'draft' || v.approval_status === 'rejected') && (
-                                                        <button className="o-btn submit-approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval" style={{ color: '#10b981', borderColor: 'rgba(16,185,129,0.3)' }}>
+                                                        <button className="o-btn submit-approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval">
                                                             <FiCheckCircle />
                                                         </button>
                                                     )}
@@ -795,29 +862,14 @@ function ManageVacancies({ admin }) {
                             </tbody>
                         </table>
                         
-                        <div className="pagination-footer">
-                            <div className="page-info">
-                                Showing <strong>{startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredVacancies.length)}</strong> of <strong>{filteredVacancies.length}</strong> vacancies
-                            </div>
-                            <div className="pagination-controls">
-                                <button 
-                                    className="page-btn"
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    title="Previous Page"
-                                >
-                                    <FiChevronLeft /> Previous
-                                </button>
-                                <button 
-                                    className="page-btn"
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages || totalPages === 0}
-                                    title="Next Page"
-                                >
-                                    Next <FiChevronRight />
-                                </button>
-                            </div>
-                        </div>
+                        <PaginationFooter
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            totalItems={filteredVacancies.length}
+                            itemsPerPage={itemsPerPage}
+                            onPageChange={setCurrentPage}
+                            label="vacancies"
+                        />
                     </div>
                 )}
             </div>
@@ -937,11 +989,10 @@ function ManageVacancies({ admin }) {
                                         )}
 
                                         {/* Selected Employee Section */}
-                                        {viewDetail.approval_status === 'approved' && (
+                                        {viewDetail.approval_status === 'approved' && viewDetail.selected_first_name && (
                                             <div className="vd-form-section">
                                                 <h3 className="vd-form-section-title">Assigned Placement</h3>
-                                                {viewDetail.selected_first_name ? (
-                                                    <div className="vd-form-grid">
+                                                <div className="vd-form-grid">
                                                         <div className="vd-form-field">
                                                             <div className="vd-field-icon"><FiUser /></div>
                                                             <div className="vd-field-content">
@@ -971,23 +1022,6 @@ function ManageVacancies({ admin }) {
                                                             </div>
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    <div className="vd-form-grid">
-                                                        <div className="vd-form-field-empty" style={{ gridColumn: 'span 2' }}>
-                                                            <div className="vd-form-value" style={{ background: '#f8fafc', borderStyle: 'dashed', justifyContent: 'space-between', padding: '16px 20px', height: 'auto', minHeight: '52px' }}>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-                                                                    <span style={{ fontWeight: 800, color: '#64748b', fontSize: '0.85rem' }}>No Employee Assigned Yet</span>
-                                                                    <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 500 }}>Select a shortlisted candidate to assign to this vacancy.</span>
-                                                                </div>
-                                                                {admin.role !== 'super_admin' && (
-                                                                    <button className="vd-emp-btn assign" onClick={handleOpenAssignModal} style={{ height: 'fit-content' }}>
-                                                                        Select Employee
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         )}
 
@@ -2138,11 +2172,11 @@ function ManageVacancies({ admin }) {
                     flex-direction: column;
                     gap: 16px;
                     margin-bottom: 24px;
-                    background: #fff;
-                    padding: 20px;
+                    background: #ffffff;
+                    padding: 20px 24px;
                     border-radius: 20px;
-                    border: 1px solid var(--border-light);
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+                    border: 1px solid #e2e8f0;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
                 }
 
                 .toolbar-search-row {
@@ -2161,35 +2195,38 @@ function ManageVacancies({ admin }) {
                     left: 18px;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: #94a3b8;
-                    font-size: 1.1rem;
+                    color: #800020;
+                    font-size: 1.15rem;
                     z-index: 10;
                 }
 
                 .search-orchestrator input {
                     width: 100%;
-                    padding: 12px 20px 12px 48px;
-                    border-radius: 12px;
-                    border: 1.5px solid #f1f5f9;
-                    background: #f8fafc;
-                    font-size: 0.9rem;
-                    transition: all 0.3s;
+                    padding: 14px 20px 14px 48px;
+                    border-radius: 14px;
+                    border: 1.5px solid #cbd5e1;
+                    background: #ffffff;
+                    font-size: 0.92rem;
+                    color: #0f172a;
+                    font-weight: 500;
+                    transition: all 0.25s ease;
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
                 }
 
                 .search-orchestrator input:focus {
                     outline: none;
-                    background: #fff;
-                    border-color: var(--crimson);
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
+                    background: #ffffff;
+                    border-color: #800020;
+                    box-shadow: 0 0 0 4px rgba(128, 0, 32, 0.08);
                 }
 
                 .btn-reset-p {
                     background: #fff;
-                    color: var(--text-muted);
-                    border: 1.5px solid #f1f5f9;
+                    color: #475569;
+                    border: 1.5px solid #cbd5e1;
                     padding: 0 20px;
                     height: 48px;
-                    border-radius: 12px;
+                    border-radius: 14px;
                     font-weight: 700;
                     display: flex;
                     align-items: center;
@@ -2203,65 +2240,74 @@ function ManageVacancies({ admin }) {
                 .btn-reset-p:hover {
                     background: #fef2f2;
                     color: var(--crimson);
-                    border-color: #fee2e2;
+                    border-color: #fecaca;
                 }
 
                 .toolbar-filters-row {
                     display: flex;
+                    flex-direction: row;
+                    align-items: flex-end;
+                    gap: 12px;
                     flex-wrap: wrap;
-                    gap: 16px;
-                    padding-top: 16px;
-                    border-top: 1px solid #f1f5f9;
                 }
 
                 .filter-group {
                     display: flex;
                     flex-direction: column;
-                    gap: 8px;
+                    gap: 3px;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
 
                 .filter-group label {
                     font-size: 0.65rem;
                     font-weight: 800;
-                    color: #94a3b8;
+                    color: #64748b;
                     text-transform: uppercase;
-                    letter-spacing: 1px;
-                    padding-left: 4px;
+                    letter-spacing: 0.05em;
+                    margin-bottom: 2px;
                 }
 
                 .select-orchestrator {
                     position: relative;
+                    min-width: 0;
+                    box-sizing: border-box;
                 }
 
                 .f-icon {
                     position: absolute;
-                    left: 14px;
+                    left: 10px;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: var(--crimson);
+                    color: var(--crimson, #800020);
                     pointer-events: none;
                     z-index: 10;
+                    font-size: 0.9rem;
                 }
 
                 .select-orchestrator select {
-                    padding: 0 40px 0 38px;
-                    height: 46px;
-                    border-radius: 12px;
-                    border: 1.5px solid #f1f5f9;
+                    box-sizing: border-box;
+                    padding: 0 22px 0 32px;
+                    height: 42px;
+                    border-radius: 10px;
+                    border: 1.5px solid #e2e8f0;
                     background: #f8fafc;
-                    font-size: 0.85rem;
-                    font-weight: 700;
+                    font-size: 0.82rem;
+                    font-weight: 600;
                     appearance: none;
                     cursor: pointer;
-                    color: var(--text-primary);
+                    color: #0f172a;
                     transition: all 0.2s;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
                 }
 
                 .select-orchestrator select:focus {
                     outline: none;
-                    border-color: var(--crimson);
-                    background: #fff;
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
+                    border-color: #800020;
+                    background: #ffffff;
+                    box-shadow: 0 0 0 3.5px rgba(128, 0, 32, 0.08);
                 }
 
                 .select-lg { min-width: 200px; }
@@ -2827,7 +2873,8 @@ function ManageVacancies({ admin }) {
                     }
 
                     .premium-table {
-                        min-width: 640px;
+                        min-width: 1320px;
+                        table-layout: fixed;
                     }
 
                     .premium-table th,

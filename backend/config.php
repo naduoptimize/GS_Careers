@@ -10,34 +10,62 @@ ini_set('display_errors', 1);
 // Global Autoloader
 require_once __DIR__ . '/libs/autoload.php';
 
+// Load .env variables if present
+function loadEnv($filePath) {
+    if (!file_exists($filePath)) {
+        return;
+    }
+    $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0) {
+            continue;
+        }
+        if (strpos($line, '=') !== false) {
+            list($name, $value) = explode('=', $line, 2);
+            $name = trim($name);
+            $value = trim($value);
+            if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                $value = substr($value, 1, -1);
+            }
+            if (!array_key_exists($name, $_SERVER) && !array_key_exists($name, $_ENV)) {
+                putenv("{$name}={$value}");
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+loadEnv(__DIR__ . '/.env');
+
 // ---- DATABASE ----
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'gs_jobs1');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('DB_NAME') ?: 'gs_jobs1');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 
 // ---- OLLAMA SERVER ----
-define('OLLAMA_SERVER', 'http://172.16.7.21:11434');
-define('OLLAMA_MODEL', 'qwen2.5:3b'); // Change to qwen2.5:3b or qwen2.5:1.5b for faster responses
-define('GEMINI_API_KEY', 'AQ.Ab8RN6I_4IcLkZU-gYuGe7wfj7rMf0c7b9PzGruBHUskD3X4Sw'); // Define your fallback Gemini API key here if needed
+define('OLLAMA_SERVER', getenv('OLLAMA_SERVER') ?: 'http://172.16.7.21:11434');
+define('OLLAMA_MODEL', getenv('OLLAMA_MODEL') ?: 'qwen2.5:3b');
+define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
 
 // ---- JWT SECRET ----
-define('JWT_SECRET', 'gs_job_portal_secret_key_2026');
+define('JWT_SECRET', getenv('JWT_SECRET') ?: 'gs_job_portal_secret_key_2026');
 
 // ---- EMAIL SETTINGS ----
-define('EMAIL_ENABLED', true); // Set to false to disable emails
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587); // 587 for TLS, 465 for SSL
-define('SMTP_SECURE', 'tls'); // 'tls' or 'ssl'
-define('SMTP_USER', 'prathibhajay098@gmail.com'); // Updated with user's email from logs
-define('SMTP_PASS', 'tyjq cahg wakd qwnl'); // User provided App Password
-define('SMTP_FROM_NAME', 'George Steuart Careers');
-define('SMTP_REPLY_TO', 'no-reply@georgesteuart.com');
-define('SMTP_DEBUG', 0); // 0 = off, 1 = client, 2 = client and server
+define('EMAIL_ENABLED', getenv('EMAIL_ENABLED') !== false ? filter_var(getenv('EMAIL_ENABLED'), FILTER_VALIDATE_BOOLEAN) : true);
+define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
+define('SMTP_PORT', getenv('SMTP_PORT') ? (int)getenv('SMTP_PORT') : 587);
+define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'tls');
+define('SMTP_USER', getenv('SMTP_USER') ?: 'prathibhajay098@gmail.com');
+define('SMTP_PASS', getenv('SMTP_PASS') ?: 'tyjq cahg wakd qwnl');
+define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: 'George Steuart Careers');
+define('SMTP_REPLY_TO', getenv('SMTP_REPLY_TO') ?: 'no-reply@georgesteuart.com');
+define('SMTP_DEBUG', getenv('SMTP_DEBUG') !== false ? (int)getenv('SMTP_DEBUG') : 0);
 
 // ---- FRONTEND URL ----
-// If your frontend runs on a different port (e.g. 3001), update this value
-define('FRONTEND_URL', 'http://localhost:3000');
+define('FRONTEND_URL', getenv('FRONTEND_URL') ?: 'http://localhost:3000');
 
 // ---- FILE UPLOADS ----
 define('UPLOAD_DIR', __DIR__ . '/uploads/cv/');

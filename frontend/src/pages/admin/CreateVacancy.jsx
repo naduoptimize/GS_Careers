@@ -5,7 +5,7 @@ import { EMPLOYMENT_TYPES, OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIO
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 import { toast } from 'react-toastify';
-import { FiArrowLeft, FiSave, FiCheckCircle, FiInfo, FiBriefcase, FiMapPin, FiClock, FiCalendar, FiTarget, FiUsers, FiX, FiUser, FiFileText, FiMail, FiExternalLink, FiTag, FiPlus } from 'react-icons/fi';
+import { FiArrowLeft, FiSave, FiCheckCircle, FiInfo, FiBriefcase, FiMapPin, FiClock, FiCalendar, FiTarget, FiUsers, FiX, FiUser, FiFileText, FiMail, FiExternalLink, FiTag, FiPlus, FiList } from 'react-icons/fi';
 
 function CreateVacancy({ admin }) {
     const navigate = useNavigate();
@@ -41,6 +41,8 @@ function CreateVacancy({ admin }) {
     });
     const [skillInput, setSkillInput] = useState('');
     const skillInputRef = useRef(null);
+    const descriptionRef = useRef(null);
+    const requirementsRef = useRef(null);
 
     useEffect(() => {
         loadData();
@@ -191,6 +193,126 @@ function CreateVacancy({ admin }) {
             }
         } else {
             setForm(prev => ({ ...prev, [name]: value }));
+        }
+    };
+
+    const toggleBullets = (fieldName, ref) => {
+        const textarea = ref.current;
+        const val = form[fieldName] || '';
+
+        if (!textarea) {
+            if (!val.trim()) {
+                setForm(prev => ({ ...prev, [fieldName]: '• ' }));
+                return;
+            }
+            const lines = val.split('\n');
+            const allBulleted = lines.filter(l => l.trim()).every(l => l.trim().startsWith('•'));
+            const newLines = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return line;
+                if (allBulleted) {
+                    return line.replace(/^\s*[•\-*]\s*/, '');
+                } else {
+                    return line.startsWith('• ') ? line : `• ${line.replace(/^\s*[•\-*]\s*/, '')}`;
+                }
+            });
+            setForm(prev => ({ ...prev, [fieldName]: newLines.join('\n') }));
+            return;
+        }
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+
+        if (start !== end) {
+            const selectedText = val.substring(start, end);
+            const lines = selectedText.split('\n');
+            const allBulleted = lines.filter(l => l.trim()).every(l => l.trim().startsWith('•'));
+
+            const formattedLines = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return line;
+                if (allBulleted) {
+                    return line.replace(/^\s*[•\-*]\s*/, '');
+                } else {
+                    return line.startsWith('• ') ? line : `• ${line.replace(/^\s*[•\-*]\s*/, '')}`;
+                }
+            });
+
+            const replacement = formattedLines.join('\n');
+            const newText = val.substring(0, start) + replacement + val.substring(end);
+            setForm(prev => ({ ...prev, [fieldName]: newText }));
+
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start, start + replacement.length);
+            }, 0);
+        } else {
+            if (!val.trim()) {
+                setForm(prev => ({ ...prev, [fieldName]: '• ' }));
+                setTimeout(() => {
+                    textarea.focus();
+                    textarea.setSelectionRange(2, 2);
+                }, 0);
+                return;
+            }
+
+            const lines = val.split('\n');
+            const allBulleted = lines.filter(l => l.trim()).every(l => l.trim().startsWith('•'));
+
+            const formattedLines = lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return line;
+                if (allBulleted) {
+                    return line.replace(/^\s*[•\-*]\s*/, '');
+                } else {
+                    return line.startsWith('• ') ? line : `• ${line.replace(/^\s*[•\-*]\s*/, '')}`;
+                }
+            });
+
+            const newText = formattedLines.join('\n');
+            setForm(prev => ({ ...prev, [fieldName]: newText }));
+
+            setTimeout(() => {
+                textarea.focus();
+            }, 0);
+        }
+    };
+
+    const handleKeyDownBullet = (e, fieldName) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            const textarea = e.target;
+            const start = textarea.selectionStart;
+            const val = textarea.value;
+
+            const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+            const currentLine = val.substring(lineStart, start);
+
+            const bulletMatch = currentLine.match(/^\s*([•\-*])\s*/);
+
+            if (bulletMatch) {
+                const bulletChar = bulletMatch[1] === '•' ? '•' : bulletMatch[1];
+                const lineAfterBullet = currentLine.replace(/^\s*[•\-*]\s*/, '');
+
+                if (!lineAfterBullet.trim()) {
+                    e.preventDefault();
+                    const newText = val.substring(0, lineStart) + val.substring(start);
+                    setForm(prev => ({ ...prev, [fieldName]: newText }));
+                    setTimeout(() => {
+                        textarea.setSelectionRange(lineStart, lineStart);
+                    }, 0);
+                    return;
+                }
+
+                e.preventDefault();
+                const insertStr = `\n${bulletChar} `;
+                const newText = val.substring(0, start) + insertStr + val.substring(start);
+                setForm(prev => ({ ...prev, [fieldName]: newText }));
+
+                setTimeout(() => {
+                    const newCursor = start + insertStr.length;
+                    textarea.setSelectionRange(newCursor, newCursor);
+                }, 0);
+            }
         }
     };
 
@@ -654,13 +776,25 @@ function CreateVacancy({ admin }) {
 
                         <div className="form-vertical">
                             <div className="form-group-p">
-                                <label htmlFor="description">Job Description <span className="required">*</span></label>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <label htmlFor="description" style={{ marginBottom: 0 }}>Job Description <span className="required">*</span></label>
+                                    <button
+                                        type="button"
+                                        className="bullet-format-btn"
+                                        onClick={() => toggleBullets('description', descriptionRef)}
+                                        title="Click to add/remove bullet points on lines"
+                                    >
+                                        <FiList style={{ marginRight: '6px' }} /> Add / Format Bullets
+                                    </button>
+                                </div>
                                 <div className="input-wrapper">
                                     <textarea
+                                        ref={descriptionRef}
                                         id="description"
                                         name="description"
                                         value={form.description}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDownBullet(e, 'description')}
                                         rows="8"
                                         placeholder="Describe the role, responsibilities, and day-to-day activities..."
                                         className="premium-textarea"
@@ -669,13 +803,25 @@ function CreateVacancy({ admin }) {
                             </div>
 
                             <div className="form-group-p">
-                                <label htmlFor="requirements">Requirements & Qualifications</label>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <label htmlFor="requirements" style={{ marginBottom: 0 }}>Requirements & Qualifications</label>
+                                    <button
+                                        type="button"
+                                        className="bullet-format-btn"
+                                        onClick={() => toggleBullets('requirements', requirementsRef)}
+                                        title="Click to add/remove bullet points on lines"
+                                    >
+                                        <FiList style={{ marginRight: '6px' }} /> Add / Format Bullets
+                                    </button>
+                                </div>
                                 <div className="input-wrapper">
                                     <textarea
+                                        ref={requirementsRef}
                                         id="requirements"
                                         name="requirements"
                                         value={form.requirements}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDownBullet(e, 'requirements')}
                                         rows="6"
                                         placeholder="List the required skills, experience, and academic qualifications..."
                                         className="premium-textarea"

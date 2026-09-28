@@ -303,59 +303,76 @@ function ApprovalTracker({ admin }) {
             </div>
 
             {/* Search Card */}
-            <div className="tracker-card search-card">
+            <div className="tracker-card search-card-premium">
                 <form onSubmit={handleSearchSubmit} className="tracker-search-form">
-                    <div className="search-field">
-                        <label>Search by Job ID (Vacancy ID)</label>
-                        <div className="search-input-wrapper">
-                            <FiHash className="search-icon-prefix" />
-                            <input
-                                type="number"
-                                placeholder="Enter Job ID (e.g. 63)"
-                                value={searchId}
-                                onChange={(e) => setSearchId(e.target.value)}
-                            />
-                            <button type="submit" className="search-action-btn">
-                                <FiSearch /> Search Status
-                            </button>
+                    <div className="search-primary-row">
+                        <div className="search-field search-field-id">
+                            <label className="search-field-label">Search by Job ID (Vacancy ID)</label>
+                            <div className="seamless-search-group">
+                                <div className="input-prefix-box">
+                                    <FiHash className="prefix-hash-icon" />
+                                </div>
+                                <input
+                                    id="tracker_job_id"
+                                    name="tracker_job_id"
+                                    type="number"
+                                    placeholder="Enter Job ID (e.g. 63)"
+                                    value={searchId}
+                                    onChange={(e) => setSearchId(e.target.value)}
+                                    className="seamless-search-input"
+                                />
+                                <button type="submit" className="seamless-search-btn">
+                                    <FiSearch /> <span>Search Status</span>
+                                </button>
+                            </div>
                         </div>
+
+                        <div className="search-or-divider">
+                            <span>OR</span>
+                        </div>
+
+                        {admin && (admin.role === 'super_admin' || admin.role === 'admin') && (
+                            <div className="search-field search-field-company">
+                                <label className="search-field-label">Filter by Subsidiary</label>
+                                <div className="select-wrapper-custom">
+                                    <select
+                                        id="tracker_subsidiary_filter"
+                                        name="tracker_subsidiary_filter"
+                                        value={selectedCompany}
+                                        onChange={handleCompanyChange}
+                                        className="custom-select-control"
+                                    >
+                                        <option value="">All Subsidiaries</option>
+                                        {companiesList.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="search-divider">
-                        <span>OR</span>
-                    </div>
-
-                    {admin && (admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="search-field">
-                            <label>Filter by Subsidiary</label>
-                            <select
-                                value={selectedCompany}
-                                onChange={handleCompanyChange}
+                    <div className="search-field search-field-pipeline">
+                        <label className="search-field-label">Select From Active Pipeline Requisitions</label>
+                        <div className="select-wrapper-custom">
+                            <select 
+                                id="tracker_pipeline_select"
+                                name="tracker_pipeline_select"
+                                value={searchParams.get('id') || ''} 
+                                onChange={handleDropdownSelect}
+                                disabled={loadingList}
+                                className="custom-select-control"
                             >
-                                <option value="">All Subsidiaries</option>
-                                {companiesList.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
+                                <option value="">-- Choose a vacancy --</option>
+                                {filteredVacancies.map((v) => (
+                                    <option key={v.id} value={v.id}>
+                                        ID {v.id} | {v.reference_number || 'No Ref'} - {v.title} ({v.company_name})
                                     </option>
                                 ))}
                             </select>
                         </div>
-                    )}
-
-                    <div className="search-field">
-                        <label>Select From Active Pipeline Requisitions</label>
-                        <select 
-                            value={searchParams.get('id') || ''} 
-                            onChange={handleDropdownSelect}
-                            disabled={loadingList}
-                        >
-                            <option value="">-- Choose a vacancy --</option>
-                            {filteredVacancies.map((v) => (
-                                <option key={v.id} value={v.id}>
-                                    ID {v.id} | {v.reference_number || 'No Ref'} - {v.title} ({v.company_name})
-                                </option>
-                            ))}
-                        </select>
                     </div>
                 </form>
             </div>

@@ -312,8 +312,27 @@ function ApplyPage() {
                     for (let i = 1; i <= pdf.numPages; i++) {
                         const page = await pdf.getPage(i);
                         const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(" ");
-                        fullText += pageText + "\n";
+                        let lastY = null;
+                        let pageLines = [];
+                        let currentLine = "";
+
+                        for (const item of textContent.items) {
+                            const y = item.transform ? item.transform[5] : null;
+                            if (lastY !== null && y !== null && Math.abs(lastY - y) > 4) {
+                                if (currentLine.trim()) pageLines.push(currentLine.trim());
+                                currentLine = item.str;
+                            } else {
+                                currentLine += (currentLine ? " " : "") + item.str;
+                            }
+                            if (y !== null) lastY = y;
+                            if (item.hasEOL) {
+                                if (currentLine.trim()) pageLines.push(currentLine.trim());
+                                currentLine = "";
+                                lastY = null;
+                            }
+                        }
+                        if (currentLine.trim()) pageLines.push(currentLine.trim());
+                        fullText += pageLines.join("\n") + "\n";
                     }
                     resolve(fullText);
                 } catch (err) {
@@ -325,18 +344,128 @@ function ApplyPage() {
         });
     };
 
+    const fastExtractProfileFromText = (text, fileName = '') => {
+        if (!text && !fileName) return {};
+        const emailMatch = text ? text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) : null;
+        const email = emailMatch ? emailMatch[0] : '';
+
+        // Match Sri Lankan (+94 76 445 7821, 076 445 7821, +94764457821) and international phone numbers with spaces/dashes
+        const phoneMatch = text ? text.match(/(?:\+94\s*\d{2}|\+94\s*7\d|\b07\d|\b011|\b0\d{2})[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\+?\d{1,4}[\s\-\.\(]*\d{2,4}[\s\-\.\)]*\d{3,4}[\s\-\.]*\d{3,4}/) : null;
+        const contact_number = phoneMatch ? phoneMatch[0].trim() : '';
+
+        let first_name = '';
+        let last_name = '';
+
+        const stopWords = [
+            'software', 'developer', 'engineer', 'full-stack', 'it', 'professional', 'page', 'summary',
+            'curriculum', 'resume', 'cv', 'profile', 'contact', 'email', 'tel', 'phone', 'manager',
+            'assistant', 'executive', 'officer', 'lead', 'digital', 'marketing', 'seo', 'performance',
+            'designer', 'analyst', 'consultant', 'specialist', 'head', 'director', 'intern', 'trainee',
+            'associate', 'admin', 'accountant', 'finance', 'hr', 'sales', 'business', 'development',
+            'career', 'objective', 'education', 'skills', 'experience', 'projects', 'work'
+        ];
+
+        if (text) {
+            const lines = text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l.length > 1 && 
+                    !l.toLowerCase().includes('curriculum') && 
+                    !l.toLowerCase().includes('resume') &&
+                    !l.toLowerCase().includes('page ') &&
+                    !/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(l) &&
+                    !/(?:\+94|0)?7[0-9]{8}/.test(l));
+
+            // Search top 5 candidate lines for valid name
+            for (const line of lines.slice(0, 5)) {
+                const firstSegment = line.split(/[—\-\|:\/\n,]/)[0].trim();
+                const rawWords = firstSegment.split(/\s+/);
+                let lineNameWords = [];
+
+                for (const w of rawWords) {
+                    const lw = w.toLowerCase().replace(/[^a-z]/g, '');
+                    if (!lw) continue;
+                    if (stopWords.includes(lw) || /[@0-9]/.test(w)) {
+                        lineNameWords = []; // discard line if it contains a stopWord
+                        break;
+                    }
+                    lineNameWords.push(w.replace(/[^a-zA-Z\s]/g, ''));
+                }
+
+                if (lineNameWords.length >= 2) {
+                    first_name = lineNameWords[0];
+                    last_name = lineNameWords.slice(1, 3).join(' ');
+                    break;
+                } else if (lineNameWords.length === 1 && lineNameWords[0].length > 2) {
+                    first_name = lineNameWords[0];
+                    break;
+                }
+            }
+        }
+
+        // Fallback to filename (e.g. CV_02_Dilshan_Fernando_Digital_Marketing.pdf)
+        if (!first_name && fileName) {
+            const cleanFn = fileName.replace(/\.[^/.]+$/, "").replace(/[_]/g, ' ').replace(/[-]/g, ' ');
+            const rawWords = cleanFn.split(/\s+/);
+            const fnNameWords = [];
+            for (const w of rawWords) {
+                const lw = w.toLowerCase().replace(/[^a-z]/g, '');
+                if (stopWords.includes(lw) || /[@0-9]/.test(w) || w.length <= 1) {
+                    continue;
+                }
+                const formatted = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+                fnNameWords.push(formatted);
+            }
+            if (fnNameWords.length >= 2) {
+                first_name = fnNameWords[0];
+                last_name = fnNameWords.slice(1, 3).join(' ');
+            } else if (fnNameWords.length === 1) {
+                first_name = fnNameWords[0];
+            }
+        }
+
+        let qualification = 'Bachelors Degree';
+        const lower = (text || '').toLowerCase();
+        if (lower.includes('phd') || lower.includes('doctor of philosophy')) qualification = 'PhD';
+        else if (lower.includes('master') || lower.includes('msc') || lower.includes('mba')) qualification = 'Masters Degree';
+        else if (lower.includes('bachelor') || lower.includes('bsc') || lower.includes('bba') || lower.includes('b.tech') || lower.includes('degree')) qualification = 'Bachelors Degree';
+        else if (lower.includes('diploma') || lower.includes('hnd')) qualification = 'Diploma';
+        else if (lower.includes('a/l') || lower.includes('advanced level')) qualification = 'A/L';
+        else if (lower.includes('o/l') || lower.includes('ordinary level')) qualification = 'O/L';
+        else if (lower.includes('cma') || lower.includes('acca') || lower.includes('cima') || lower.includes('certification')) qualification = 'Professional Certification';
+
+        let overall_experience = '1-2 years';
+        let relevant_experience = '1-2 years';
+
+        // Extract numeric years e.g. "3+ years", "5 years", "10+ yrs", "3-4 years"
+        const expMatch = lower.match(/(\d+)\s*\+?\s*(?:years?|yrs?)(?:\s+of\s+experience|\s+in|\s+working)?/i);
+        if (expMatch) {
+            const numY = parseInt(expMatch[1], 10);
+            if (numY >= 10) { overall_experience = '10+ years'; relevant_experience = '8-10 years'; }
+            else if (numY >= 8) { overall_experience = '8-10 years'; relevant_experience = '5-7 years'; }
+            else if (numY >= 5) { overall_experience = '5-7 years'; relevant_experience = '3-4 years'; }
+            else if (numY >= 3) { overall_experience = '3-4 years'; relevant_experience = '1-2 years'; }
+            else if (numY >= 1) { overall_experience = '1-2 years'; relevant_experience = '1-2 years'; }
+            else { overall_experience = '0 years'; relevant_experience = '0 years'; }
+        } else if (lower.includes('fresher') || lower.includes('trainee') || lower.includes('0 years')) {
+            overall_experience = '0 years';
+            relevant_experience = '0 years';
+        }
+
+        return {
+            first_name,
+            last_name,
+            email,
+            contact_number,
+            qualification,
+            overall_experience,
+            relevant_experience,
+            salary_expectation: ''
+        };
+    };
+
     const parseResumeWithAI = async (file) => {
         setParsing(true);
-        setParsingProgress(0);
-        const progressInterval = setInterval(() => {
-            setParsingProgress(prev => {
-                if (prev >= 65) {
-                    return 65;
-                }
-                const diff = Math.max(1, Math.floor((65 - prev) * 0.15));
-                return Math.min(65, prev + diff);
-            });
-        }, 200);
+        setParsingProgress(50);
 
         try {
             const text = await extractTextFromPdf(file);
@@ -345,188 +474,26 @@ function ApplyPage() {
             }
             setRawCvText(text);
 
-            const OLLAMA_SERVER = import.meta.env.VITE_OLLAMA_SERVER || "http://172.16.7.21:11434";
+            const extracted = fastExtractProfileFromText(text, file ? file.name : '');
 
-            const promptText = `You are a strict technical recruiter. Analyze the Candidate CV against the Job Description.
-Extract the candidate's personal details and skills strictly matching the requested JSON format. Do not guess, assume, or hallucinate.
-
-INPUT:
-CV TEXT:
-${text}
-
-JOB DESCRIPTION:
-Job Title: ${vacancy?.title || 'Open Position'}
-Description: ${vacancy?.description || 'No description provided'}
-Requirements & Qualifications: ${vacancy?.requirements || 'No requirements provided'}
-Mandatory Skills: ${vacancy?.required_skills || 'No mandatory skills specified'}
-
-INSTRUCTIONS:
-1. Extract candidate contact info: first_name, last_name, email, contact_number.
-2. Determine qualification (choose from: O/L, A/L, Diploma, Bachelors Degree, Masters Degree, PhD, Professional Certification).
-3. Determine overall_experience and relevant_experience (choose from: 0 years, 0-1 years, 1-2 years, 3-4 years, 5-7 years, 8-10 years, 10+ years).
-4. Extract skills explicitly mentioned in the CV:
-   - "skills_analysis": Skills that are directly relevant or related to the job description requirements.
-   - "additional_skills": General professional skills mentioned in the CV but not directly required by the job.
-   - For each skill item, specify: skill name, category, experience_level, estimated_duration, evidence_strength, evidence_source, usage_context.
-
-Return the output in the following JSON schema:
-{
-  "first_name": "string",
-  "last_name": "string",
-  "email": "string",
-  "contact_number": "string",
-  "qualification": "O/L" | "A/L" | "Diploma" | "Bachelors Degree" | "Masters Degree" | "PhD" | "Professional Certification",
-  "overall_experience": "0 years" | "0-1 years" | "1-2 years" | "3-4 years" | "5-7 years" | "8-10 years" | "10+ years",
-  "relevant_experience": "0 years" | "0-1 years" | "1-2 years" | "3-4 years" | "5-7 years" | "8-10 years" | "10+ years",
-  "salary_expectation": "string",
-  "skills_analysis": [
-    {
-      "skill": "string",
-      "category": "Relevant Skills" | "Related Skills",
-      "experience_level": "Expert" | "Advanced" | "Intermediate" | "Basic" | "Mentioned Only",
-      "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
-      "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
-      "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
-      "usage_context": "string (Max 20 words describing how they used the skill.)"
-    }
-  ],
-  "additional_skills": [
-    {
-      "skill": "string",
-      "experience_level": "Expert" | "Advanced" | "Intermediate" | "Basic" | "Mentioned Only",
-      "estimated_duration": "Less than 3 Months" | "3–6 Months" | "6–12 Months" | "1–2 Years" | "2–3 Years" | "3+ Years",
-      "evidence_strength": "Strong Evidence" | "Moderate Evidence" | "Weak Evidence" | "Mentioned Only",
-      "evidence_source": "Professional Experience" | "Internship" | "Project" | "Freelance Work" | "Academic Work" | "Certification" | "Training" | "Skills Section Only",
-      "usage_context": "string (Max 20 words describing how they used the skill.)"
-    }
-  ]
-}
-
-Return ONLY valid JSON matching this schema. Do not output markdown backticks or conversational text.`;
-
-            console.log(`Attempting AI resume parsing with Ollama at: ${OLLAMA_SERVER}`);
-            const res = await fetch(`${OLLAMA_SERVER}/api/generate`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: "qwen2.5:7b",
-                    prompt: promptText,
-                    stream: false,
-                    format: "json"
-                })
-            });
-
-            if (!res.ok) {
-                let errorMsg = `Ollama server returned status ${res.status}`;
-                try {
-                    const errorJson = await res.json();
-                    if (errorJson?.error) {
-                        errorMsg += `: ${errorJson.error}`;
-                    }
-                } catch (_) { }
-                throw new Error(errorMsg);
-            }
-
-            const data = await res.json();
-            const textResponse = data.response;
-            if (!textResponse) {
-                throw new Error("No structured response from Ollama server.");
-            }
-
-            const parsed = JSON.parse(textResponse);
-
-            // Populate form
             setForm(prev => ({
                 ...prev,
-                first_name: parsed.first_name || prev.first_name || '',
-                last_name: parsed.last_name || prev.last_name || '',
-                email: parsed.email || prev.email || '',
-                contact_number: parsed.contact_number || prev.contact_number || '',
-                qualification: parsed.qualification || prev.qualification || '',
-                overall_experience: parsed.overall_experience || prev.overall_experience || '',
-                relevant_experience: parsed.relevant_experience || prev.relevant_experience || '',
-                salary_expectation: parsed.salary_expectation || prev.salary_expectation || ''
+                first_name: extracted.first_name || prev.first_name || '',
+                last_name: extracted.last_name || prev.last_name || '',
+                email: extracted.email || prev.email || '',
+                contact_number: extracted.contact_number || prev.contact_number || '',
+                qualification: extracted.qualification || prev.qualification || '',
+                overall_experience: extracted.overall_experience || prev.overall_experience || '',
+                relevant_experience: extracted.relevant_experience || prev.relevant_experience || '',
+                salary_expectation: extracted.salary_expectation || prev.salary_expectation || ''
             }));
 
-            // Extract skills_metadata for local display mapping with strict CV grounding and dynamic classification
-            let parsedMetadata = [];
-
-            const processParsedSkill = (item) => {
-                if (!item) return;
-                const isObj = typeof item === 'object' && item !== null;
-                const skillName = isObj ? item.skill : item;
-                if (!skillName) return;
-
-                const category = categorizeSkill(skillName, text, requiredSkillsList, vacancy);
-                if (!category) return; // Discard completely if not found in CV!
-
-                // Skip duplicates
-                if (parsedMetadata.some(x => x.skill.toLowerCase() === skillName.toLowerCase())) return;
-
-                parsedMetadata.push({
-                    skill: skillName,
-                    experience: isObj ? (item.estimated_duration || "Mentioned Only") : "Mentioned Only",
-                    context: isObj ? (item.usage_context || "Mentioned in CV.") : "Mentioned in CV.",
-                    category: category,
-                    evidence_source: isObj ? (item.evidence_source || "Skills Section Only") : "Skills Section Only",
-                    evidence_strength: isObj ? (item.evidence_strength || "Mentioned Only") : "Mentioned Only",
-                    experience_level: isObj ? (item.experience_level || "Basic") : "Basic",
-                    is_mandatory: requiredSkillsList.some(rs => isRobustMatch(skillName, rs)),
-                    is_ai_extracted: true
-                });
-            };
-
-            if (Array.isArray(parsed.skills_analysis)) {
-                parsed.skills_analysis.forEach(item => processParsedSkill(item));
-            }
-            if (Array.isArray(parsed.additional_skills)) {
-                parsed.additional_skills.forEach(item => processParsedSkill(item));
-            }
-
-            const normalized = normalizeSkills(parsedMetadata);
-            setSkillsMetadata(normalized);
-            setAiAnalysis(parsed);
-            setSkillsPanelExpanded(false);
-
-            // Auto-detect matched mandatory skills (only counts if actually present in CV)
-            const detected = normalized.filter(item => item.is_mandatory && checkSkillInCvText(item.skill, text)).map(item => item.skill);
-            setMatchedSkills(detected);
-
-            // Pre-fill all general skills from CV
-            const cleanedSkills = [...new Set(normalized.map(item => item.skill))];
-            setUserSkills(cleanedSkills);
-
-            clearInterval(progressInterval);
-            
-            // Fast closing sweep from current progress (which is 65) to 100%
-            await new Promise((resolveSweep) => {
-                const sweepInterval = setInterval(() => {
-                    setParsingProgress(prev => {
-                        if (prev >= 100) {
-                            clearInterval(sweepInterval);
-                            resolveSweep();
-                            return 100;
-                        }
-                        return Math.min(100, prev + 7);
-                    });
-                }, 40);
-            });
-
-            await new Promise(r => setTimeout(r, 200));
-
-            toast.success(requiredSkillsList.length > 0
-                ? `🎉 AI parsed your CV! ${detected.length} of ${requiredSkillsList.length} required skills detected.`
-                : "🎉 George Steuart AI successfully parsed your CV and auto-filled the form!", { autoClose: 5000 });
+            setParsingProgress(100);
+            toast.success("✨ Personal Information & Professional Profile extracted! Please review your details.", { autoClose: 4000 });
         } catch (err) {
-            clearInterval(progressInterval);
             console.error("CV parsing error:", err);
-            let userFriendlyMessage = err.message || 'Please enter details manually.';
-            if (err.name === 'TypeError' || err.message.toLowerCase().includes('failed to fetch') || err.message.toLowerCase().includes('networkerror')) {
-                userFriendlyMessage = "Failed to connect to the backend server. Please verify your network connection.";
-            }
-            toast.warning(`⚠️ AI auto-fill failed: ${userFriendlyMessage}`, { autoClose: 15000 });
+            toast.info("CV uploaded! Please review and complete your details.");
         } finally {
-            clearInterval(progressInterval);
             setParsing(false);
         }
     };
@@ -749,6 +716,17 @@ Return ONLY valid JSON matching this schema. Do not output markdown backticks or
                 finalAnalysis.requirements_without_evidence = skillsMetadata.filter(item => item.is_mandatory && !checkSkillInCvText(item.skill, rawCvText)).map(item => item.skill);
             }
             formData.append('skills_metadata', JSON.stringify(finalAnalysis));
+            formData.append('cv_text', rawCvText || '');
+            formData.append('extracted_data', JSON.stringify({
+                first_name: form.first_name,
+                last_name: form.last_name,
+                email: form.email,
+                contact_number: form.contact_number,
+                qualification: form.qualification,
+                overall_experience: form.overall_experience,
+                relevant_experience: form.relevant_experience,
+                salary_expectation: form.salary_expectation
+            }));
 
             await applyForJob(formData);
             toast.success('Application submitted!');

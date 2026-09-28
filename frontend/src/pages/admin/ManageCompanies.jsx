@@ -6,6 +6,7 @@ import {
     FiActivity, FiTrendingUp, FiSearch, FiMapPin, FiInfo, FiExternalLink, FiUploadCloud, FiTrash
 } from 'react-icons/fi';
 import './ManageAdmins.css'; // Leverage existing premium admin panel styling
+import PaginationFooter from '../../components/PaginationFooter';
 import { 
     getCompanies, createCompany, updateCompany, deleteCompany, API_BASE,
     getCompanyLocations, addCompanyLocation, updateCompanyLocation, deleteCompanyLocation
@@ -350,6 +351,13 @@ function ManageCompanies({ admin }) {
                 </div>
                 <div className="table-wrapper-p">
                     <table className="premium-table orchestration-table">
+                        <colgroup>
+                            <col style={{ width: '26%' }} />
+                            <col style={{ width: '20%' }} />
+                            <col style={{ width: '14%' }} />
+                            <col style={{ width: '28%' }} />
+                            {admin.role === 'admin' && <col style={{ width: '12%' }} />}
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th>COMPANY ENTITY</th>
@@ -433,27 +441,14 @@ function ManageCompanies({ admin }) {
                     </table>
                 </div>
 
-                <div className="pagination-footer">
-                    <div className="page-info">
-                        Showing <strong>{startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredCompanies.length)}</strong> of <strong>{filteredCompanies.length}</strong> divisions
-                    </div>
-                    <div className="pagination-controls" style={{ display: 'flex', gap: '12px' }}>
-                        <button
-                            className="page-btn"
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                        >
-                            Previous
-                        </button>
-                        <button
-                            className="page-btn"
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPage === totalPages || totalPages === 0}
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+                <PaginationFooter
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredCompanies.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    label="divisions"
+                />
             </div>
 
             {/* LOCATIONS REGISTRY TABLE CARD */}
@@ -558,27 +553,14 @@ function ManageCompanies({ admin }) {
                     </table>
                 </div>
 
-                <div className="pagination-footer">
-                    <div className="page-info">
-                        Showing <strong>{locStartIndex + 1}-{Math.min(locStartIndex + locItemsPerPage, filteredLocations.length)}</strong> of <strong>{filteredLocations.length}</strong> locations
-                    </div>
-                    <div className="pagination-controls" style={{ display: 'flex', gap: '12px' }}>
-                        <button
-                            className="page-btn"
-                            onClick={() => setLocCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={locCurrentPage === 1}
-                        >
-                            Previous
-                        </button>
-                        <button
-                            className="page-btn"
-                            onClick={() => setLocCurrentPage(prev => Math.min(prev + 1, locTotalPages))}
-                            disabled={locCurrentPage === locTotalPages || locTotalPages === 0}
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
+                <PaginationFooter
+                    currentPage={locCurrentPage}
+                    totalPages={locTotalPages}
+                    totalItems={filteredLocations.length}
+                    itemsPerPage={locItemsPerPage}
+                    onPageChange={setLocCurrentPage}
+                    label="locations"
+                />
             </div>
 
             {/* Create/Edit Modal */}
