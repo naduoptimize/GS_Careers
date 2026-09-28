@@ -719,139 +719,113 @@ function ManageVacancies({ admin }) {
                 ) : (
                     <div className="premium-table-container">
                         <table className="premium-table vacancies-table">
-                            <colgroup>
-                                <col style={{ width: '28%' }} />
-                                <col style={{ width: '19%' }} />
-                                <col style={{ width: '18%' }} />
-                                <col style={{ width: '22%' }} />
-                                <col style={{ width: '13%' }} />
-                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Position &amp; Entity</th>
-                                    <th>Type &amp; Skills</th>
-                                    <th>Applicants &amp; Pipeline</th>
-                                    <th>Timeline &amp; Status</th>
-                                    <th style={{ textAlign: 'right', paddingRight: '14px' }}>Actions</th>
+                                    <th style={{ width: '20%' }}>Position</th>
+                                    <th style={{ width: '13%' }}>Subsidiary</th>
+                                    <th style={{ width: '18%' }}>Required Skills</th>
+                                    <th style={{ width: '13%' }}>Applicants</th>
+                                    <th style={{ width: '21%' }}>Status &amp; Dates</th>
+                                    <th style={{ width: '15%', textAlign: 'right' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {paginatedVacancies.map(v => {
                                     const active = v.is_active && daysLeft(v.expire_date) > 0;
-                                    const isExpired = daysLeft(v.expire_date) <= 0;
+                                    const skillsList = v.required_skills
+                                        ? v.required_skills.split(',').map(s => s.trim()).filter(Boolean)
+                                        : [];
+
                                     return (
                                         <tr key={v.id} id={`vacancy-card-${v.id}`}>
+                                            {/* POSITION */}
                                             <td>
                                                 <div className="pos-entity-cell">
                                                     <span className="pos-name">{v.title}</span>
-                                                    <div className="pos-sub-row">
-                                                        <img
-                                                            src={v.company_logo ? `${BACKEND_ROOT}/uploads/logos/${v.company_logo}` : '/gs-logo.png'}
-                                                            alt={v.company_name}
-                                                            onError={(e) => e.target.src = '/gs-logo.png'}
-                                                            className="pos-company-logo"
-                                                        />
-                                                        <span className="entity-name">{v.company_name}</span>
-                                                        {v.reference_number && <span className="ref-badge-inline">#{v.reference_number}</span>}
-                                                    </div>
+                                                    {v.reference_number && (
+                                                        <span className="ref-badge-inline">#{v.reference_number}</span>
+                                                    )}
                                                     {v.selected_first_name && (
-                                                        <div className="table-emp-badge" title={`Assigned: ${v.selected_first_name} ${v.selected_last_name} (${v.selected_email})`}>
+                                                        <div className="table-emp-badge" title={`Assigned: ${v.selected_first_name} ${v.selected_last_name}`}>
                                                             <span className="te-dot"></span>
                                                             <span className="te-text">{v.selected_first_name} {v.selected_last_name}</span>
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
+                                            {/* SUBSIDIARY */}
                                             <td>
-                                                <div className="type-skills-cell">
-                                                    <div className="type-row">
-                                                        <span className="class-badge">{v.employment_type || 'Full-Time'}</span>
-                                                        {v.designation && v.designation.toLowerCase() !== v.title.toLowerCase() && (
-                                                            <span className="designation-sub">{v.designation}</span>
-                                                        )}
+                                                <span className="entity-name" style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 500 }}>{v.company_name}</span>
+                                            </td>
+                                            <td>
+                                                <div className="vac-skills-wrap">
+                                                    {skillsList.length > 0 ? (
+                                                        <div className="vac-skill-tags">
+                                                            {skillsList.slice(0, 2).map((skill, idx) => (
+                                                                <span key={idx} className="vac-skill-tag">{skill}</span>
+                                                            ))}
+                                                            {skillsList.length > 2 && (
+                                                                <span className="vac-skill-more" title={skillsList.slice(2).join(', ')}>
+                                                                    +{skillsList.length - 2}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="vac-no-skills">—</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="vac-applicants-cell">
+                                                    <div className="vac-app-count">
+                                                        <span className="vac-app-num">{v.application_count || 0}</span>
+                                                        <span className="vac-app-lbl">applicants</span>
                                                     </div>
-                                                    <div className="skills-cell">
-                                                        {v.required_skills && (
-                                                            v.required_skills.split(',').filter(s => s.trim()).slice(0, 2).map((skill, idx) => (
-                                                                <span key={idx} className="skill-pill">{skill.trim()}</span>
-                                                            ))
-                                                        )}
-                                                        {v.required_skills && v.required_skills.split(',').filter(s => s.trim()).length > 2 && (
-                                                            <span className="skill-pill-more">+{v.required_skills.split(',').filter(s => s.trim()).length - 2}</span>
+                                                    <div className="vac-app-pipeline">
+                                                        <span className="vac-pending">{v.pending_count || 0} pending</span>
+                                                        {v.shortlisted_count > 0 && (
+                                                            <>
+                                                                <span className="vac-sep">·</span>
+                                                                <span className="vac-shortlisted">{v.shortlisted_count} shortlisted</span>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <div className="simple-pipeline-cell">
-                                                    <div className="app-main-count">
-                                                        <strong className="app-num-text">{v.application_count || 0}</strong>
-                                                        <span className="app-lbl-text">Applicants</span>
-                                                    </div>
-                                                    <div className="pipeline-mini-summary">
-                                                        <span className="p-dot pending" title="Pending"><strong>{v.pending_count || 0}</strong> pending</span>
-                                                        <span className="p-sep">•</span>
-                                                        <span className="p-dot shortlisted" title="Shortlisted"><strong>{v.shortlisted_count || 0}</strong> shortlisted</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="timeline-status-cell">
-                                                    <div className="status-row">
-                                                        {v.approval_status === 'draft' && (
-                                                            <span className="status-orb-p expired" title="Draft Requisition">
-                                                                <span className="orb" style={{ background: '#64748b' }}></span>
-                                                                <span className="orb-text">Draft</span>
-                                                            </span>
-                                                        )}
-                                                        {v.approval_status === 'pending_subadmin1' && (
-                                                            <span className="status-orb-p warning" title="Pending Sub Admin 1 Approval">
-                                                                <span className="orb" style={{ background: '#d97706' }}></span>
-                                                                <span className="orb-text">Pending Sub 1</span>
-                                                            </span>
-                                                        )}
-                                                        {v.approval_status === 'pending_global' && (
-                                                            <span className="status-orb-p info" title="Pending GS Admin Approval">
-                                                                <span className="orb" style={{ background: '#2563eb' }}></span>
-                                                                <span className="orb-text">Pending Global</span>
-                                                            </span>
-                                                        )}
-                                                        {v.approval_status === 'rejected' && (
-                                                            <span className="status-orb-p expired" title={`Rejected: ${v.rejection_reason || 'No reason provided'}`}>
-                                                                <span className="orb" style={{ background: '#dc2626' }}></span>
-                                                                <span className="orb-text" style={{ color: '#dc2626' }}>Rejected</span>
-                                                            </span>
-                                                        )}
-                                                        {v.approval_status === 'approved' && (
-                                                            <span className={`status-orb-p ${active ? 'live' : 'expired'}`}>
-                                                                <span className="orb"></span>
-                                                                <span className="orb-text">{active ? 'Live' : 'Ended'}</span>
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="date-range-sub">
-                                                        <FiCalendar size={11} className="calendar-icon" />
+                                                <div className="vac-status-cell">
+                                                    {v.approval_status === 'draft' && <span className="vac-status-badge draft"><span className="vac-status-dot"></span>Draft</span>}
+                                                    {v.approval_status === 'pending_subadmin1' && <span className="vac-status-badge pending"><span className="vac-status-dot"></span>Pending Review</span>}
+                                                    {v.approval_status === 'pending_global' && <span className="vac-status-badge pending"><span className="vac-status-dot"></span>Pending Approval</span>}
+                                                    {v.approval_status === 'rejected' && <span className="vac-status-badge rejected" title={v.rejection_reason || ''}><span className="vac-status-dot"></span>Rejected</span>}
+                                                    {v.approval_status === 'approved' && (
+                                                        <span className={`vac-status-badge ${active ? 'live' : 'ended'}`}>
+                                                            <span className="vac-status-dot"></span>{active ? 'Live' : 'Ended'}
+                                                        </span>
+                                                    )}
+                                                    <div className="vac-date-range">
+                                                        <FiCalendar size={11} className="vac-date-icon" />
                                                         <span>{formatDate(v.publish_date)} – {formatDate(v.expire_date)}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div className="orchestration-actions">
+                                            <td>
+                                                <div className="vac-actions">
                                                     {(v.approval_status === 'draft' || v.approval_status === 'rejected') && (
-                                                        <button className="o-btn submit-approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval">
+                                                        <button className="vac-btn approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval">
                                                             <FiCheckCircle />
                                                         </button>
                                                     )}
-                                                    <button className="o-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Job Description">
+                                                    <button className="vac-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Details">
                                                         <FiEye />
                                                     </button>
-                                                    <button className="o-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit Vacancy">
+                                                    <button className="vac-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit">
                                                         <FiEdit2 />
                                                     </button>
-                                                    <button className="o-btn applicants" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Pipeline">
+                                                    <button className="vac-btn pipeline" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Applicants">
                                                         <FiArrowRight />
                                                     </button>
-                                                    <button className="o-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete Vacancy">
+                                                    <button className="vac-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete">
                                                         <FiTrash2 />
                                                     </button>
                                                 </div>
