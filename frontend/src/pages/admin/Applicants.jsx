@@ -2047,19 +2047,19 @@ function Applicants({ admin }) {
                     </div>
                 ) : (
                     <div className="premium-table-container">
-                        <table className="premium-table">
+                        <table className="premium-table applicants-table">
                             <colgroup>
-                                {admin.role !== 'super_admin' && <col style={{ width: '44px' }} />}
-                                <col style={{ width: '28%' }} />
+                                {admin.role !== 'super_admin' && <col style={{ width: '40px' }} />}
                                 <col style={{ width: '25%' }} />
+                                <col style={{ width: '26%' }} />
                                 <col style={{ width: '21%' }} />
-                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '16%' }} />
                                 <col style={{ width: '12%' }} />
                             </colgroup>
                             <thead>
                                 <tr>
                                     {admin.role !== 'super_admin' && (
-                                        <th style={{ width: '44px' }}>
+                                        <th style={{ width: '40px', paddingLeft: '20px' }}>
                                             <input
                                                 type="checkbox"
                                                 className="premium-checkbox"
@@ -2072,7 +2072,7 @@ function Applicants({ admin }) {
                                     <th>Target Position</th>
                                     <th>Credentials</th>
                                     <th>Applied Timeline</th>
-                                    <th style={{ textAlign: 'right' }}>Actions</th>
+                                    <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>

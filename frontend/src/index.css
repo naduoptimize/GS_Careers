@@ -9079,6 +9079,7 @@ img, svg, video, iframe {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
+    flex-wrap: nowrap !important;
     box-shadow: 0 6px 20px rgba(139, 26, 43, 0.18) !important;
     position: relative !important;
     overflow: hidden !important;
@@ -9230,7 +9231,8 @@ img, svg, video, iframe {
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: 3px !important;
+    height: 4px !important;
+    border-radius: 16px 16px 0 0 !important;
     background: #cbd5e1 !important;
     transition: all 0.25s ease !important;
 }
@@ -9737,11 +9739,11 @@ img, svg, video, iframe {
 
 .premium-table {
     width: 100% !important;
-    min-width: 980px !important;
+    min-width: 850px !important;
     border-collapse: separate !important;
     border-spacing: 0 !important;
     text-align: left !important;
-    table-layout: fixed !important;
+    table-layout: auto !important;
 }
 
 .premium-table thead th {
@@ -9838,18 +9840,22 @@ img, svg, video, iframe {
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    padding: 12px 20px !important;
+    padding: 14px 24px !important;
     border-top: 1px solid #e2e8f0 !important;
-    background: #f8fafc !important;
-    border-radius: 0 0 12px 12px !important;
+    background: #ffffff !important;
+    border-radius: 0 0 16px 16px !important;
     flex-wrap: wrap !important;
     gap: 12px !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    position: sticky !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    z-index: 5 !important;
 }
 
 .pagination-footer .page-info {
-    font-size: 0.82rem !important;
+    font-size: 0.84rem !important;
     color: #64748b !important;
     font-weight: 500 !important;
     white-space: nowrap !important;
@@ -9864,7 +9870,7 @@ img, svg, video, iframe {
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
 }
 
 .pagination-footer .page-numbers-group {
@@ -9875,28 +9881,28 @@ img, svg, video, iframe {
 
 .pagination-footer .page-btn {
     padding: 6px 14px !important;
-    height: 32px !important;
+    height: 34px !important;
     border-radius: 8px !important;
     border: 1px solid #cbd5e1 !important;
     background: #ffffff !important;
-    font-size: 0.78rem !important;
+    font-size: 0.8rem !important;
     font-weight: 600 !important;
     color: #334155 !important;
     cursor: pointer !important;
     transition: all 0.15s ease !important;
     display: inline-flex !important;
     align-items: center !important;
-    gap: 4px !important;
+    gap: 5px !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
     white-space: nowrap !important;
 }
 
 .pagination-footer .page-btn:hover:not(:disabled) {
-    background: #f1f5f9 !important;
-    border-color: #94a3b8 !important;
-    color: #0f172a !important;
+    background: #f8fafc !important;
+    border-color: var(--crimson, #8b1a2b) !important;
+    color: var(--crimson, #8b1a2b) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 2px 5px rgba(139, 26, 43, 0.12) !important;
 }
 
 .pagination-footer .page-btn:disabled {
@@ -9910,13 +9916,13 @@ img, svg, video, iframe {
 }
 
 .pagination-footer .page-num-btn {
-    min-width: 32px !important;
-    height: 32px !important;
-    padding: 0 6px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    padding: 0 8px !important;
     border-radius: 8px !important;
     border: 1px solid #e2e8f0 !important;
     background: #ffffff !important;
-    font-size: 0.78rem !important;
+    font-size: 0.8rem !important;
     font-weight: 600 !important;
     color: #475569 !important;
     cursor: pointer !important;
@@ -9941,7 +9947,7 @@ img, svg, video, iframe {
 }
 
 .pagination-footer .page-ellipsis {
-    padding: 0 4px !important;
+    padding: 0 6px !important;
     color: #94a3b8 !important;
     font-size: 0.85rem !important;
     font-weight: 700 !important;
@@ -9953,12 +9959,18 @@ img, svg, video, iframe {
         flex-direction: column !important;
         align-items: center !important;
         text-align: center !important;
-        padding: 12px !important;
-        gap: 10px !important;
+        padding: 12px 16px !important;
+        gap: 12px !important;
     }
     .pagination-footer .pagination-controls {
         justify-content: center !important;
         width: 100% !important;
+    }
+    .pagination-footer .page-btn .btn-label {
+        display: none !important;
+    }
+    .pagination-footer .page-btn {
+        padding: 6px 10px !important;
     }
 }
 

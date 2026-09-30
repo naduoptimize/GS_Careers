@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCompanies, getAllVacancies, API_BASE } from '../../services/api';
 import {
     FiBriefcase, FiUsers, FiTrendingUp, FiActivity, FiSearch,
-    FiMapPin, FiBarChart2, FiArrowLeft, FiArrowRight, FiInfo, FiExternalLink, FiPercent, FiX
+    FiMapPin, FiBarChart2, FiArrowLeft, FiArrowRight, FiInfo, FiExternalLink, FiPercent, FiX, FiAward, FiGlobe
 } from 'react-icons/fi';
 import './ManageAdmins.css'; // Utilize shared premium administration layout styles
 
@@ -108,7 +108,7 @@ function CompanyReports({ admin }) {
                         <span className="db-s-label">Active Channels</span>
                         <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
-                    <span className="db-s-value">{totalActiveVacancies} <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>/ {totalGroupVacancies}</span></span>
+                    <span className="db-s-value">{totalActiveVacancies} <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>/ {totalGroupVacancies}</span></span>
                     <div className="db-s-trend positive"><FiBarChart2 /> Pipelines Open</div>
                 </div>
                 <div className="db-stat-card blue">
@@ -116,18 +116,24 @@ function CompanyReports({ admin }) {
                         <span className="db-s-label">Engagement Rate</span>
                         <div className="db-s-icon"><FiPercent /></div>
                     </div>
-                    <span className="db-s-value" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
-                        {topPerformer && topPerformer.totalVacancies > 0 ? `${topPerformer.avgApplicationsPerJob} apps/job` : 'N/A'}
+                    <span className="db-s-value">
+                        {topPerformer && topPerformer.totalVacancies > 0 ? (
+                            <>
+                                {topPerformer.avgApplicationsPerJob} <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>apps/job</span>
+                            </>
+                        ) : 'N/A'}
                     </span>
-                    <div className="db-s-trend" style={{ color: 'var(--crimson)' }}>{topPerformer ? topPerformer.name : 'Top Performer'}</div>
+                    <div className="db-s-trend" title={topPerformer ? topPerformer.name : 'Top Performer'}>
+                        <FiAward /> {topPerformer ? topPerformer.name : 'Top Performer'}
+                    </div>
                 </div>
                 <div className="db-stat-card purple">
                     <div className="db-s-header">
                         <span className="db-s-label">Corporate Divisions</span>
                         <div className="db-s-icon"><FiBarChart2 /></div>
                     </div>
-                    <span className="db-s-value">{activeCompaniesCount} <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>/ {companies.length}</span></span>
-                    <div className="db-s-trend"><FiTrendingUp /> Subsidiaries List</div>
+                    <span className="db-s-value">{activeCompaniesCount} <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>/ {companies.length}</span></span>
+                    <div className="db-s-trend"><FiGlobe /> Subsidiaries List</div>
                 </div>
             </div>
 

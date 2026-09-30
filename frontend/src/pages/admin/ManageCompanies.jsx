@@ -269,18 +269,18 @@ function ManageCompanies({ admin }) {
     return (
         <div className="premium-admins-page">
             {/* HERITAGE HERO PANEL */}
-            <div className="dashboard-hero-premium">
-                <div className="hero-content-p">
+            <div className="dashboard-hero-premium" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: '20px' }}>
+                <div className="hero-content-p" style={{ flex: 1, minWidth: 0 }}>
                     <div className="hero-badge-p"><FiActivity /> Enterprise Registry</div>
                     <h1 className="hero-title-p">Manage Corporate Entities</h1>
                     <p className="hero-subtitle-p">George Steuart Group | Configure and govern subsidiaries and parent entities</p>
                 </div>
                 {(admin.role === 'admin') && (
-                    <div className="hero-actions-p" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="hero-actions-p" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, flexWrap: 'nowrap' }}>
                         <button className="btn-hero-p primary" onClick={openCreate}>
                             <FiPlus /> Register New Entity
                         </button>
-                        <button className="btn-hero-p" style={{ background: 'var(--crimson)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.1)' }} onClick={openManageLocations}>
+                        <button className="btn-hero-p" style={{ background: 'var(--crimson)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)' }} onClick={openManageLocations}>
                             <FiMapPin /> Manage Company Location
                         </button>
                     </div>

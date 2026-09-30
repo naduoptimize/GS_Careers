@@ -721,12 +721,12 @@ function ManageVacancies({ admin }) {
                         <table className="premium-table vacancies-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: '20%' }}>Position</th>
-                                    <th style={{ width: '13%' }}>Subsidiary</th>
-                                    <th style={{ width: '18%' }}>Required Skills</th>
+                                    <th style={{ width: '22%' }}>Position</th>
+                                    <th style={{ width: '18%' }}>Subsidiary</th>
+                                    <th style={{ width: '17%' }}>Required Skills</th>
                                     <th style={{ width: '13%' }}>Applicants</th>
-                                    <th style={{ width: '21%' }}>Status &amp; Dates</th>
-                                    <th style={{ width: '15%', textAlign: 'right' }}>Actions</th>
+                                    <th style={{ width: '15%' }}>Status &amp; Dates</th>
+                                    <th style={{ width: '15%', textAlign: 'right', paddingRight: '24px' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>

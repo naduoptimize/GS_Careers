@@ -26,8 +26,13 @@
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    min-width: 1200px;
-    table-layout: fixed;
+    min-width: 950px;
+    table-layout: auto;
+}
+
+.premium-table.applicants-table {
+    min-width: 980px !important;
+    width: 100% !important;
 }
 
 .premium-table th {
@@ -36,8 +41,8 @@
     font-size: 0.72rem;
     font-weight: 800;
     text-transform: uppercase;
-    color: #64748b;
-    letter-spacing: 0.06em;
+    color: #475569;
+    letter-spacing: 0.05em;
     border-bottom: 2px solid #e2e8f0;
     box-sizing: border-box;
     white-space: nowrap;
@@ -48,7 +53,6 @@
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
     box-sizing: border-box;
-    overflow: hidden;
     transition: background 0.15s ease;
 }
 

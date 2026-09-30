@@ -458,44 +458,41 @@ function TalentPool({ admin }) {
                                 <td>
                                     <div className="candidate-cell">
                                         <div className="avatar-p"><FiUser /></div>
-                                        <div className="info-p" style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                            <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.88rem' }}>
+                                        <div className="info-p">
+                                            <div className="name-p">
                                                 {cand.first_name} {cand.last_name}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
                                                 {cand.last_status === 'shortlisted' && <span className="status-badge-p badge-shortlisted">Favored</span>}
                                                 {cand.last_status === 'rejected' && <span className="status-badge-p badge-rejected">Refused</span>}
                                                 {cand.is_blocked == 1 && <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 100, fontSize: '0.6rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 3 }}><FiSlash size={9} /> Blocked</span>}
                                             </div>
-                                            <span className="email-p" style={{ margin: 0 }}><FiMail size={11} /> {cand.email}</span>
+                                            <span className="email-p"><FiMail size={11} /> {cand.email}</span>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
                                     <div className="classification-cell">
-                                        <span className="class-badge" style={{ background: 'rgba(200, 169, 81, 0.1)', color: 'var(--gold-accent)' }}>{cand.qualification}</span>
-                                        {cand.is_blocked == 1 && (
-                                            <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4, width: 'fit-content' }}>
-                                                <FiSlash size={10} /> BLOCKED
-                                            </span>
-                                        )}
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-                                            {cand.tags ? cand.tags.split(',').slice(0, 2).map((t, i) => (
-                                                <span key={i} style={{ background: '#f1f5f9', color: '#64748b', padding: '2px 8px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700 }}>#{t.trim()}</span>
+                                        <span className="class-badge">{cand.qualification}</span>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                                            {cand.tags ? cand.tags.split(',').slice(0, 3).map((t, i) => (
+                                                <span key={i} className="tag-chip">#{t.trim()}</span>
                                             )) : null}
                                         </div>
                                     </div>
                                 </td>
                                 <td>
                                     <div className="pos-entity-cell">
-                                        <span className="pos-name">{cand.last_applied_vacancy}</span>
-                                        <span className="entity-name">{cand.last_applied_company}</span>
+                                        <span className="pos-name">{cand.last_applied_vacancy || 'Direct Application'}</span>
+                                        <span className="entity-name">{cand.last_applied_company || 'George Steuart'}</span>
                                     </div>
                                 </td>
                                 <td>
                                     <div className="timeline-cell">
-                                        <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{cand.overall_experience}</span>
-                                        <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', marginTop: '4px' }}><FiCalendar size={12} /> {formatDate(cand.applied_at)}</span>
+                                        <strong>{cand.overall_experience || '0 years'}</strong>
+                                        <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', marginTop: '3px' }}>
+                                            <FiCalendar size={12} /> {formatDate(cand.applied_at)}
+                                        </span>
                                     </div>
                                 </td>
                                 <td>
@@ -503,33 +500,24 @@ function TalentPool({ admin }) {
                                         {!isReadOnly && (
                                             <button 
                                                 className="action-btn-p danger"
-                                                style={{ 
-                                                    background: 'rgba(239, 68, 68, 0.1)', 
-                                                    color: '#ef4444', 
-                                                    border: 'none',
-                                                    padding: '8px',
-                                                    borderRadius: '8px',
-                                                    display: 'flex',
-                                                    cursor: 'pointer'
-                                                }}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setSelectedCandidateForDelete(cand);
                                                 }}
                                                 title="Remove from Pool"
                                             >
-                                                <FiTrash2 size={16} />
+                                                <FiTrash2 size={15} />
                                             </button>
                                         )}
                                         <button 
-                                            className="page-btn"
-                                            style={{ padding: '6px 12px', minWidth: 'auto' }}
+                                            className="action-btn-p"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setShowDetail(cand);
                                             }}
+                                            title="View Details"
                                         >
-                                            <FiChevronRight />
+                                            <FiChevronRight size={16} />
                                         </button>
                                     </div>
                                 </td>
@@ -564,83 +552,83 @@ function TalentPool({ admin }) {
                             <button className="o-btn delete" onClick={() => setShowDetail(null)}><FiX /></button>
                         </div>
 
-                        {/* Body can scroll if content is too long */}
-                        <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '70vh', padding: '32px' }}>
-                            <div className="detail-grid-p admin-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '32px' }}>
+                        {/* Body scrolls smoothly */}
+                        <div className="modal-body-p" style={{ overflowY: 'auto', maxHeight: '65vh', padding: '28px 32px' }}>
+                            <div className="detail-grid-p admin-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '28px' }}>
                                 <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>Contact Information</label>
-                                    <div className="contact-list-p" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        <div className="contact-item-p" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                            <FiMail style={{ marginTop: '4px', color: 'var(--gold-accent)', fontSize: '1.2rem', flexShrink: 0 }} />
+                                    <label style={{ display: 'block', fontSize: '0.72rem', color: '#8b1a2b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '20px', paddingBottom: '8px', borderBottom: '2px solid #f1f5f9' }}>Contact Information</label>
+                                    <div className="contact-list-p" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        <div className="contact-item-p" style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                                            <FiMail style={{ marginTop: '3px', color: '#c8a951', fontSize: '1.2rem', flexShrink: 0 }} />
                                             <div>
-                                                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Email Dispatch</span>
-                                                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.4' }}>{showDetail.email}</p>
+                                                <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.5px' }}>Email Address</span>
+                                                <p style={{ margin: 0, fontWeight: 600, color: '#0f172a', fontSize: '0.95rem', wordBreak: 'break-all' }}>{showDetail.email}</p>
                                             </div>
                                         </div>
-                                        <div className="contact-item-p" style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                                            <FiPhone style={{ marginTop: '4px', color: 'var(--gold-accent)', fontSize: '1.2rem', flexShrink: 0 }} />
+                                        <div className="contact-item-p" style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                                            <FiPhone style={{ marginTop: '3px', color: '#c8a951', fontSize: '1.2rem', flexShrink: 0 }} />
                                             <div>
-                                                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Direct Line</span>
-                                                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '1rem', lineHeight: '1.4' }}>{showDetail.contact_number}</p>
+                                                <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px', letterSpacing: '0.5px' }}>Phone Number</span>
+                                                <p style={{ margin: 0, fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{showDetail.contact_number}</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>Professional Profile</label>
-                                    <div className="professional-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                                        <div className="stat-pill-item" style={{ padding: '12px' }}>
-                                            <FiBriefcase className="stat-i" />
-                                            <div className="stat-content">
-                                                <span style={{ fontSize: '0.65rem' }}>Overall Experience</span>
-                                                <strong style={{ fontSize: '0.9rem' }}>{showDetail.overall_experience}</strong>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', color: '#8b1a2b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '20px', paddingBottom: '8px', borderBottom: '2px solid #f1f5f9' }}>Professional Profile</label>
+                                    <div className="professional-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                                        <div className="stat-pill-item" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                            <FiBriefcase className="stat-i" style={{ color: '#8b1a2b', fontSize: '1.2rem', flexShrink: 0 }} />
+                                            <div className="stat-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', lineHeight: 1.2 }}>Overall Experience</span>
+                                                <strong style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', display: 'block', lineHeight: 1.3 }}>{showDetail.overall_experience || 'Not Specified'}</strong>
                                             </div>
                                         </div>
-                                        <div className="stat-pill-item" style={{ padding: '12px' }}>
-                                            <FiBarChart className="stat-i" />
-                                            <div className="stat-content">
-                                                <span style={{ fontSize: '0.65rem' }}>Relevant Experience</span>
-                                                <strong style={{ fontSize: '0.9rem' }}>{showDetail.relevant_experience || 'Not Specified'}</strong>
+                                        <div className="stat-pill-item" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                            <FiBarChart className="stat-i" style={{ color: '#8b1a2b', fontSize: '1.2rem', flexShrink: 0 }} />
+                                            <div className="stat-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', lineHeight: 1.2 }}>Relevant Experience</span>
+                                                <strong style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', display: 'block', lineHeight: 1.3 }}>{showDetail.relevant_experience || 'Not Specified'}</strong>
                                             </div>
                                         </div>
-                                        <div className="stat-pill-item full-w" style={{ padding: '12px', gridColumn: 'span 1' }}>
-                                            <FiBookOpen className="stat-i" />
-                                            <div className="stat-content">
-                                                <span style={{ fontSize: '0.65rem' }}>Highest Qualification</span>
-                                                <strong style={{ fontSize: '0.9rem' }}>{showDetail.qualification}</strong>
+                                        <div className="stat-pill-item full-w" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', gridColumn: '1 / -1' }}>
+                                            <FiBookOpen className="stat-i" style={{ color: '#8b1a2b', fontSize: '1.2rem', flexShrink: 0 }} />
+                                            <div className="stat-content" style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', lineHeight: 1.2 }}>Highest Qualification</span>
+                                                <strong style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', display: 'block', lineHeight: 1.3 }}>{showDetail.qualification || 'Not Specified'}</strong>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>Candidate Talent Tags</label>
-                                    <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid #e2e8f0', minHeight: '120px' }}>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', color: '#8b1a2b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '20px', paddingBottom: '8px', borderBottom: '2px solid #f1f5f9' }}>Candidate Talent Tags</label>
+                                    <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0', minHeight: '100px' }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
                                             {showDetail.tags ? showDetail.tags.split(',').map((t, i) => (
-                                                <span key={i} style={{ background: '#c8a951', color: '#fff', fontSize: '0.7rem', padding: '4px 10px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
-                                                    {t.trim()}
-                                                    {!isReadOnly && <FiX onClick={() => removeTag(t.trim())} style={{ cursor: 'pointer' }} />}
+                                                <span key={i} style={{ background: 'rgba(200,169,81,0.18)', color: '#997b28', border: '1px solid rgba(200,169,81,0.3)', fontSize: '0.72rem', padding: '4px 10px', borderRadius: '100px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}>
+                                                    #{t.trim()}
+                                                    {!isReadOnly && <FiX onClick={() => removeTag(t.trim())} style={{ cursor: 'pointer', opacity: 0.7 }} />}
                                                 </span>
-                                            )) : <span style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#94a3b8' }}>No tags yet.</span>}
+                                            )) : <span style={{ fontStyle: 'italic', fontSize: '0.8rem', color: '#94a3b8' }}>No tags assigned yet.</span>}
                                         </div>
                                         {!isReadOnly && (
-                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                                                 <input 
                                                     type="text" 
-                                                    placeholder="Add skill..." 
+                                                    placeholder="Add new skill tag..." 
                                                     value={newTag}
                                                     onChange={(e) => setNewTag(e.target.value)}
                                                     onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                                                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem', border: '1px solid #e2e8f0', borderRadius: '8px', outline: 'none' }}
+                                                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '8px', outline: 'none', background: '#ffffff' }}
                                                 />
                                                 <button 
                                                     onClick={handleAddTag} 
                                                     disabled={isUpdatingTags}
-                                                    style={{ background: '#1a1a2e', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}
+                                                    style={{ background: '#8b1a2b', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                                                 >
-                                                    <FiPlus />
+                                                    <FiPlus /> Add
                                                 </button>
                                             </div>
                                         )}
@@ -648,36 +636,31 @@ function TalentPool({ admin }) {
                                 </div>
 
                                 <div className="detail-section-p">
-                                    <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--crimson)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px', paddingBottom: '10px', borderBottom: '2px solid var(--ivory-dark)', position: 'relative' }}>Submission History</label>
-                                    <div className="submission-box-p" style={{ gridTemplateColumns: '1fr', padding: '15px' }}>
-                                        <div className="sm-item" style={{ marginBottom: '10px' }}>
-                                            <span>Previously Applied to</span>
-                                            <p style={{fontSize: '0.85rem'}}>{showDetail.last_applied_vacancy}</p>
+                                    <label style={{ display: 'block', fontSize: '0.72rem', color: '#8b1a2b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', marginBottom: '20px', paddingBottom: '8px', borderBottom: '2px solid #f1f5f9' }}>Submission History</label>
+                                    <div className="submission-box-p" style={{ gridTemplateColumns: '1fr', padding: '14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                                        <div className="sm-item" style={{ marginBottom: '8px' }}>
+                                            <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Previously Applied Position</span>
+                                            <p style={{ margin: '2px 0 0', fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{showDetail.last_applied_vacancy || 'Direct Application'}</p>
                                         </div>
                                         <div className="sm-item">
-                                            <span>Company</span>
-                                            <p style={{fontSize: '0.85rem'}}>{showDetail.last_applied_company}</p>
+                                            <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Subsidiary Company</span>
+                                            <p style={{ margin: '2px 0 0', fontWeight: 600, color: '#475569', fontSize: '0.84rem' }}>{showDetail.last_applied_company || 'George Steuart'}</p>
                                         </div>
-                                        {showDetail.last_status && (
-                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
-                                                <span style={{fontSize: '0.7rem', color: '#94a3b8'}}>Last Outcome</span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: showDetail.last_status === 'shortlisted' ? '#10b981' : (showDetail.last_status === 'under_review' ? '#3b82f6' : '#ef4444'), fontWeight: 'bold', fontSize: '0.8rem' }}>
-                                                    <FiAlertCircle /> <span style={{textTransform: 'uppercase'}}>{showDetail.last_status.replace('_', ' ')}</span>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
-                                <div className="detail-section-p full-width">
-                                    <div className="cv-banner-p">
-                                        <div className="cb-icon"><FiFileText /></div>
-                                        <div className="cb-text">
-                                            <span>Curriculum Vitae</span>
-                                            <p>{showDetail.first_name}_CV_Pool.{(showDetail.cv_path || '').split('.').pop() || 'pdf'}</p>
+                                <div className="detail-section-p full-width" style={{ gridColumn: '1 / -1' }}>
+                                    <div className="cv-banner-p" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', padding: '18px 24px', borderRadius: '16px', color: '#ffffff' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div className="cb-icon" style={{ width: '44px', height: '44px', background: 'rgba(200, 169, 81, 0.15)', border: '1px solid rgba(200, 169, 81, 0.3)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#c8a951', fontSize: '1.3rem' }}><FiFileText /></div>
+                                            <div className="cb-text">
+                                                <span style={{ display: 'block', fontWeight: 700, fontSize: '0.95rem', color: '#ffffff' }}>Candidate Curriculum Vitae</span>
+                                                <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>{showDetail.first_name}_CV_Pool.{(showDetail.cv_path || '').split('.').pop() || 'pdf'}</p>
+                                            </div>
                                         </div>
                                         <button
-                                            className="btn btn-gold"
+                                            className="btn"
+                                            style={{ background: '#c8a951', color: '#1e293b', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 800, fontSize: '0.84rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                                             onClick={() => setViewingCV(showDetail)}
                                         >
                                             <FiExternalLink /> View Document
@@ -685,47 +668,47 @@ function TalentPool({ admin }) {
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Actions Footer inside scrollable area to ensure visibility */}
-                            <div className="modal-actions-footer-p" style={{ borderTop: '1px solid #e2e8f0', background: '#fcfcfd' }}>
-                                {showDetail.is_blocked == 1 ? (
-                                    <>
-                                        <button className="btn btn-outline" onClick={() => setShowDetail(null)}>Close Window</button>
-                                        <div style={{ background: '#fef2f2', padding: '10px 16px', borderRadius: 12, border: '1px solid #fecaca', flex: 1, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>
-                                            <FiSlash size={14} /> Blocked: {showDetail.block_reason}
-                                        </div>
-                                        {!isReadOnly && (
-                                            <button
-                                                className="btn btn-gold"
-                                                style={{ background: '#10b981', color: '#fff' }}
-                                                onClick={() => handleUnblockCandidate(showDetail)}
-                                                disabled={unblocking}
-                                            >
-                                                <FiShield /> {unblocking ? 'Unblocking...' : 'Unblock Candidate'}
-                                            </button>
-                                        )}
-                                    </>
-                                ) : (
-                                    <>
-                                        <button className="btn btn-outline" onClick={() => setShowDetail(null)}>Close Window</button>
-                                        {!isReadOnly && (
-                                            <button
-                                                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '10px 18px', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'inherit' }}
-                                                onClick={() => { setShowBlockModal(showDetail); }}
-                                            >
-                                                <FiSlash size={14} /> Block Candidate
-                                            </button>
-                                        )}
-                                        <a
-                                            href={`mailto:${showDetail.email}?subject=Career Opportunity: George Steuart`}
-                                            className="btn btn-gold"
-                                            style={{ background: 'var(--gold-accent)', color: '#fff', textDecoration: 'none' }}
+                        {/* Actions Footer stays fixed at bottom of modal */}
+                        <div className="modal-actions-footer-p" style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '16px 28px', display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center' }}>
+                            {showDetail.is_blocked == 1 ? (
+                                <>
+                                    <button className="btn page-btn" style={{ padding: '8px 18px', height: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }} onClick={() => setShowDetail(null)}>Close Window</button>
+                                    <div style={{ background: '#fef2f2', padding: '8px 14px', borderRadius: 10, border: '1px solid #fecaca', flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: '#dc2626', fontWeight: 600 }}>
+                                        <FiSlash size={14} /> Blocked: {showDetail.block_reason}
+                                    </div>
+                                    {!isReadOnly && (
+                                        <button
+                                            className="btn"
+                                            style={{ background: '#10b981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            onClick={() => handleUnblockCandidate(showDetail)}
+                                            disabled={unblocking}
                                         >
-                                            <FiMail /> Send Outreach Email
-                                        </a>
-                                    </>
-                                )}
-                            </div>
+                                            <FiShield /> {unblocking ? 'Unblocking...' : 'Unblock Candidate'}
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <button className="btn page-btn" style={{ padding: '8px 18px', height: 'auto', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', color: '#475569' }} onClick={() => setShowDetail(null)}>Close Window</button>
+                                    {!isReadOnly && (
+                                        <button
+                                            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', padding: '9px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit' }}
+                                            onClick={() => { setShowBlockModal(showDetail); }}
+                                        >
+                                            <FiSlash size={14} /> Block Candidate
+                                        </button>
+                                    )}
+                                    <a
+                                        href={`mailto:${showDetail.email}?subject=Career Opportunity: George Steuart`}
+                                        className="btn"
+                                        style={{ background: '#8b1a2b', color: '#fff', textDecoration: 'none', padding: '9px 18px', borderRadius: 10, fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6 }}
+                                    >
+                                        <FiMail /> Send Outreach Email
+                                    </a>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -872,588 +855,8 @@ function TalentPool({ admin }) {
                 </div>
             )}
 
-            <style jsx="true">{`
-                .manage-vacancies-console {
-                    animation: fadeIn 0.4s ease-out;
-                }
 
-                /* HEREO / HEADER SECTION */
-                .vacancies-orchestration-header {
-                    position: relative;
-                    padding: 24px;
-                    border-radius: 24px;
-                    overflow: hidden;
-                    margin-bottom: 24px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    flex-wrap: wrap;
-                    gap: 20px;
-                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
-                    box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
-                }
 
-                .vacancies-orchestration-header::after {
-                    content: '';
-                    position: absolute;
-                    inset: 0;
-                    background-image: 
-                        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-                    background-size: 20px 20px;
-                    pointer-events: none;
-                }
-
-                .header-content-p { position: relative; z-index: 2; }
-
-                .badge-p {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    background: rgba(200, 169, 81, 0.15);
-                    color: var(--gold-accent);
-                    padding: 5px 12px;
-                    border-radius: 100px;
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    margin-bottom: 12px;
-                }
-
-                .dot { width: 6px; height: 6px; border-radius: 50%; }
-                .dot.pulse { background: #10b981; animation: pulse 2s infinite; }
-
-                @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-                }
-
-                .hero-title-p {
-                    font-family: var(--font-heading);
-                    font-size: 1.8rem;
-                    color: #fff;
-                    margin: 0;
-                }
-
-                .hero-subtitle-p {
-                    color: rgba(255,255,255,0.6);
-                    font-size: 0.9rem;
-                    margin-top: 6px;
-                }
-
-                .hero-stats-glass {
-                    background: rgba(255, 255, 255, 0.05);
-                    backdrop-filter: blur(10px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    padding: 12px 24px;
-                    border-radius: 20px;
-                    display: flex;
-                    align-items: center;
-                    gap: 24px;
-                    z-index: 2;
-                }
-
-                .h-stat-item {
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                .h-label {
-                    font-size: 0.65rem;
-                    font-weight: 800;
-                    color: rgba(255,255,255,0.5);
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                }
-
-                .h-value {
-                    font-size: 1.4rem;
-                    font-weight: 800;
-                    color: var(--gold-accent);
-                }
-
-                .h-divider {
-                    width: 1px;
-                    height: 30px;
-                    background: rgba(255,255,255,0.1);
-                }
-
-                .btn-establish-p {
-                    background: linear-gradient(135deg, var(--gold-accent) 0%, #d4b86a 100%);
-                    color: #1a1a2e;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 12px;
-                    font-weight: 800;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    box-shadow: 0 10px 30px rgba(200, 169, 81, 0.3);
-                    z-index: 10;
-                    font-size: 0.95rem;
-                }
-
-                .btn-establish-p:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 15px 40px rgba(200, 169, 81, 0.4);
-                    background: #d4b86a;
-                }
-
-                /* REFINED TOOLBAR */
-                .console-toolbar-p {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 16px;
-                    margin-bottom: 24px;
-                    background: #fff;
-                    padding: 24px;
-                    border-radius: 24px;
-                    border: 1px solid var(--border-light);
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-                }
-
-                .toolbar-search-row {
-                    display: flex;
-                    gap: 12px;
-                    align-items: center;
-                }
-
-                .search-orchestrator {
-                    position: relative;
-                    flex: 1;
-                }
-
-                .search-orchestrator .s-icon {
-                    position: absolute;
-                    left: 18px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: #94a3b8;
-                    font-size: 1.1rem;
-                    z-index: 10;
-                }
-
-                .search-orchestrator input {
-                    width: 100%;
-                    padding: 12px 20px 12px 52px;
-                    border-radius: 14px;
-                    border: 1.5px solid #f1f5f9;
-                    background: #f8fafc;
-                    font-size: 0.95rem;
-                    transition: all 0.3s;
-                }
-
-                .search-orchestrator input:focus {
-                    outline: none;
-                    background: #fff;
-                    border-color: var(--crimson);
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
-                }
-
-                .btn-reset-p {
-                    background: #fff;
-                    color: var(--text-muted);
-                    border: 1.5px solid #f1f5f9;
-                    padding: 0 20px;
-                    height: 48px;
-                    border-radius: 12px;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-size: 0.85rem;
-                    flex-shrink: 0;
-                }
-
-                .btn-reset-p:hover {
-                    background: #fef2f2;
-                    color: var(--crimson);
-                    border-color: #fee2e2;
-                }
-
-                .toolbar-filters-row {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
-                    gap: 14px;
-                    width: 100%;
-                    align-items: end;
-                    box-sizing: border-box;
-                }
-
-                .filter-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                    width: 100%;
-                    min-width: 0;
-                    box-sizing: border-box;
-                }
-
-                .filter-group label {
-                    font-size: 0.68rem;
-                    font-weight: 800;
-                    color: #64748b;
-                    text-transform: uppercase;
-                    letter-spacing: 0.06em;
-                    margin-bottom: 2px;
-                }
-
-                .select-orchestrator {
-                    position: relative;
-                    width: 100%;
-                    min-width: 0;
-                    box-sizing: border-box;
-                }
-
-                .f-icon {
-                    position: absolute;
-                    left: 11px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--crimson);
-                    pointer-events: none;
-                    z-index: 5;
-                    font-size: 0.92rem;
-                }
-
-                .select-orchestrator select {
-                    width: 100%;
-                    box-sizing: border-box;
-                    padding: 0 28px 0 34px;
-                    height: 42px;
-                    border-radius: 12px;
-                    border: 1.5px solid #e2e8f0;
-                    background: #f8fafc;
-                    font-size: 0.82rem;
-                    font-weight: 600;
-                    appearance: none;
-                    -webkit-appearance: none;
-                    cursor: pointer;
-                    color: var(--text-primary);
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                    overflow: hidden;
-                    transition: all 0.2s;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-                    background-repeat: no-repeat;
-                    background-position: right 10px center;
-                    background-size: 14px;
-                }
-
-                .select-orchestrator select:focus {
-                    outline: none;
-                    border-color: var(--crimson);
-                    background: #fff;
-                    box-shadow: 0 0 0 3.5px rgba(139, 26, 43, 0.08);
-                }
-
-                .select-lg { min-width: 0; }
-
-                /* TABLE */
-                .orchestration-table-wrapper {
-                    background: #fff;
-                    border-radius: 20px;
-                    border: 1px solid var(--border-light);
-                    overflow-x: auto;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-                }
-
-                .orchestrated-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    min-width: 800px;
-                }
-
-                .orchestrated-table th {
-                    background: #fcfcfd;
-                    padding: 12px 16px;
-                    text-align: left;
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                    color: var(--text-muted);
-                    text-transform: uppercase;
-                    letter-spacing: 1.2px;
-                    border-bottom: 1px solid #f0f2f5;
-                }
-
-                .orchestrated-table td {
-                    padding: 16px;
-                    border-bottom: 1px solid #f8fafc;
-                    vertical-align: middle;
-                }
-
-                .orchestrated-table tr {
-                    transition: all 0.2s;
-                    cursor: pointer;
-                }
-
-                .orchestrated-table tr:hover { background: #fcfcfd; }
-                .orchestrated-table tr:hover td { background: #fcfcfd; }
-
-                .ref-cell span {
-                    font-family: 'JetBrains Mono', monospace;
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                    background: #f1f5f9;
-                    padding: 4px 10px;
-                    border-radius: 6px;
-                    font-weight: 600;
-                }
-
-                .pos-entity-cell { display: flex; flex-direction: column; gap: 4px; }
-                .pos-name { font-weight: 800; color: var(--text-primary); font-size: 0.95rem; }
-                .entity-name { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
-
-                .classification-cell { display: flex; flex-direction: column; gap: 6px; }
-                .class-badge {
-                    background: #eff6ff;
-                    color: #2563eb;
-                    padding: 3px 12px;
-                    border-radius: 100px;
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    width: fit-content;
-                    text-transform: uppercase;
-                }
-                .designation-sub { font-size: 0.85rem; color: var(--text-secondary); }
-                
-                .timeline-cell { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--text-muted); }
-                .timeline-cell svg { font-size: 0.9rem; margin-right: 4px; }
-
-                .orchestration-actions { display: flex; gap: 8px; justify-content: flex-end; }
-                .o-btn {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 12px;
-                    border: 1px solid #f1f5f9;
-                    background: #fff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-size: 1.1rem;
-                }
-                .o-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.06); border-color: #e2e8f0; }
-                .o-btn.applicants { color: var(--gold-accent); }
-                .o-btn.delete { color: var(--crimson); }
-                .o-btn.delete:hover { background: var(--crimson); color: #fff; }
-
-                /* MODALS */
-                .confirm-overlay {
-                    position: fixed;
-                    inset: 0;
-                    background: rgba(15, 23, 42, 0.4);
-                    backdrop-filter: blur(8px);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1000;
-                    padding: 20px;
-                    animation: fadeIn 0.3s ease-out;
-                }
-
-                .confirm-modal {
-                    background: #fff;
-                    border-radius: 32px;
-                    box-shadow: 0 30px 60px rgba(0,0,0,0.15);
-                }
-
-                /* Candidate Specific Modal styling */
-                .cv-banner-p {
-                    display: flex;
-                    align-items: center;
-                    gap: 20px;
-                    background: #1a1a2e;
-                    padding: 20px;
-                    border-radius: 20px;
-                    color: #fff;
-                    margin-top: 32px;
-                }
-
-                .cb-icon { 
-                    width: 50px; height: 50px; 
-                    background: rgba(255, 255, 255, 0.1); 
-                    border-radius: 12px; display: flex; 
-                    align-items: center; justify-content: center; 
-                    font-size: 1.5rem; color: var(--gold-accent);
-                }
-
-                .cb-text { flex: 1; }
-                .cb-text span { display: block; font-weight: 700; font-size: 1rem; margin-bottom: 4px;}
-                .cb-text p { margin: 0; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); }
-
-                .modal-actions-footer-p {
-                    padding: 24px 48px;
-                    border-top: 1px solid #e2e8f0;
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 16px;
-                    background: #fcfcfd;
-                }
-
-                .submission-box-p {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    padding: 16px;
-                    background: #fdfdfd;
-                    border: 1px solid #f1f5f9;
-                    border-radius: 16px;
-                    gap: 20px;
-                }
-
-                .sm-item span { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; font-weight: 700; }
-                .sm-item p { margin: 0; font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }
-
-                .rejection-reason-box {
-                    margin-top: 20px; padding: 20px; background: #fef2f2; 
-                    border-radius: 12px; border-left: 4px solid #ef4444;
-                }
-                .rejection-reason-box span { fontSize: 0.75rem; fontWeight: bold; color: #ef4444; textTransform: uppercase; }
-                .rejection-reason-box p { margin: 8px 0 0; fontSize: 0.95rem; color: #ef4444; font-weight: 600; line-height: 1.5; }
-
-                /* Professional Stats specific to Talent Pool */
-                .professional-stats-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
-                .stat-pill-item { 
-                    background: var(--bg-primary); 
-                    padding: 16px; 
-                    border-radius: 16px; 
-                    display: flex; 
-                    gap: 16px; 
-                    align-items: center;
-                    border: 1px solid var(--border-light);
-                }
-                .stat-pill-item.full-w { grid-column: 1 / -1; }
-                .stat-pill-item .stat-i { font-size: 1.2rem; color: var(--crimson-muted); flex-shrink: 0; }
-                .stat-pill-item .stat-content span { display: block; font-size: 0.65rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
-                .stat-pill-item .stat-content strong { display: block; font-size: 0.95rem; color: var(--text-primary); font-weight: 800; }
-
-                .loading-state-p { padding: 100px 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
-                .empty-state-p { padding: 80px 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; }
-                .empty-icon { font-size: 3rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 8px; }
-
-                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-                @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-                .pulse { animation: pulse 2s infinite; }
-                .spinner-p { width: 50px; height: 50px; border: 4px solid #f1f5f9; border-top-color: var(--crimson); border-radius: 50%; animation: spin 0.8s linear infinite; }
-                @keyframes spin { to { transform: rotate(360deg); } }
-
-                /* RESPONSIVENESS */
-                @media (max-width: 1024px) {
-                    .vacancies-orchestration-header {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        gap: 32px;
-                        padding: 40px;
-                        border-radius: 24px;
-                    }
-                    
-                    .header-actions-p {
-                        width: 100%;
-                    }
-                    
-                    .stats-mosaic-p {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
-                    
-                    .hero-title-p { font-size: 1.8rem; }
-                    
-                    .toolbar-top {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        gap: 16px;
-                    }
-                    
-                    .btn-establish-p {
-                        width: 100%;
-                        justify-content: center;
-                    }
-                    
-                    .toolbar-filters {
-                        flex-direction: column;
-                    }
-                    
-                    .select-orchestrator {
-                        width: 100%;
-                        min-width: 100%;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .orchestrated-table thead { display: none; }
-                    
-                    .orchestrated-table tr {
-                        display: block;
-                        padding: 20px;
-                        border-bottom: 8px solid #f8fafc;
-                    }
-                    
-                    .orchestrated-table td {
-                        display: block;
-                        padding: 12px 0;
-                        border: none;
-                        width: 100%;
-                    }
-                    
-                    .orchestrated-table td::before {
-                        content: attr(data-label);
-                        display: block;
-                        font-size: 0.7rem;
-                        font-weight: 800;
-                        color: #94a3b8;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                        margin-bottom: 6px;
-                    }
-                    
-                    .orchestration-actions {
-                        justify-content: flex-start;
-                    }
-                    
-                    .modal-header-p {
-                        flex-direction: column;
-                        align-items: flex-start !important;
-                        gap: 20px;
-                        padding: 32px 24px !important;
-                    }
-                    
-                    .modal-avatar {
-                        width: 60px !important;
-                        height: 60px !important;
-                        font-size: 1.5rem !important;
-                    }
-                    
-                    .detail-modal-p h2 { font-size: 1.8rem !important; }
-                    
-                    .modal-body-p {
-                        padding: 24px !important;
-                    }
-                    
-                    .modal-actions-footer-p {
-                        flex-direction: column;
-                        padding: 24px !important;
-                    }
-                    
-                    .modal-actions-footer-p .btn {
-                        width: 100%;
-                        justify-content: center;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    .stats-mosaic-p {
-                        grid-template-columns: 1fr;
-                    }
-                    
-                    .serif-title-p { font-size: 1.8rem; }
-                }
-            `}</style>
 
         </div>
     );
