@@ -186,7 +186,7 @@ function LoginPage() {
                         </form>
 
                         <div className="signup-bottom-text">
-                            Don't have a tactical account?{' '}
+                            <span>Don't have a tactical account?</span>
                             <Link to="/admin/signup" className="register-link">
                                 Register Super Admin
                             </Link>
@@ -669,34 +669,44 @@ function LoginPage() {
 
                 /* Primary Submit Button */
                 .attractive-submit-btn {
-                    margin-top: 4px;
+                    margin-top: 6px;
                     width: 100%;
-                    padding: 14px;
-                    background: linear-gradient(135deg, #3a060f 0%, #170206 100%);
+                    padding: 13px 20px;
+                    background: linear-gradient(135deg, #8b1a2b 0%, #6b1420 100%);
                     color: #ffffff;
-                    border: none;
+                    border: 1px solid rgba(255, 255, 255, 0.12);
                     border-radius: 12px;
-                    font-weight: 800;
-                    font-size: 0.9rem;
-                    letter-spacing: 1.2px;
+                    font-weight: 700;
+                    font-size: 0.88rem;
+                    letter-spacing: 1px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 8px;
-                    box-shadow: 0 10px 24px rgba(42, 5, 11, 0.25);
-                    transition: all 0.25s ease;
+                    box-shadow: 0 6px 18px rgba(139, 26, 43, 0.25);
+                    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
                 }
 
                 .attractive-submit-btn:hover:not(:disabled) {
-                    background: linear-gradient(135deg, #570917 0%, #29030a 100%);
-                    transform: translateY(-2px);
-                    box-shadow: 0 14px 30px rgba(42, 5, 11, 0.35);
+                    background: linear-gradient(135deg, #9b1d31 0%, #7d1726 100%);
+                    transform: translateY(-1px);
+                    box-shadow: 0 8px 22px rgba(139, 26, 43, 0.35);
+                }
+
+                .attractive-submit-btn:active:not(:disabled) {
+                    transform: translateY(0);
+                    box-shadow: 0 3px 10px rgba(139, 26, 43, 0.2);
                 }
 
                 .btn-arrow {
-                    font-size: 1.1rem;
-                    color: #e5c158;
+                    font-size: 1.05rem;
+                    color: #f3e5ab;
+                    transition: transform 0.2s ease;
+                }
+
+                .attractive-submit-btn:hover:not(:disabled) .btn-arrow {
+                    transform: translateX(3px);
                 }
 
                 .btn-loading-spin {
@@ -713,19 +723,24 @@ function LoginPage() {
                 }
 
                 .signup-bottom-text {
-                    text-align: center;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-wrap: nowrap;
+                    gap: 5px;
                     margin-top: 20px;
                     padding-top: 14px;
                     border-top: 1px dashed #e2e8f0;
-                    font-size: 0.84rem;
+                    font-size: 0.81rem;
                     color: #64748b;
+                    white-space: nowrap;
                 }
 
                 .register-link {
                     color: #800020;
                     font-weight: 700;
                     text-decoration: none;
-                    margin-left: 4px;
+                    white-space: nowrap;
                 }
 
                 .register-link:hover {
