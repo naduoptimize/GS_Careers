@@ -268,7 +268,7 @@ function ManageCompanies({ admin }) {
 
     return (
         <div className="premium-admins-page">
-            {/* HERITAGE HERO PANEL */}
+            {/* MINIMALIST HERO PANEL */}
             <div className="dashboard-hero-premium" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: '20px' }}>
                 <div className="hero-content-p" style={{ flex: 1, minWidth: 0 }}>
                     <div className="hero-badge-p"><FiActivity /> Enterprise Registry</div>
@@ -280,41 +280,37 @@ function ManageCompanies({ admin }) {
                         <button className="btn-hero-p primary" onClick={openCreate}>
                             <FiPlus /> Register New Entity
                         </button>
-                        <button className="btn-hero-p" style={{ background: 'var(--crimson)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)' }} onClick={openManageLocations}>
+                        <button className="btn-hero-p secondary" onClick={openManageLocations}>
                             <FiMapPin /> Manage Company Location
                         </button>
                     </div>
                 )}
-                <div className="hero-bg-accent"></div>
             </div>
 
             {/* PERFORMANCE SNAPSHOT */}
             <div className="stats-mosaic-grid admin-grid-3">
-                <div className="db-stat-card gold">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Registered Subsidiaries</span>
                         <div className="db-s-icon"><FiHome /></div>
                     </div>
                     <span className="db-s-value">{stats.total}</span>
-                    <div className="db-s-trend"><FiTrendingUp /> Global Entities</div>
                 </div>
-                <div className="db-stat-card green">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Inside Locations</span>
-                        <div className="db-s-icon"><FiMapPin /></div>
+                        <div className="db-s-icon green"><FiMapPin /></div>
                     </div>
                     <span className="db-s-value">{stats.insideLocations}</span>
-                    <div className="db-s-trend positive"><FiTrendingUp /> Locations Registry</div>
                 </div>
-                <div className="db-stat-card blue">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Lately Seeded</span>
-                        <div className="db-s-icon"><FiInfo /></div>
+                        <div className="db-s-icon blue"><FiInfo /></div>
                     </div>
                     <span className="db-s-value text-value" title={stats.recent || 'None'}>
                         {stats.recent || 'None'}
                     </span>
-                    <div className="db-s-trend"><FiTrendingUp /> New Sub-entities</div>
                 </div>
             </div>
 

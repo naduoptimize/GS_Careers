@@ -553,7 +553,6 @@ function ManageVacancies({ admin }) {
         <div className="manage-vacancies-console">
             {/* HEREO / HEADER SECTION */}
             <div className="vacancies-orchestration-header">
-                <div className="hero-bg-accent"></div>
                 <div className="header-content-p">
                     <div className="console-badge">
                         <span className="live-dot pulse"></span>
@@ -571,39 +570,35 @@ function ManageVacancies({ admin }) {
 
             {/* STATS MOSAIC */}
             <div className="stats-mosaic-grid admin-grid-4">
-                <div className="db-stat-card blue">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Total Listings</span>
                         <div className="db-s-icon"><FiBriefcase /></div>
                     </div>
                     <span className="db-s-value">{stats.total_vacancies}</span>
-                    <div className="db-s-trend"><FiTrendingUp /> Global Overview</div>
                 </div>
-                <div className="db-stat-card green">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Live Channels</span>
-                        <div className="db-s-icon"><FiCheckCircle /></div>
+                        <div className="db-s-icon green"><FiCheckCircle /></div>
                     </div>
                     <span className="db-s-value">{stats.active_vacancies}</span>
-                    <div className="db-s-trend positive"><FiTrendingUp /> Active &amp; Live</div>
                 </div>
-                <div className="db-stat-card gold">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Engagement</span>
-                        <div className="db-s-icon"><FiUsers /></div>
+                        <div className="db-s-icon blue"><FiUsers /></div>
                     </div>
                     <span className="db-s-value">{stats.total_applications}</span>
-                    <div className="db-s-trend"><FiTrendingUp /> Total Submissions</div>
                 </div>
-                <div className="db-stat-card rose">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Expiring Soon</span>
-                        <div className="db-s-icon"><FiAlertCircle /></div>
+                        <div className="db-s-icon purple"><FiAlertCircle /></div>
                     </div>
                     <span className="db-s-value">
                         {vacancies.filter(v => daysLeft(v.expire_date) > 0 && daysLeft(v.expire_date) <= 7).length}
                     </span>
-                    <div className="db-s-trend urgent"><FiClock /> Urgent Action</div>
                 </div>
             </div>
 
@@ -2010,162 +2005,95 @@ function ManageVacancies({ admin }) {
                     animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
                 }
 
-                /* ORCHESTRATION HEADER */
+                /* ORCHESTRATION HEADER - MINIMALIST */
                 .vacancies-orchestration-header {
-                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
-                    border-radius: 20px;
-                    padding: 24px;
-                    margin-bottom: 24px;
+                    background: linear-gradient(135deg, #7A1528 0%, #4D0A14 100%);
+                    border-radius: 16px;
+                    padding: 24px 30px;
+                    margin-bottom: 20px;
                     position: relative;
                     overflow: hidden;
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     flex-wrap: wrap;
-                    gap: 24px;
-                    border: 1px solid rgba(255,255,255,0.05);
-                    box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
-                }
-
-                .vacancies-orchestration-header::after {
-                    content: '';
-                    position: absolute;
-                    inset: 0;
-                    background-image: 
-                        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-                    background-size: 30px 30px;
-                    pointer-events: none;
-                }
-
-                .hero-bg-accent {
-                    position: absolute;
-                    top: -50px;
-                    right: -50px;
-                    width: 300px;
-                    height: 300px;
-                    background: var(--gold-accent);
-                    filter: blur(150px);
-                    opacity: 0.15;
-                    border-radius: 50%;
+                    gap: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
                 }
 
                 .console-badge {
                     display: inline-flex;
                     align-items: center;
-                    gap: 8px;
-                    background: rgba(255,255,255,0.05);
-                    padding: 5px 12px;
+                    gap: 6px;
+                    background: rgba(255, 255, 255, 0.12);
+                    padding: 4px 12px;
                     border-radius: 100px;
-                    font-size: 0.60rem;
-                    font-weight: 800;
+                    font-size: 0.62rem;
+                    font-weight: 700;
                     letter-spacing: 1px;
-                    color: rgba(255,255,255,0.8);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    margin-bottom: 12px;
+                    color: rgba(255, 255, 255, 0.9);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    margin-bottom: 10px;
                 }
 
                 .serif-title-p {
-                    font-family: var(--font-heading);
-                    font-size: 1.8rem;
-                    color: #fff;
-                    font-weight: 800;
-                    letter-spacing: -0.5px;
-                    margin-bottom: 8px;
+                    font-family: var(--font-heading), 'Playfair Display', serif;
+                    font-size: 1.75rem;
+                    color: #ffffff;
+                    font-weight: 700;
+                    letter-spacing: -0.3px;
+                    margin-bottom: 6px;
                     line-height: 1.1;
                 }
 
                 .hero-subline {
-                    color: rgba(255,255,255,0.6);
-                    font-size: 0.9rem;
-                    max-width: 500px;
+                    color: rgba(255, 255, 255, 0.7);
+                    font-size: 0.82rem;
+                    max-width: 520px;
+                    margin: 0;
+                    font-weight: 400;
                 }
 
                 .btn-establish-p {
-                    background: var(--gold-accent);
-                    color: #fff;
+                    background: #C8A951;
+                    color: #1a1a2a;
                     border: none;
-                    padding: 10px 20px;
-                    border-radius: 12px;
+                    padding: 9px 18px;
+                    border-radius: 10px;
                     font-weight: 700;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 8px;
                     cursor: pointer;
-                    transition: all 0.3s;
-                    box-shadow: 0 10px 20px rgba(200, 169, 81, 0.2);
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 8px rgba(200, 169, 81, 0.25);
                     z-index: 10;
-                    font-size: 0.9rem;
+                    font-size: 0.84rem;
                 }
 
                 .btn-establish-p:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 15px 40px rgba(200, 169, 81, 0.4);
-                    background: #d4b86a;
+                    background: #d4b45d;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(200, 169, 81, 0.35);
                 }
 
-                /* STATS MOSAIC */
-                .stats-mosaic-p {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                    gap: 16px;
-                    margin-bottom: 24px;
-                }
-
-                .mosaic-card-p {
-                    padding: 20px;
-                    border-radius: 16px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    transition: all 0.3s;
-                    background: #fff;
-                    border: 1px solid var(--border-light);
-                }
-
-                .mosaic-card-p:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 10px 20px rgba(0,0,0,0.03);
-                }
-
-                .m-icon {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 14px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 1.2rem;
-                }
-
-                .m-icon.blue { background: #eff6ff; color: #3b82f6; }
-                .m-icon.green { background: #ecfdf5; color: #10b981; }
-                .m-icon.gold { background: #fffbeb; color: var(--gold-accent); }
-                .m-icon.crimson { background: #fff1f2; color: var(--crimson); }
-
-                .m-info { display: flex; flex-direction: column; }
-                .m-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-                .m-value { font-size: 1.6rem; font-weight: 800; color: var(--text-primary); }
-                .m-footer { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); opacity: 0.6; }
-                .m-footer.active { color: #10b981; opacity: 1; }
-                .m-footer.urgent { color: var(--crimson); opacity: 1; }
-
-                /* REFINED TOOLBAR */
+                /* REFINED MINIMALIST TOOLBAR */
                 .console-toolbar-p {
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
-                    margin-bottom: 24px;
+                    gap: 14px;
+                    margin-bottom: 20px;
                     background: #ffffff;
-                    padding: 20px 24px;
-                    border-radius: 20px;
+                    padding: 16px 20px;
+                    border-radius: 14px;
                     border: 1px solid #e2e8f0;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
                 }
 
                 .toolbar-search-row {
                     display: flex;
-                    gap: 12px;
+                    gap: 10px;
                     align-items: center;
                 }
 
@@ -2176,54 +2104,54 @@ function ManageVacancies({ admin }) {
 
                 .search-orchestrator .s-icon {
                     position: absolute;
-                    left: 18px;
+                    left: 14px;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: #800020;
-                    font-size: 1.15rem;
+                    color: #8B1A2B;
+                    font-size: 1rem;
                     z-index: 10;
                 }
 
                 .search-orchestrator input {
                     width: 100%;
-                    padding: 14px 20px 14px 48px;
-                    border-radius: 14px;
-                    border: 1.5px solid #cbd5e1;
+                    padding: 10px 16px 10px 42px;
+                    border-radius: 10px;
+                    border: 1px solid #e2e8f0;
                     background: #ffffff;
-                    font-size: 0.92rem;
+                    font-size: 0.86rem;
                     color: #0f172a;
                     font-weight: 500;
-                    transition: all 0.25s ease;
-                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+                    transition: all 0.2s ease;
+                    box-shadow: none;
                 }
 
                 .search-orchestrator input:focus {
                     outline: none;
                     background: #ffffff;
-                    border-color: #800020;
-                    box-shadow: 0 0 0 4px rgba(128, 0, 32, 0.08);
+                    border-color: #8B1A2B;
+                    box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.08);
                 }
 
                 .btn-reset-p {
-                    background: #fff;
+                    background: #ffffff;
                     color: #475569;
-                    border: 1.5px solid #cbd5e1;
-                    padding: 0 20px;
-                    height: 48px;
-                    border-radius: 14px;
-                    font-weight: 700;
+                    border: 1px solid #e2e8f0;
+                    padding: 0 16px;
+                    height: 40px;
+                    border-radius: 10px;
+                    font-weight: 600;
                     display: flex;
                     align-items: center;
-                    gap: 8px;
+                    gap: 6px;
                     cursor: pointer;
                     transition: all 0.2s;
-                    font-size: 0.85rem;
+                    font-size: 0.8rem;
                     flex-shrink: 0;
                 }
 
                 .btn-reset-p:hover {
                     background: #fef2f2;
-                    color: var(--crimson);
+                    color: #dc2626;
                     border-color: #fecaca;
                 }
 
@@ -2245,7 +2173,7 @@ function ManageVacancies({ admin }) {
 
                 .filter-group label {
                     font-size: 0.65rem;
-                    font-weight: 800;
+                    font-weight: 700;
                     color: #64748b;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
@@ -2263,18 +2191,18 @@ function ManageVacancies({ admin }) {
                     left: 10px;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: var(--crimson, #800020);
+                    color: #8B1A2B;
                     pointer-events: none;
                     z-index: 10;
-                    font-size: 0.9rem;
+                    font-size: 0.88rem;
                 }
 
                 .select-orchestrator select {
                     box-sizing: border-box;
                     padding: 0 22px 0 32px;
-                    height: 42px;
+                    height: 40px;
                     border-radius: 10px;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1px solid #e2e8f0;
                     background: #f8fafc;
                     font-size: 0.82rem;
                     font-weight: 600;
@@ -2289,9 +2217,9 @@ function ManageVacancies({ admin }) {
 
                 .select-orchestrator select:focus {
                     outline: none;
-                    border-color: #800020;
+                    border-color: #8B1A2B;
                     background: #ffffff;
-                    box-shadow: 0 0 0 3.5px rgba(128, 0, 32, 0.08);
+                    box-shadow: 0 0 0 3px rgba(139, 26, 43, 0.08);
                 }
 
                 .select-lg { min-width: 200px; }

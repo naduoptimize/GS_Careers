@@ -546,49 +546,44 @@ function VacancyApprovals({ admin }) {
                 <div className="hero-bg-accent"></div>
             </div>
 
-            {/* METRICS MOSAIC */}
+            {/* METRICS MOSAIC - MINIMALIST */}
             <div className="av-stats-grid">
                 {admin.role !== 'sub_admin2' && (
-                    <div className="db-stat-card rose clickable-stat" onClick={() => { setActiveTab('action_required'); setStatusFilter(''); }}>
+                    <div className="db-stat-card clickable-stat" onClick={() => { setActiveTab('action_required'); setStatusFilter(''); }}>
                         <div className="db-s-header">
                             <span className="db-s-label">Action Required</span>
-                            <div className="db-s-icon"><FiAlertCircle /></div>
+                            <div className="db-s-icon rose"><FiAlertCircle /></div>
                         </div>
                         <span className="db-s-value">{stats.actionRequired}</span>
-                        <div className="db-s-trend urgent"><FiClock /> Pending Review</div>
                     </div>
                 )}
-                <div className="db-stat-card gold clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_subadmin1'); }}>
+                <div className="db-stat-card clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_subadmin1'); }}>
                     <div className="db-s-header">
                         <span className="db-s-label">Sub Admin 1</span>
-                        <div className="db-s-icon"><FiClock /></div>
+                        <div className="db-s-icon gold"><FiClock /></div>
                     </div>
                     <span className="db-s-value">{stats.pendingSub1}</span>
-                    <div className="db-s-trend"><FiClock /> 1st Tier Evaluation</div>
                 </div>
-                <div className="db-stat-card blue clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_global'); }}>
+                <div className="db-stat-card clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('pending_global'); }}>
                     <div className="db-s-header">
                         <span className="db-s-label">GS Admin</span>
-                        <div className="db-s-icon"><FiClock /></div>
+                        <div className="db-s-icon blue"><FiClock /></div>
                     </div>
                     <span className="db-s-value">{stats.pendingGlobal}</span>
-                    <div className="db-s-trend"><FiClock /> Final Authorization</div>
                 </div>
-                <div className="db-stat-card green clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('approved'); }}>
+                <div className="db-stat-card clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('approved'); }}>
                     <div className="db-s-header">
                         <span className="db-s-label">Approved</span>
-                        <div className="db-s-icon"><FiCheckCircle /></div>
+                        <div className="db-s-icon green"><FiCheckCircle /></div>
                     </div>
                     <span className="db-s-value">{stats.approved}</span>
-                    <div className="db-s-trend positive"><FiCheckCircle /> Published &amp; Live</div>
                 </div>
-                <div className="db-stat-card purple clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('rejected'); }}>
+                <div className="db-stat-card clickable-stat" onClick={() => { setActiveTab('pipeline'); setStatusFilter('rejected'); }}>
                     <div className="db-s-header">
                         <span className="db-s-label">Rejected</span>
-                        <div className="db-s-icon"><FiXCircle /></div>
+                        <div className="db-s-icon purple"><FiXCircle /></div>
                     </div>
                     <span className="db-s-value">{stats.rejected}</span>
-                    <div className="db-s-trend"><FiXCircle /> Needs Correction</div>
                 </div>
             </div>
 

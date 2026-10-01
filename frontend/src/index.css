@@ -9297,16 +9297,13 @@ img, svg, video, iframe {
 .db-stat-card::before,
 .admin-stat-card::before,
 .tp-stat-card::before,
+.av-stat-card::before,
+.mosaic-card-p::before,
+.db-stat-card::before,
+.admin-stat-card::before,
+.tp-stat-card::before,
 .stat-glass-card::before {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    height: 4px !important;
-    border-radius: 16px 16px 0 0 !important;
-    background: #cbd5e1 !important;
-    transition: all 0.25s ease !important;
+    display: none !important;
 }
 
 .av-stat-card:hover,
@@ -9507,10 +9504,13 @@ img, svg, video, iframe {
     transition: all 0.2s ease !important;
 }
 
+.db-s-trend {
+    display: none !important;
+}
+
 /* Card Trends / Subtitles */
 .stat-glass-card .s-trend,
 .av-card-sub,
-.db-s-trend,
 .m-sub,
 .s-sub {
     font-size: 0.72rem !important;

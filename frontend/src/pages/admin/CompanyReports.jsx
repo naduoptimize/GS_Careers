@@ -78,7 +78,7 @@ function CompanyReports({ admin }) {
 
     return (
         <div className="premium-admins-page">
-            {/* HERITAGE CINEMATIC HERO */}
+            {/* MINIMALIST HERO */}
             <div className="dashboard-hero-premium">
                 <div className="hero-content-p">
                     <div className="hero-badge-p"><FiActivity /> Divisional Recruitment Intelligence</div>
@@ -90,31 +90,28 @@ function CompanyReports({ admin }) {
                         <FiArrowLeft /> Back to Suite
                     </button>
                 </div>
-                <div className="hero-bg-accent"></div>
             </div>
 
             {/* PERFORMANCE SNAPSHOT */}
             <div className="stats-mosaic-grid admin-grid-4">
-                <div className="db-stat-card gold">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Total Submissions</span>
                         <div className="db-s-icon"><FiUsers /></div>
                     </div>
                     <span className="db-s-value">{totalGroupApplications}</span>
-                    <div className="db-s-trend"><FiTrendingUp /> Group-wide Engagement</div>
                 </div>
-                <div className="db-stat-card green">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Active Channels</span>
-                        <div className="db-s-icon"><FiBriefcase /></div>
+                        <div className="db-s-icon green"><FiBriefcase /></div>
                     </div>
                     <span className="db-s-value">{totalActiveVacancies} <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>/ {totalGroupVacancies}</span></span>
-                    <div className="db-s-trend positive"><FiBarChart2 /> Pipelines Open</div>
                 </div>
-                <div className="db-stat-card blue">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Engagement Rate</span>
-                        <div className="db-s-icon"><FiPercent /></div>
+                        <div className="db-s-icon blue"><FiPercent /></div>
                     </div>
                     <span className="db-s-value">
                         {topPerformer && topPerformer.totalVacancies > 0 ? (
@@ -123,17 +120,13 @@ function CompanyReports({ admin }) {
                             </>
                         ) : 'N/A'}
                     </span>
-                    <div className="db-s-trend" title={topPerformer ? topPerformer.name : 'Top Performer'}>
-                        <FiAward /> {topPerformer ? topPerformer.name : 'Top Performer'}
-                    </div>
                 </div>
-                <div className="db-stat-card purple">
+                <div className="db-stat-card">
                     <div className="db-s-header">
                         <span className="db-s-label">Corporate Divisions</span>
-                        <div className="db-s-icon"><FiBarChart2 /></div>
+                        <div className="db-s-icon purple"><FiBarChart2 /></div>
                     </div>
                     <span className="db-s-value">{activeCompaniesCount} <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>/ {companies.length}</span></span>
-                    <div className="db-s-trend"><FiGlobe /> Subsidiaries List</div>
                 </div>
             </div>
 
