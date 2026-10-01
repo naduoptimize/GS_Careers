@@ -26,10 +26,16 @@ const renderFormattedText = (text) => {
     lines.forEach((line, index) => {
         const trimmed = line.trim();
         // Detect bullet points or numbered lists
-        const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+\./.test(trimmed);
+        const isBullet = /^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0]/i.test(trimmed) || /^\d+[\.\)]\s*/.test(trimmed) || trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•');
 
         if (isBullet) {
-            const content = trimmed.replace(/^[•\-*\d.]+\s*/, '').trim();
+            let content = trimmed
+                .replace(/^[\s•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]+/, '')
+                .replace(/^\d+[\.\)]\s*/, '')
+                .trim();
+            while (/^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]/.test(content)) {
+                content = content.replace(/^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]+\s*/, '').trim();
+            }
             if (content) {
                 currentList.push(<li key={`li-${index}`}>{content}</li>);
             }

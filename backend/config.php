@@ -283,6 +283,8 @@ function sendEmail($to, $toName, $subject, $body)
 
         // Content
         $mail->isHTML(true);
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
         $mail->Subject = $subject;
         $mail->Body = $body;
         $mail->AltBody = strip_tags(str_replace('<br>', "\n", $body));

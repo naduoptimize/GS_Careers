@@ -257,17 +257,169 @@ function sendShortlistEmail($applicationId, $to, $name, $jobTitle, $companyName,
         return;
 
     $defaultSubject = "Interview Invitation - {job_title} | George Steuart Group";
-    $defaultBody = '<!DOCTYPE html>
-<html>
+    $defaultBody = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>Interview Invitation</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+        body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f4f6f9; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+        
+        @media only screen and (max-width: 600px) {
+            .mobile-wrapper { width: 100% !important; padding: 10px !important; }
+            .mobile-content { padding: 25px 18px !important; }
+            .btn-table { width: 100% !important; }
+            .btn-td { display: block !important; width: 100% !important; margin-bottom: 12px !important; }
+            .btn-link { display: block !important; width: 100% !important; box-sizing: border-box !important; text-align: center !important; }
+            .detail-label-td { display: block !important; width: 100% !important; padding-bottom: 2px !important; }
+            .detail-value-td { display: block !important; width: 100% !important; padding-bottom: 12px !important; }
+        }
+    </style>
 </head>
-<body>
-    <p>Dear {name},</p>
-    <p>We are pleased to invite you for an interview for the position of {job_title} ({ref_no}) scheduled on {interview_date} at {interview_time} ({interview_type}).</p>
-    <p>Location/Meeting link: {interview_location}</p>
-    <p>Please confirm your availability: <a href="{confirm_url_yes}">Yes, I am available</a> | <a href="{confirm_url_no}">No, I cannot attend</a></p>
+<body style="margin: 0; padding: 0; background-color: #f4f6f9;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" style="background-color: #f4f6f9; table-layout: fixed;">
+        <tr>
+            <td align="center" style="padding: 30px 10px;">
+                <!--[if mso]>
+                <table align="center" border="0" cellspacing="0" cellpadding="0" width="600" role="presentation">
+                <tr>
+                <td align="center" valign="top" width="600">
+                <![endif]-->
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="mobile-wrapper" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                    <tr>
+                        <td align="center" style="background-color: #1a1a2e; padding: 32px 20px; border-bottom: 4px solid #c8a951;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation">
+                                <tr>
+                                    <td align="center" style="font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: 2px; text-transform: uppercase;">
+                                        GEORGE STEUART
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td align="center" style="font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 800; color: #c8a951; letter-spacing: 1.8px; text-transform: uppercase; padding-top: 4px;">
+                                        ESTABLISHED 1835
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="mobile-content" style="padding: 36px 32px; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.6; color: #334155;">
+                            <p style="margin: 0 0 18px 0; font-size: 20px; font-weight: bold; color: #0f172a;">
+                                Dear {name},
+                            </p>
+
+                            <p style="margin: 0 0 24px 0;">
+                                We are pleased to inform you that after reviewing your application for the position of <strong style="color: #0f172a;">{job_title}</strong> (Ref: {ref_no}), you have been <span style="background-color: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; display: inline-block;">SHORTLISTED</span> for the next stage of our selection process.
+                            </p>
+
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" style="background-color: #fffaf0; border: 1px solid #fde68a; border-left: 4px solid #c8a951; border-radius: 8px; margin-bottom: 28px;">
+                                <tr>
+                                    <td style="padding: 22px 24px;">
+                                        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: bold; color: #1a1a2e; text-transform: uppercase; letter-spacing: 1px; padding-bottom: 10px; border-bottom: 1px solid #fde68a; margin-bottom: 16px;">
+                                            INTERVIEW DETAILS
+                                        </div>
+
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation">
+                                            <tr>
+                                                <td class="detail-label-td" width="110" valign="top" style="padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase; letter-spacing: 0.5px;">TYPE</td>
+                                                <td class="detail-value-td" valign="top" style="padding: 6px 0; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;">{interview_type}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="detail-label-td" width="110" valign="top" style="padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase; letter-spacing: 0.5px;">DATE</td>
+                                                <td class="detail-value-td" valign="top" style="padding: 6px 0; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;">{interview_date}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="detail-label-td" width="110" valign="top" style="padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase; letter-spacing: 0.5px;">TIME</td>
+                                                <td class="detail-value-td" valign="top" style="padding: 6px 0; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;">{interview_time}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="detail-label-td" width="110" valign="top" style="padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase; letter-spacing: 0.5px;">LOCATION</td>
+                                                <td class="detail-value-td" valign="top" style="padding: 6px 0; font-family: \'Segoe UI\', Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;">{interview_location}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 0 0 20px 0; font-weight: bold; color: #0f172a; text-align: center;">
+                                Please confirm your availability for this schedule by clicking one of the buttons below:
+                            </p>
+
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" role="presentation" style="margin: 24px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <!--[if mso]>
+                                        <table align="center" border="0" cellspacing="0" cellpadding="0" role="presentation">
+                                        <tr>
+                                        <td align="center" bgcolor="#10b981" style="border-radius:6px;">
+                                            <a href="{confirm_url_yes}" target="_blank" style="padding: 14px 24px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; background-color: #10b981; border-radius: 6px;">Yes, I am available</a>
+                                        </td>
+                                        <td width="16">&nbsp;</td>
+                                        <td align="center" bgcolor="#ef4444" style="border-radius:6px;">
+                                            <a href="{confirm_url_no}" target="_blank" style="padding: 14px 24px; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; background-color: #ef4444; border-radius: 6px;">No, I cannot attend</a>
+                                        </td>
+                                        </tr>
+                                        </table>
+                                        <![endif]-->
+                                        <!--[if !mso]><!-->
+                                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" class="btn-table" style="margin: 0 auto;">
+                                            <tr>
+                                                <td align="center" bgcolor="#10b981" class="btn-td" style="border-radius: 6px; background-color: #10b981;">
+                                                    <a href="{confirm_url_yes}" target="_blank" class="btn-link" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 24px; border-radius: 6px; background-color: #10b981;">Yes, I am available</a>
+                                                </td>
+                                                <td width="16" style="width: 16px;">&nbsp;</td>
+                                                <td align="center" bgcolor="#ef4444" class="btn-td" style="border-radius: 6px; background-color: #ef4444;">
+                                                    <a href="{confirm_url_no}" target="_blank" class="btn-link" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; padding: 14px 24px; border-radius: 6px; background-color: #ef4444;">No, I cannot attend</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <!--<![endif]-->
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 24px 0 0 0;">
+                                We look forward to discussing your potential contribution to George Steuart Group.
+                            </p>
+
+                            <p style="margin: 28px 0 0 0; line-height: 1.5;">
+                                Best regards,<br />
+                                <strong style="color: #0f172a;">Talent Acquisition Team</strong><br />
+                                <span style="color: #64748b; font-size: 14px;">George Steuart Group</span>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center" style="background-color: #f8fafc; padding: 24px 20px; border-top: 1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                            &#169; {current_year} George Steuart Group. All Rights Reserved.<br />
+                            <span style="font-size: 11px; color: #cbd5e1; display: inline-block; margin-top: 6px;">This is an automated notification. Please do not reply directly to this message.</span>
+                        </td>
+                    </tr>
+                </table>
+                <!--[if mso]>
+                </td>
+                </tr>
+                </table>
+                <![endif]-->
+            </td>
+        </tr>
+    </table>
 </body>
 </html>';
 
@@ -304,68 +456,108 @@ function sendInterviewConfirmationReceiptEmail($to, $name, $jobTitle, $companyNa
     $currentYear = date('Y');
 
     $body = "
-    <!DOCTYPE html>
-    <html>
+    <!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd'>
+    <html xmlns='http://www.w3.org/1999/xhtml' xmlns:v='urn:schemas-microsoft-com:vml' xmlns:o='urn:schemas-microsoft-com:office:office'>
     <head>
-        <meta charset='UTF-8'>
-        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-        <style>
-            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
-            .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
-            .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-            .header { background-color: #1a1a2e; padding: 40px 20px; text-align: center; border-bottom: 5px solid #c8a951; }
-            .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
-            .header p { color: #c8a951; margin: 5px 0 0; text-transform: uppercase; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; }
-            .content { padding: 40px 35px; }
-            .greeting { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; font-weight: 700; }
-            .success-badge { display: inline-block; background-color: " . ($response === 'yes' ? "#ecfdf5" : "#fef2f2") . "; color: " . ($response === 'yes' ? "#15803d" : "#b91c1c") . "; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; border: 1px solid " . ($response === 'yes' ? "#dcfce7" : "#fecaca") . "; }
-            .info-card { background-color: #fdfaf3; border-radius: 12px; padding: 25px; margin: 25px 0; border-left: 4px solid #c8a951; border-top: 1px solid #fbd38d; border-right: 1px solid #fbd38d; border-bottom: 1px solid #fbd38d; }
-            .info-row { margin-bottom: 12px; }
-            .info-row:last-child { margin-bottom: 0; }
-            .info-label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
-            .info-value { color: #1a1a2e; font-size: 15px; font-weight: 600; }
-            .footer { padding: 30px; text-align: center; font-size: 12px; color: #94a3b8; background-color: #f8fafc; border-top: 1px solid #e2e8f0; }
+        <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
+        <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+        <title>Interview RSVP Confirmation</title>
+        <!--[if mso]>
+        <noscript>
+            <xml>
+                <o:OfficeDocumentSettings>
+                    <o:PixelsPerInch>96</o:PixelsPerInch>
+                </o:OfficeDocumentSettings>
+            </xml>
+        </noscript>
+        <![endif]-->
+        <style type='text/css'>
+            body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+            table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+            body { margin: 0 !important; padding: 0 !important; width: 100% !important; background-color: #f4f6f9; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; }
         </style>
     </head>
-    <body>
-        <div class='wrapper'>
-            <div class='container'>
-                <div class='header'>
-                    <h1>GEORGE STEUART</h1>
-                    <p>ESTABLISHED 1835</p>
-                </div>
-                <div class='content'>
-                    <div class='greeting'>Dear $name,</div>
-                    <div class='success-badge'>RSVP Recorded</div>
-                    <p>This email confirms that we have successfully received and registered your RSVP response for the scheduled interview.</p>
-                    
-                    <div class='info-card'>
-                        <div class='info-row'>
-                            <div class='info-label'>Position</div>
-                            <div class='info-value'>$jobTitle</div>
-                        </div>
-                        <div class='info-row'>
-                            <div class='info-label'>Job Reference No</div>
-                            <div class='info-value'>$jobRef</div>
-                        </div>
-                        <div class='info-row'>
-                            <div class='info-label'>Your Selection</div>
-                            <div class='info-value' style='color: " . ($response === 'yes' ? "#10b981" : "#ef4444") . "; font-weight: 700; text-transform: uppercase;'>$responseStr</div>
-                        </div>
-                    </div>
+    <body style='margin: 0; padding: 0; background-color: #f4f6f9;'>
+        <table border='0' cellpadding='0' cellspacing='0' width='100%' role='presentation' style='background-color: #f4f6f9; table-layout: fixed;'>
+            <tr>
+                <td align='center' style='padding: 30px 10px;'>
+                    <!--[if mso]>
+                    <table align='center' border='0' cellspacing='0' cellpadding='0' width='600' role='presentation'>
+                    <tr>
+                    <td align='center' valign='top' width='600'>
+                    <![endif]-->
+                    <table border='0' cellpadding='0' cellspacing='0' width='100%' style='max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 15px rgba(0,0,0,0.05);'>
+                        <tr>
+                            <td align='center' style='background-color: #1a1a2e; padding: 32px 20px; border-bottom: 4px solid #c8a951;'>
+                                <table border='0' cellpadding='0' cellspacing='0' role='presentation'>
+                                    <tr>
+                                        <td align='center' style='font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: bold; color: #ffffff; letter-spacing: 2px; text-transform: uppercase;'>
+                                            GEORGE STEUART
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align='center' style='font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: 800; color: #c8a951; letter-spacing: 1.8px; text-transform: uppercase; padding-top: 4px;'>
+                                            ESTABLISHED 1835
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 36px 32px; font-family: \"Segoe UI\", Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.6; color: #334155;'>
+                                <p style='margin: 0 0 18px 0; font-size: 20px; font-weight: bold; color: #0f172a;'>Dear $name,</p>
+                                
+                                <p style='margin: 0 0 20px 0;'>
+                                    <span style='background-color: " . ($response === 'yes' ? "#d1fae5" : "#fee2e2") . "; color: " . ($response === 'yes' ? "#065f46" : "#991b1b") . "; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block;'>RSVP RECORDED</span>
+                                </p>
+                                
+                                <p style='margin: 0 0 20px 0;'>This email confirms that we have successfully received and registered your RSVP response for the scheduled interview.</p>
+                                
+                                <table border='0' cellpadding='0' cellspacing='0' width='100%' role='presentation' style='background-color: #fffaf0; border: 1px solid #fde68a; border-left: 4px solid #c8a951; border-radius: 8px; margin: 20px 0;'>
+                                    <tr>
+                                        <td style='padding: 20px;'>
+                                            <table border='0' cellpadding='0' cellspacing='0' width='100%' role='presentation'>
+                                                <tr>
+                                                    <td width='130' valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase;'>POSITION</td>
+                                                    <td valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;'>$jobTitle</td>
+                                                </tr>
+                                                <tr>
+                                                    <td width='130' valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase;'>REF NO</td>
+                                                    <td valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 600; color: #1e293b;'>$jobRef</td>
+                                                </tr>
+                                                <tr>
+                                                    <td width='130' valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 11px; font-weight: bold; color: #718096; text-transform: uppercase;'>YOUR RSVP</td>
+                                                    <td valign='top' style='padding: 6px 0; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; color: " . ($response === 'yes' ? "#10b981" : "#ef4444") . "; text-transform: uppercase;'>$responseStr</td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
 
-                    <p>If you wish to reschedule or discuss alternative slots, please reply directly to your original interview invitation email or contact the recruitment team.</p>
-                    
-                    <p style='margin-top: 30px;'>Best regards,<br>
-                    <strong style='color: #1a1a2e;'>Talent Acquisition Team</strong><br>
-                    George Steuart Group</p>
-                </div>
-                <div class='footer'>
-                    &copy; $currentYear George Steuart Group. All Rights Reserved.<br>
-                    No. 439, Galle Road, Colombo 03, Sri Lanka.<br>
-                </div>
-            </div>
-        </div>
+                                <p style='margin: 20px 0 0 0;'>If you wish to reschedule or discuss alternative slots, please reply directly to your original interview invitation email or contact the recruitment team.</p>
+                                
+                                <p style='margin: 28px 0 0 0; line-height: 1.5;'>
+                                    Best regards,<br />
+                                    <strong style='color: #0f172a;'>Talent Acquisition Team</strong><br />
+                                    <span style='color: #64748b; font-size: 14px;'>George Steuart Group</span>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align='center' style='background-color: #f8fafc; padding: 24px 20px; border-top: 1px solid #e2e8f0; font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #94a3b8; line-height: 1.6;'>
+                                &#169; $currentYear George Steuart Group. All Rights Reserved.<br />
+                                <span style='font-size: 11px; color: #cbd5e1; display: inline-block; margin-top: 6px;'>No. 439, Galle Road, Colombo 03, Sri Lanka.</span>
+                            </td>
+                        </tr>
+                    </table>
+                    <!--[if mso]>
+                    </td>
+                    </tr>
+                    </table>
+                    <![endif]-->
+                </td>
+            </tr>
+        </table>
     </body>
     </html>";
 

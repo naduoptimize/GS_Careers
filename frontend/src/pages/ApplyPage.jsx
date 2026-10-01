@@ -19,6 +19,55 @@ const OVERALL_EXPERIENCE_OPTIONS = [
 const RELEVANT_EXPERIENCE_OPTIONS = OVERALL_EXPERIENCE_OPTIONS;
 const QUALIFICATION_OPTIONS = ['O/L', 'A/L', 'Diploma', 'Bachelors Degree', 'Masters Degree', 'PhD', 'Professional Certification'];
 
+// Helper to render job description/requirements with clean bullet lists and paragraphs
+const renderFormattedText = (text) => {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+    const result = [];
+    let currentList = [];
+
+    lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        const isBullet = /^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0]/i.test(trimmed) || /^\d+[\.\)]\s*/.test(trimmed) || trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•');
+
+        if (isBullet) {
+            let content = trimmed
+                .replace(/^[\s•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]+/, '')
+                .replace(/^\d+[\.\)]\s*/, '')
+                .trim();
+            while (/^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]/.test(content)) {
+                content = content.replace(/^[•\-\*\u2022\u25E6\u2023\u2219\u25CF\u00A0\u200B]+\s*/, '').trim();
+            }
+            if (content) {
+                currentList.push(<li key={`li-${index}`}>{content}</li>);
+            }
+        } else {
+            if (currentList.length > 0) {
+                result.push(<ul key={`ul-${index}`} className="formatted-list">{currentList}</ul>);
+                currentList = [];
+            }
+
+            if (trimmed) {
+                const isHeading = (trimmed.length < 40 && (trimmed === trimmed.toUpperCase() || trimmed.endsWith(':')));
+                result.push(
+                    <p key={`p-${index}`} className={isHeading ? "formatted-heading" : "formatted-paragraph"}>
+                        {trimmed}
+                    </p>
+                );
+            } else {
+                result.push(<div key={`br-${index}`} className="formatted-spacer" />);
+            }
+        }
+    });
+
+    if (currentList.length > 0) {
+        result.push(<ul key="ul-final" className="formatted-list">{currentList}</ul>);
+    }
+
+    return result;
+};
+
 const isRobustMatch = (skill, requirement) => {
     if (!skill || !requirement) return false;
     const s = skill.toLowerCase().trim();
@@ -1307,13 +1356,13 @@ function ApplyPage() {
                             {vacancy?.description && (
                                 <div className="apb-info-block">
                                     <h4>About This Role</h4>
-                                    <p>{vacancy.description}</p>
+                                    {renderFormattedText(vacancy.description)}
                                 </div>
                             )}
                             {vacancy?.requirements && (
                                 <div className="apb-info-block">
                                     <h4>Requirements</h4>
-                                    <p>{vacancy.requirements}</p>
+                                    {renderFormattedText(vacancy.requirements)}
                                 </div>
                             )}
 
