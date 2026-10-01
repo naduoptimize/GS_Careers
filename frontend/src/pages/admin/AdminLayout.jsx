@@ -244,7 +244,7 @@ function AdminLayout({ admin, children }) {
                                                 onClick={() => setSidebarOpen(false)}
                                             >
                                                 <span className="sidebar-sublink-bullet"></span>
-                                                <span>Add Vacancies</span>
+                                                <span>{admin?.role === 'super_admin' ? 'View Vacancy' : 'Add Vacancies'}</span>
                                             </NavLink>
                                             {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                                 <>

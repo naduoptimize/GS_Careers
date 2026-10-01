@@ -13,7 +13,7 @@ function ApprovalTracker({ admin }) {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [vacanciesList, setVacanciesList] = useState([]);
-    const [searchId, setSearchId] = useState(searchParams.get('id') || '');
+    const [searchRef, setSearchRef] = useState(searchParams.get('ref') || searchParams.get('id') || '');
     const [selectedVacancy, setSelectedVacancy] = useState(null);
     const [auditLogs, setAuditLogs] = useState([]);
     const [loadingList, setLoadingList] = useState(true);
@@ -54,15 +54,15 @@ function ApprovalTracker({ admin }) {
     }, [admin]);
 
     // Fetch details of a selected vacancy and its audit logs
-    const fetchVacancyDetails = async (id) => {
-        if (!id) return;
+    const fetchVacancyDetails = async (refOrId) => {
+        if (!refOrId) return;
         try {
             setLoadingData(true);
-            const vacRes = await getVacancy(id);
+            const vacRes = await getVacancy(refOrId);
             const vacancyData = vacRes.data.data || vacRes.data;
             setSelectedVacancy(vacancyData);
 
-            const logsRes = await getVacancyAuditLog(id);
+            const logsRes = await getVacancyAuditLog(refOrId);
             setAuditLogs(logsRes.data.data || []);
         } catch (err) {
             console.error('Error loading vacancy tracker data:', err);
@@ -71,7 +71,7 @@ function ApprovalTracker({ admin }) {
             if (err.response?.status === 403) {
                 toast.error('You do not have permission to view this vacancy status.');
             } else {
-                toast.error('Job ID not found or error loading status.');
+                toast.error('Job Reference Number not found or error loading status.');
             }
         } finally {
             setLoadingData(false);
@@ -80,10 +80,10 @@ function ApprovalTracker({ admin }) {
 
     // Trigger details fetch on search parameter change
     useEffect(() => {
-        const idParam = searchParams.get('id');
-        if (idParam) {
-            fetchVacancyDetails(idParam);
-            setSearchId(idParam);
+        const refParam = searchParams.get('ref') || searchParams.get('id');
+        if (refParam) {
+            fetchVacancyDetails(refParam);
+            setSearchRef(refParam);
         } else {
             setSelectedVacancy(null);
             setAuditLogs([]);
@@ -92,19 +92,19 @@ function ApprovalTracker({ admin }) {
 
     const handleSearchSubmit = (e) => {
         if (e) e.preventDefault();
-        const trimmed = searchId.trim();
+        const trimmed = searchRef.trim();
         if (!trimmed) {
-            toast.warn('Please enter a Job ID');
+            toast.warn('Please enter a Job Reference Number');
             return;
         }
-        setSearchParams({ id: trimmed });
+        setSearchParams({ ref: trimmed });
     };
 
     const handleDropdownSelect = (e) => {
         const val = e.target.value;
-        setSearchId(val);
+        setSearchRef(val);
         if (val) {
-            setSearchParams({ id: val });
+            setSearchParams({ ref: val });
         } else {
             setSearchParams({});
         }
@@ -307,18 +307,18 @@ function ApprovalTracker({ admin }) {
                 <form onSubmit={handleSearchSubmit} className="tracker-search-form">
                     <div className="search-primary-row">
                         <div className="search-field search-field-id">
-                            <label className="search-field-label">Search by Job ID (Vacancy ID)</label>
+                            <label className="search-field-label">Search by Job Reference Number</label>
                             <div className="seamless-search-group">
                                 <div className="input-prefix-box">
                                     <FiHash className="prefix-hash-icon" />
                                 </div>
                                 <input
-                                    id="tracker_job_id"
-                                    name="tracker_job_id"
-                                    type="number"
-                                    placeholder="Enter Job ID (e.g. 63)"
-                                    value={searchId}
-                                    onChange={(e) => setSearchId(e.target.value)}
+                                    id="tracker_job_ref"
+                                    name="tracker_job_ref"
+                                    type="text"
+                                    placeholder="Enter Job Reference Number (e.g. GSH/2026/25/003)"
+                                    value={searchRef}
+                                    onChange={(e) => setSearchRef(e.target.value)}
                                     className="seamless-search-input"
                                 />
                                 <button type="submit" className="seamless-search-btn">
@@ -360,15 +360,15 @@ function ApprovalTracker({ admin }) {
                             <select 
                                 id="tracker_pipeline_select"
                                 name="tracker_pipeline_select"
-                                value={searchParams.get('id') || ''} 
+                                value={searchParams.get('ref') || searchParams.get('id') || ''} 
                                 onChange={handleDropdownSelect}
                                 disabled={loadingList}
                                 className="custom-select-control"
                             >
                                 <option value="">-- Choose a vacancy --</option>
                                 {filteredVacancies.map((v) => (
-                                    <option key={v.id} value={v.id}>
-                                        ID {v.id} | {v.reference_number || 'No Ref'} - {v.title} ({v.company_name})
+                                    <option key={v.id} value={v.reference_number || v.id}>
+                                        {v.reference_number || `ID ${v.id}`} - {v.title} ({v.company_name})
                                     </option>
                                 ))}
                             </select>
@@ -384,29 +384,29 @@ function ApprovalTracker({ admin }) {
                 </div>
             )}
 
-            {!loadingData && !selectedVacancy && searchParams.get('id') && (
+            {!loadingData && !selectedVacancy && (searchParams.get('ref') || searchParams.get('id')) && (
                 <div className="tracker-card error-card">
                     <FiAlertCircle size={28} className="error-icon" />
                     <div>
-                        <h3>Job ID Not Found</h3>
-                        <p>We could not find a vacancy requisition with ID "{searchParams.get('id')}". Please verify the Job ID or pick a vacancy from the dropdown selection list.</p>
+                        <h3>Job Reference Number Not Found</h3>
+                        <p>We could not find a vacancy requisition with Reference Number "{searchParams.get('ref') || searchParams.get('id')}". Please verify the Job Reference Number or pick a vacancy from the dropdown selection list.</p>
                     </div>
                 </div>
             )}
 
-            {!loadingData && !selectedVacancy && !searchParams.get('id') && (
+            {!loadingData && !selectedVacancy && !(searchParams.get('ref') || searchParams.get('id')) && (
                 <div className="tracker-card welcome-card">
                     <div className="tracker-welcome-visual">
                         <FiActivity />
                     </div>
                     <h3>Approval Tracker Dashboard</h3>
                     <p className="welcome-description">
-                        Please enter a Job ID above or choose a vacancy from the dropdown list to visualize the approval pipeline, view pending action owners, and review audit trail logs.
+                        Please enter a Job Reference Number above or choose a vacancy from the dropdown list to visualize the approval pipeline, view pending action owners, and review audit trail logs.
                     </p>
                     <div className="tracker-welcome-steps">
                         <div className="welcome-step">
                             <span className="step-num">1</span>
-                            <span className="step-txt">Enter ID or Select Job</span>
+                            <span className="step-txt">Enter Ref No. or Select Job</span>
                         </div>
                         <div className="step-divider"><FiArrowRight /></div>
                         <div className="welcome-step">

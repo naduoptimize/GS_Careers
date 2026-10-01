@@ -825,15 +825,19 @@ function ManageVacancies({ admin }) {
                                                     <button className="vac-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Details">
                                                         <FiEye />
                                                     </button>
-                                                    <button className="vac-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit">
-                                                        <FiEdit2 />
-                                                    </button>
+                                                    {admin?.role !== 'super_admin' && (
+                                                        <button className="vac-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit">
+                                                            <FiEdit2 />
+                                                        </button>
+                                                    )}
                                                     <button className="vac-btn pipeline" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Applicants">
                                                         <FiArrowRight />
                                                     </button>
-                                                    <button className="vac-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete">
-                                                        <FiTrash2 />
-                                                    </button>
+                                                    {admin?.role !== 'super_admin' && (
+                                                        <button className="vac-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete">
+                                                            <FiTrash2 />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

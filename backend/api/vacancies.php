@@ -146,9 +146,9 @@ function listAllVacancies()
 
 function getVacancy()
 {
-    $id = (int)($_GET['id'] ?? 0);
-    if ($id <= 0)
-        jsonResponse(400, 'Invalid vacancy ID');
+    $identifier = trim($_GET['ref'] ?? $_GET['id'] ?? '');
+    if (empty($identifier))
+        jsonResponse(400, 'Invalid vacancy identifier');
 
     $db = getDB();
     $stmt = $db->prepare("SELECT v.*, c.name as company_name, c.logo as company_logo,
@@ -166,8 +166,8 @@ function getVacancy()
                           LEFT JOIN admins sub1_app ON v.sub1_approved_by = sub1_app.id
                           LEFT JOIN admins glob_app ON v.global_approved_by = glob_app.id
                           LEFT JOIN admins rej ON v.rejected_by = rej.id
-                          WHERE v.id = ?");
-    $stmt->execute([$id]);
+                          WHERE v.reference_number = ? OR v.id = ?");
+    $stmt->execute([$identifier, $identifier]);
     $vacancy = $stmt->fetch();
 
     if (!$vacancy)
@@ -279,12 +279,6 @@ function updateVacancy()
             $status = 'pending_subadmin1';
         } elseif ($auth['role'] === 'sub_admin1') {
             $status = 'pending_global';
-        }
-    } else {
-        if ($auth['role'] === 'admin' || $auth['role'] === 'super_admin') {
-            if ($currentStatus === 'approved') {
-                $status = 'approved';
-            }
         }
     }
 
@@ -1098,19 +1092,25 @@ function notifyOnRejection($vacancyId, $mode, $reason)
 function getVacancyAuditLog()
 {
     $auth = verifyToken();
-    $id = (int)($_GET['id'] ?? 0);
-    if ($id <= 0) {
-        jsonResponse(400, 'Invalid vacancy ID');
+    $identifier = trim($_GET['ref'] ?? $_GET['id'] ?? '');
+    if (empty($identifier)) {
+        jsonResponse(400, 'Invalid vacancy identifier');
     }
 
     $db = getDB();
     
+    // Support matching by reference number or ID
+    $stmtV = $db->prepare("SELECT id, company_id FROM vacancies WHERE reference_number = ? OR id = ?");
+    $stmtV->execute([$identifier, $identifier]);
+    $vac = $stmtV->fetch();
+    if (!$vac) {
+        jsonResponse(404, 'Vacancy not found');
+    }
+    $id = (int)$vac['id'];
+
     // If company scoped, verify company matches
     if ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2') {
-        $stmt = $db->prepare("SELECT company_id FROM vacancies WHERE id = ?");
-        $stmt->execute([$id]);
-        $vac = $stmt->fetch();
-        if (!$vac || (int)$vac['company_id'] !== (int)$auth['company_id']) {
+        if ((int)$vac['company_id'] !== (int)$auth['company_id']) {
             jsonResponse(403, 'Unauthorized to view audit logs for this vacancy');
         }
     }

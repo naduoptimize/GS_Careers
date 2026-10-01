@@ -58,14 +58,16 @@ define('EMAIL_ENABLED', getenv('EMAIL_ENABLED') !== false ? filter_var(getenv('E
 define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
 define('SMTP_PORT', getenv('SMTP_PORT') ? (int)getenv('SMTP_PORT') : 587);
 define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'tls');
-define('SMTP_USER', getenv('SMTP_USER') ?: 'prathibhajay098@gmail.com');
-define('SMTP_PASS', getenv('SMTP_PASS') ?: 'tyjq cahg wakd qwnl');
+define('SMTP_USER', getenv('SMTP_USER') ?: 'nadumi672@gmail.com');
+define('SMTP_PASS', getenv('SMTP_PASS') ?: 'qkaw thob iauz dfqe');
 define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: 'George Steuart Careers');
 define('SMTP_REPLY_TO', getenv('SMTP_REPLY_TO') ?: 'no-reply@georgesteuart.com');
 define('SMTP_DEBUG', getenv('SMTP_DEBUG') !== false ? (int)getenv('SMTP_DEBUG') : 0);
 
 // ---- FRONTEND URL ----
-define('FRONTEND_URL', getenv('FRONTEND_URL') ?: 'http://localhost:3000');
+$reqHost = isset($_SERVER['HTTP_HOST']) ? explode(':', $_SERVER['HTTP_HOST'])[0] : 'localhost';
+$reqProto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+define('FRONTEND_URL', getenv('FRONTEND_URL') ?: "{$reqProto}://{$reqHost}:3000");
 
 // ---- FILE UPLOADS ----
 define('UPLOAD_DIR', __DIR__ . '/uploads/cv/');
