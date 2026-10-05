@@ -483,16 +483,6 @@ function TalentPool({ admin }) {
                                                     )}
                                                 </div>
                                             )}
-                                            <div className="candidate-contact-links">
-                                                <span className="email-p" title={cand.email}>
-                                                    <FiMail size={11} /> {cand.email}
-                                                </span>
-                                                {cand.contact_number && (
-                                                    <span className="phone-p" title={cand.contact_number}>
-                                                        <FiPhone size={10} /> {cand.contact_number}
-                                                    </span>
-                                                )}
-                                            </div>
                                         </div>
                                     </div>
                                 </td>

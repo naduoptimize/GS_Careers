@@ -169,22 +169,20 @@ function CompanyReports({ admin }) {
                                     <th>HEADQUARTERS</th>
                                     <th style={{ textAlign: 'center' }}>JOB LISTINGS</th>
                                     <th style={{ textAlign: 'center' }}>APPLICATIONS</th>
-                                    <th>SHARE OF PIPELINE</th>
-                                    <th style={{ textAlign: 'center' }}>ENGAGEMENT</th>
                                     <th style={{ textAlign: 'center' }}>ANALYSIS</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="7" style={{ padding: '60px', textAlign: 'center' }}>
+                                        <td colSpan="5" style={{ padding: '60px', textAlign: 'center' }}>
                                             <div className="spinner-p"></div>
                                             <p style={{ marginTop: '16px', color: 'var(--text-muted)' }}>Aggregating divisional telemetry...</p>
                                         </td>
                                     </tr>
                                 ) : filteredReports.length === 0 ? (
                                     <tr>
-                                        <td colSpan="7" className="empty-cell">
+                                        <td colSpan="5" className="empty-cell">
                                             <div className="no-results" style={{ padding: '60px', textAlign: 'center' }}>
                                                 <FiBriefcase size={48} style={{ color: 'var(--border-light)', marginBottom: '16px' }} />
                                                 <p style={{ color: 'var(--text-muted)' }}>No group companies match your search criteria.</p>
@@ -220,26 +218,33 @@ function CompanyReports({ admin }) {
                                                 </div>
                                             </td>
                                             <td data-label="Job Listings" style={{ textAlign: 'center' }}>
-                                                <span className="count-badge-p" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 10px', borderRadius: '8px', fontWeight: 700, color: '#334155', fontSize: '0.85rem' }}>
-                                                    {c.totalVacancies} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#94a3b8' }}>({c.activeVacancies} Live)</span>
+                                                <span 
+                                                    className="count-badge-p" 
+                                                    style={{ 
+                                                        background: c.activeVacancies > 0 ? 'rgba(22, 163, 74, 0.06)' : '#f8fafc', 
+                                                        border: c.activeVacancies > 0 ? '1px solid rgba(22, 163, 74, 0.25)' : '1px solid #e2e8f0', 
+                                                        padding: '4px 10px', 
+                                                        borderRadius: '8px', 
+                                                        fontWeight: 700, 
+                                                        color: '#334155', 
+                                                        fontSize: '0.85rem' 
+                                                    }}
+                                                >
+                                                    {c.totalVacancies}{' '}
+                                                    <span 
+                                                        style={{ 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: c.activeVacancies > 0 ? 700 : 500, 
+                                                            color: c.activeVacancies > 0 ? '#16a34a' : '#94a3b8' 
+                                                        }}
+                                                    >
+                                                        ({c.activeVacancies} Live)
+                                                    </span>
                                                 </span>
                                             </td>
                                             <td data-label="Applications" style={{ textAlign: 'center' }}>
                                                 <span style={{ fontSize: '1rem', fontWeight: 800, color: c.totalApplications > 0 ? 'var(--crimson)' : '#64748b' }}>
                                                     {c.totalApplications}
-                                                </span>
-                                            </td>
-                                            <td data-label="Share of Pipeline">
-                                                <div className="share-metric-container" style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '120px' }}>
-                                                    <div className="progress-bar-p" style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-                                                        <div className="progress-fill-p animate-width" style={{ width: `${appSharePercent}%`, height: '100%', background: `linear-gradient(90deg, var(--crimson), #C8A951)`, borderRadius: '10px' }}></div>
-                                                    </div>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', minWidth: '32px' }}>{appSharePercent}%</span>
-                                                </div>
-                                            </td>
-                                            <td data-label="Engagement" style={{ textAlign: 'center' }}>
-                                                <span className="count-badge-p" style={{ background: parseFloat(c.avgApplicationsPerJob) > 5 ? 'rgba(16,185,129,0.08)' : '#f8fafc', color: parseFloat(c.avgApplicationsPerJob) > 5 ? '#10b981' : '#64748b', border: '1px solid transparent', padding: '4px 8px', borderRadius: '8px', fontWeight: 800, fontSize: '0.8rem' }}>
-                                                    {c.avgApplicationsPerJob} avg
                                                 </span>
                                             </td>
                                             <td data-label="Analysis" style={{ textAlign: 'center' }}>
@@ -518,9 +523,6 @@ function CompanyReports({ admin }) {
                         grid-column: 1 / -1 !important;
                     }
 
-                    .premium-table.orchestration-table tbody tr td[data-label="Share of Pipeline"] {
-                        grid-column: 1 / -1 !important;
-                    }
 
                     .premium-table.orchestration-table tbody tr td[data-label="Analysis"] {
                         grid-column: 1 / -1 !important;
