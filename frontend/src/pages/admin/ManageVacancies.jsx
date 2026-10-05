@@ -9,7 +9,7 @@ import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
     FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity,
-    FiUser, FiMail, FiPhone, FiHome, FiLayers
+    FiUser, FiMail, FiPhone, FiHome, FiLayers, FiMoreVertical
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 import PaginationFooter from '../../components/PaginationFooter';
@@ -299,6 +299,7 @@ function ManageVacancies({ admin }) {
     const [stats, setStats] = useState({ total_vacancies: 0, active_vacancies: 0, total_applications: 0 });
     const [loading, setLoading] = useState(true);
     const [confirmDelete, setConfirmDelete] = useState(null);
+    const [activeActionMenuId, setActiveActionMenuId] = useState(null);
     const [companyFilter, setCompanyFilter] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
@@ -324,6 +325,12 @@ function ManageVacancies({ admin }) {
             setAuditLogs([]);
         }
     }, [viewDetail]);
+
+    useEffect(() => {
+        const handleOutsideClick = () => setActiveActionMenuId(null);
+        window.addEventListener('click', handleOutsideClick);
+        return () => window.removeEventListener('click', handleOutsideClick);
+    }, []);
 
     const fetchAuditLogs = async (vacancyId) => {
         try {
@@ -722,23 +729,24 @@ function ManageVacancies({ admin }) {
                         <table className="premium-table vacancies-table">
                             <thead>
                                 <tr>
-                                    <th style={{ width: '22%' }}>Position</th>
+                                    <th style={{ width: '24%' }}>Position</th>
                                     <th style={{ width: '18%' }}>Subsidiary</th>
-                                    <th style={{ width: '17%' }}>Required Skills</th>
+                                    <th style={{ width: '22%' }}>Required Skills</th>
                                     <th style={{ width: '13%' }}>Applicants</th>
-                                    <th style={{ width: '15%' }}>Status &amp; Dates</th>
-                                    <th style={{ width: '15%', textAlign: 'right', paddingRight: '24px' }}>Actions</th>
+                                    <th style={{ width: '17%' }}>Status &amp; Dates</th>
+                                    <th style={{ width: '6%', textAlign: 'right', paddingRight: '14px' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedVacancies.map(v => {
+                                {paginatedVacancies.map((v, idx) => {
                                     const active = v.is_active && daysLeft(v.expire_date) > 0;
                                     const skillsList = v.required_skills
                                         ? v.required_skills.split(',').map(s => s.trim()).filter(Boolean)
                                         : [];
+                                    const isLowerHalf = idx >= Math.max(3, paginatedVacancies.length - 3);
 
                                     return (
-                                        <tr key={v.id} id={`vacancy-card-${v.id}`}>
+                                        <tr key={v.id} id={`vacancy-card-${v.id}`} className={activeActionMenuId === v.id ? 'row-active-menu' : ''}>
                                             {/* POSITION */}
                                             <td>
                                                 <div className="pos-entity-cell">
@@ -810,28 +818,82 @@ function ManageVacancies({ admin }) {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div className="vac-actions">
-                                                    {(v.approval_status === 'draft' || v.approval_status === 'rejected') && (
-                                                        <button className="vac-btn approve" onClick={() => handleQuickSubmit(v)} title="Submit for Approval">
-                                                            <FiCheckCircle />
-                                                        </button>
-                                                    )}
-                                                    <button className="vac-btn view" onClick={() => { setViewDetail(v); setModalTab('details'); }} title="View Details">
-                                                        <FiEye />
+                                            <td style={{ textAlign: 'right' }}>
+                                                <div className="vac-actions-menu-container">
+                                                    <button
+                                                        className={`vac-action-trigger ${activeActionMenuId === v.id ? 'active' : ''}`}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActiveActionMenuId(activeActionMenuId === v.id ? null : v.id);
+                                                        }}
+                                                        title="Actions"
+                                                    >
+                                                        <FiMoreVertical size={18} />
                                                     </button>
-                                                    {admin?.role !== 'super_admin' && (
-                                                        <button className="vac-btn edit" onClick={() => navigate(`/admin/vacancies/edit/${v.id}`)} title="Edit">
-                                                            <FiEdit2 />
-                                                        </button>
-                                                    )}
-                                                    <button className="vac-btn pipeline" onClick={() => navigate(`/admin/applicants?vacancy_id=${v.id}`)} title="View Applicants">
-                                                        <FiArrowRight />
-                                                    </button>
-                                                    {admin?.role !== 'super_admin' && (
-                                                        <button className="vac-btn delete" onClick={() => setConfirmDelete(v.id)} title="Delete">
-                                                            <FiTrash2 />
-                                                        </button>
+
+                                                    {activeActionMenuId === v.id && (
+                                                        <div className={`vac-actions-dropdown ${isLowerHalf ? 'open-upwards' : ''}`} onClick={(e) => e.stopPropagation()}>
+                                                            {admin?.role !== 'super_admin' && (v.approval_status === 'draft' || v.approval_status === 'rejected') && (
+                                                                <button
+                                                                    className="vac-dropdown-item approve"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        handleQuickSubmit(v);
+                                                                    }}
+                                                                >
+                                                                    <FiCheckCircle size={15} />
+                                                                    <span>Submit for Approval</span>
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                className="vac-dropdown-item view"
+                                                                onClick={() => {
+                                                                    setActiveActionMenuId(null);
+                                                                    setViewDetail(v);
+                                                                    setModalTab('details');
+                                                                }}
+                                                            >
+                                                                <FiEye size={15} />
+                                                                <span>View Details</span>
+                                                            </button>
+                                                            <button
+                                                                className="vac-dropdown-item pipeline"
+                                                                onClick={() => {
+                                                                    setActiveActionMenuId(null);
+                                                                    navigate(`/admin/applicants?vacancy_id=${v.id}`);
+                                                                }}
+                                                            >
+                                                                <FiUsers size={15} />
+                                                                <span>View Applicants</span>
+                                                            </button>
+                                                            {admin?.role !== 'super_admin' && (
+                                                                <button
+                                                                    className="vac-dropdown-item edit"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        navigate(`/admin/vacancies/edit/${v.id}`);
+                                                                    }}
+                                                                >
+                                                                    <FiEdit2 size={15} />
+                                                                    <span>Edit Vacancy</span>
+                                                                </button>
+                                                            )}
+                                                            {admin?.role !== 'super_admin' && (
+                                                                <div className="vac-dropdown-divider" />
+                                                            )}
+                                                            {admin?.role !== 'super_admin' && (
+                                                                <button
+                                                                    className="vac-dropdown-item delete"
+                                                                    onClick={() => {
+                                                                        setActiveActionMenuId(null);
+                                                                        setConfirmDelete(v.id);
+                                                                    }}
+                                                                >
+                                                                    <FiTrash2 size={15} />
+                                                                    <span>Delete Vacancy</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>

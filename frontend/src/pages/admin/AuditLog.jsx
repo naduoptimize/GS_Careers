@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAllVacancyAuditLogs } from '../../services/api';
 import { formatDate, formatDateTime } from '../../utils/constants';
-import { FiActivity, FiSearch, FiClock, FiUser, FiBriefcase, FiAlertCircle, FiCheckCircle, FiXCircle, FiCalendar, FiUsers, FiTag, FiBook } from 'react-icons/fi';
+import { FiActivity, FiSearch, FiClock, FiUser, FiBriefcase, FiAlertCircle, FiCheckCircle, FiXCircle, FiCalendar, FiUsers, FiTag, FiBook, FiRotateCcw } from 'react-icons/fi';
 
 function AuditLog({ admin }) {
     const [logs, setLogs] = useState([]);
@@ -132,49 +132,27 @@ function AuditLog({ admin }) {
             </div>
 
             {/* ── FILTER BAR ── */}
-            <div className="card-p audit-filters-card" style={{ padding: '20px', borderRadius: '20px', background: '#fff', border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-                <div className="audit-filters-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+            <div className="card-p audit-filters-card" style={{ padding: '16px 20px', borderRadius: '18px', background: '#fff', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                <div className="audit-filters-row">
+                    <div className="audit-filter-search-wrap">
                         <FiSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
                         <input
                             type="text"
-                            placeholder="Search by position, ref number, actor, or details..."
+                            className="audit-filter-input"
+                            placeholder="Search position, ref number, actor, details..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px 12px 42px',
-                                border: '1.5px solid #f1f5f9',
-                                background: '#f8fafc',
-                                borderRadius: '12px',
-                                fontSize: '0.85rem',
-                                color: 'var(--text-primary)',
-                                fontWeight: '600',
-                                outline: 'none',
-                                transition: 'all 0.2s'
-                            }}
                             onFocus={(e) => { e.target.style.borderColor = 'var(--crimson)'; e.target.style.backgroundColor = '#fff'; }}
-                            onBlur={(e) => { e.target.style.borderColor = '#f1f5f9'; e.target.style.backgroundColor = '#f8fafc'; }}
+                            onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.backgroundColor = '#f8fafc'; }}
                         />
                     </div>
 
                     {/* Action Filter */}
-                    <div style={{ minWidth: '200px' }}>
+                    <div className="audit-filter-select-wrap">
                         <select
+                            className="audit-filter-select"
                             value={actionFilter}
                             onChange={(e) => setActionFilter(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                border: '1.5px solid #f1f5f9',
-                                background: '#f8fafc',
-                                borderRadius: '12px',
-                                fontSize: '0.85rem',
-                                color: 'var(--text-primary)',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                outline: 'none'
-                            }}
                         >
                             <option value="">All Actions</option>
                             {uniqueActions.map(action => (
@@ -185,22 +163,11 @@ function AuditLog({ admin }) {
 
                     {/* Subsidiary Filter (Only for GS Admins) */}
                     {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div style={{ minWidth: '200px' }}>
+                        <div className="audit-filter-select-wrap">
                             <select
+                                className="audit-filter-select"
                                 value={companyFilter}
                                 onChange={(e) => setCompanyFilter(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    border: '1.5px solid #f1f5f9',
-                                    background: '#f8fafc',
-                                    borderRadius: '12px',
-                                    fontSize: '0.85rem',
-                                    color: 'var(--text-primary)',
-                                    fontWeight: '700',
-                                    cursor: 'pointer',
-                                    outline: 'none'
-                                }}
                             >
                                 <option value="">All Subsidiaries</option>
                                 {uniqueCompanies.map(company => (
@@ -208,6 +175,22 @@ function AuditLog({ admin }) {
                                 ))}
                             </select>
                         </div>
+                    )}
+
+                    {/* Reset Filters Button (Single-line aligned) */}
+                    {(searchTerm || actionFilter || companyFilter) && (
+                        <button
+                            className="audit-filter-btn-reset"
+                            onClick={() => {
+                                setSearchTerm('');
+                                setActionFilter('');
+                                setCompanyFilter('');
+                            }}
+                            title="Reset all active filters"
+                        >
+                            <FiRotateCcw size={14} />
+                            <span>Reset Filters</span>
+                        </button>
                     )}
                 </div>
             </div>
@@ -229,7 +212,31 @@ function AuditLog({ admin }) {
                     <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
                         <FiBook size={48} style={{ marginBottom: '14px', opacity: 0.6 }} />
                         <h3 style={{ margin: '0 0 6px 0', color: '#475569', fontSize: '1.1rem' }}>No Audit Logs Found</h3>
-                        <p style={{ margin: 0, fontSize: '0.85rem' }}>No activity records match your search or filter criteria.</p>
+                        <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem' }}>No activity records match your search or filter criteria.</p>
+                        {(searchTerm || actionFilter || companyFilter) && (
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setActionFilter('');
+                                    setCompanyFilter('');
+                                }}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 16px',
+                                    borderRadius: '10px',
+                                    border: '1.5px solid #fee2e2',
+                                    background: '#fef2f2',
+                                    color: '#ef4444',
+                                    fontSize: '0.82rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <FiRotateCcw size={14} /> Clear All Filters
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="premium-table-container" style={{ margin: 0, border: 'none', boxShadow: 'none', borderRadius: 0 }}>
@@ -344,6 +351,76 @@ function AuditLog({ admin }) {
                     background: #94a3b8;
                 }
 
+                .audit-filters-row {
+                    display: flex;
+                    flex-direction: row;
+                    flex-wrap: nowrap;
+                    gap: 12px;
+                    align-items: center;
+                    width: 100%;
+                }
+                .audit-filter-search-wrap {
+                    position: relative;
+                    flex: 1 1 220px;
+                    min-width: 160px;
+                }
+                .audit-filter-input {
+                    width: 100%;
+                    height: 44px;
+                    padding: 0 16px 0 42px;
+                    border: 1.5px solid #e2e8f0;
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    font-size: 0.85rem;
+                    color: var(--text-primary);
+                    font-weight: 600;
+                    outline: none;
+                    transition: all 0.2s ease;
+                }
+                .audit-filter-select-wrap {
+                    flex: 0 1 200px;
+                    min-width: 140px;
+                }
+                .audit-filter-select {
+                    width: 100%;
+                    height: 44px;
+                    padding: 0 14px;
+                    border: 1.5px solid #e2e8f0;
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    font-size: 0.83rem;
+                    color: var(--text-primary);
+                    font-weight: 700;
+                    cursor: pointer;
+                    outline: none;
+                    transition: all 0.2s ease;
+                }
+                .audit-filter-btn-reset {
+                    height: 44px;
+                    padding: 0 16px;
+                    border-radius: 12px;
+                    border: 1.5px solid #fecdd3;
+                    background: #fff1f2;
+                    color: #e11d48;
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    flex-shrink: 0;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.06);
+                }
+                .audit-filter-btn-reset:hover {
+                    background: #ffe4e6;
+                    border-color: #fda4af;
+                    color: #be123c;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.12);
+                }
+
                 @media (max-width: 768px) {
                     .dashboard-hero-premium {
                         padding: 24px 20px !important;
@@ -366,12 +443,17 @@ function AuditLog({ admin }) {
                     }
                     .audit-filters-row {
                         flex-direction: column !important;
+                        flex-wrap: wrap !important;
                         align-items: stretch !important;
                         gap: 10px !important;
                     }
-                    .audit-filters-row > div {
+                    .audit-filter-search-wrap,
+                    .audit-filter-select-wrap,
+                    .audit-filter-btn-reset {
                         width: 100% !important;
                         min-width: 0 !important;
+                        flex: none !important;
+                        justify-content: center !important;
                     }
                     .premium-table th, .premium-table td {
                         padding: 12px 14px !important;

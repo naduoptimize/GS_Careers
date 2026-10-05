@@ -755,21 +755,15 @@ function handleUpdateStatus()
     }
 
     $currentStatus = $application['status'];
-    // Allow re-marking pending/under_review; block only if already rejected
-    if ($currentStatus === 'rejected') {
-        jsonResponse(400, 'Application has already been rejected');
-    }
-    // Allow shortlisting an already-shortlisted candidate (e.g. going back to review)
-    // but block under_review -> under_review duplicate
-    if ($currentStatus === 'under_review' && $newStatus === 'under_review') {
-        jsonResponse(400, 'Application is already under review');
+    if ($currentStatus === $newStatus && $newStatus !== 'rejected') {
+        jsonResponse(400, 'Application is already marked as ' . $newStatus);
     }
 
     $reasonToSave = ($newStatus === 'rejected') ? $rejectionReason : null;
 
     if ($newStatus === 'shortlisted') {
-        // Step 1: Only update status — NO interview details, NO email
-        $stmt = $db->prepare("UPDATE applications SET status = 'shortlisted' WHERE id = ?");
+        // Step 1: Only update status — NO interview details, NO email; clear rejection_reason if previously rejected
+        $stmt = $db->prepare("UPDATE applications SET status = 'shortlisted', rejection_reason = NULL WHERE id = ?");
         $success = $stmt->execute([$applicationId]);
     } else {
         $stmt = $db->prepare("UPDATE applications SET status = ?, rejection_reason = ? WHERE id = ?");
@@ -826,6 +820,11 @@ function handleSendInterview()
 
     if (empty($interviewDate) || empty($interviewTime) || empty($interviewLocation)) {
         jsonResponse(400, 'Interview date, time, and location are required');
+    }
+
+    $today = date('Y-m-d');
+    if ($interviewDate < $today) {
+        jsonResponse(400, 'Interview date cannot be scheduled in the past. Please select today or a future date.');
     }
 
     // Fetch application

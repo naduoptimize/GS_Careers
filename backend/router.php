@@ -1,6 +1,6 @@
 <?php
 // Simple PHP router for built-in server
-// Run: php -S localhost:8000 router.php
+// Run: php -S 0.0.0.0:8000 router.php
 
 $uri = $_SERVER['REQUEST_URI'];
 $path = parse_url($uri, PHP_URL_PATH);

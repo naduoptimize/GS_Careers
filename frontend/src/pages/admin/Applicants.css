@@ -15,9 +15,9 @@
 }
 
 .premium-table-container {
-    background: var(--table-bg);
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
     overflow-x: auto;
     border: 1px solid #e2e8f0;
 }
@@ -31,25 +31,25 @@
 }
 
 .premium-table.applicants-table {
-    min-width: 980px !important;
+    min-width: 1100px !important;
     width: 100% !important;
 }
 
 .premium-table th {
     background: #f8fafc;
-    padding: 14px 18px;
-    font-size: 0.72rem;
-    font-weight: 800;
+    padding: 13px 18px;
+    font-size: 0.68rem;
+    font-weight: 700;
     text-transform: uppercase;
-    color: #475569;
-    letter-spacing: 0.05em;
-    border-bottom: 2px solid #e2e8f0;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #e2e8f0;
     box-sizing: border-box;
     white-space: nowrap;
 }
 
 .premium-table td {
-    padding: 16px 18px;
+    padding: 14px 18px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
     box-sizing: border-box;
@@ -74,25 +74,25 @@
 }
 
 .candidate-avatar {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 800;
-    font-size: 0.92rem;
+    font-weight: 700;
+    font-size: 0.85rem;
     background: linear-gradient(135deg, #7A1228 0%, #a81c38 100%);
     color: #ffffff;
-    box-shadow: 0 3px 10px rgba(122, 18, 40, 0.18);
-    border: 1.5px solid #ffffff;
+    box-shadow: 0 2px 6px rgba(122, 18, 40, 0.15);
+    border: 1px solid #ffffff;
     flex-shrink: 0;
 }
 
 .candidate-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     min-width: 0;
     flex: 1;
     overflow: hidden;
@@ -107,9 +107,9 @@
 }
 
 .candidate-name-txt {
-    font-weight: 700;
+    font-weight: 600;
     color: #0f172a;
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     line-height: 1.25;
     white-space: nowrap;
     overflow: hidden;
@@ -118,10 +118,10 @@
 }
 
 .status-pill {
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 0.64rem;
-    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.65rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     flex-shrink: 0;
@@ -291,14 +291,15 @@
 .exp-badge {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
-    background: #eef2ff;
-    color: #3730a3;
-    border: 1px solid #c7d2fe;
-    border-radius: 100px;
+    padding: 3px 8px;
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
     font-size: 0.68rem;
-    font-weight: 800;
+    font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.03em;
     white-space: nowrap;
 }
 
@@ -353,7 +354,7 @@
 .degree-txt {
     font-size: 0.78rem;
     color: #475569;
-    font-weight: 600;
+    font-weight: 500;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -365,7 +366,7 @@
 
 .degree-icon-subtle {
     flex-shrink: 0;
-    color: #c8a951;
+    color: #94a3b8;
 }
 
 .degree-text-inner {
@@ -412,30 +413,36 @@
 }
 
 .schedule-widget {
-    margin-top: 4px;
-    padding: 6px 9px;
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
+    padding: 5px 10px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
     border-radius: 8px;
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.05);
+    pointer-events: none;
+    user-select: none;
+    width: fit-content;
 }
 
-.schedule-header {
+.schedule-time-row {
     display: flex;
     align-items: center;
-    gap: 4px;
-    color: #047857;
-    font-size: 0.63rem;
-    font-weight: 800;
-    text-transform: uppercase;
+    gap: 5px;
+    line-height: 1.2;
 }
 
 .schedule-time {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: 0.78rem;
+    font-weight: 600;
     color: #0f172a;
+}
+
+.schedule-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .schedule-time-sub {
@@ -447,15 +454,15 @@
 .interview-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.65rem;
-    font-weight: 800;
-    padding: 2px 7px;
+    gap: 3px;
+    font-size: 0.63rem;
+    font-weight: 700;
+    padding: 1px 7px;
     border-radius: 100px;
 }
 
-.interview-pill.confirmed { background: #d1fae5; color: #047857; border: 1px solid #a7f3d0; }
-.interview-pill.declined { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.interview-pill.confirmed { background: #d1fae5; color: #047857; border: 1px solid #6ee7b7; }
+.interview-pill.declined { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
 .interview-pill.invited { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
 /* Modal Status Badges (Header) */

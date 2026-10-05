@@ -4,11 +4,12 @@ import {
     FiPlus, FiEdit2, FiTrash2, FiX, FiShield, FiUserCheck,
     FiMail, FiUser, FiHome, FiCheckCircle, FiAlertCircle,
     FiActivity, FiTrendingUp, FiTarget, FiSearch, FiFilter, FiKey, FiChevronLeft, FiChevronRight,
-    FiCopy
+    FiCopy, FiCheck
 } from 'react-icons/fi';
 import './ManageAdmins.css';
 import PaginationFooter from '../../components/PaginationFooter';
 import { getAdmins, createAdmin, updateAdmin, deleteAdmin, getCompanies, resetAdminPassword } from '../../services/api';
+import { copyToClipboard } from '../../utils/constants';
 
 function ManageAdmins({ admin }) {
     const [admins, setAdmins] = useState([]);
@@ -19,6 +20,19 @@ function ManageAdmins({ admin }) {
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [confirmReset, setConfirmReset] = useState(null);
     const [tempPassword, setTempPassword] = useState(null);
+    const [copiedPassword, setCopiedPassword] = useState(false);
+
+    const handleCopyPassword = async () => {
+        if (!tempPassword) return;
+        const success = await copyToClipboard(tempPassword);
+        if (success) {
+            setCopiedPassword(true);
+            toast.success('Temporary password copied to clipboard!');
+            setTimeout(() => setCopiedPassword(false), 2500);
+        } else {
+            toast.error('Failed to copy password');
+        }
+    };
     const [form, setForm] = useState({
         username: '', email: '', full_name: '', role: 'sub_admin1', company_id: '', is_active: 1
     });
@@ -584,13 +598,14 @@ function ManageAdmins({ admin }) {
                         <div className="success-vibe"><FiCheckCircle /></div>
                         <h3>Account Provisioned</h3>
                         <p>Access has been created. Use this temporary password for the first login:</p>
-                        <div className="password-display-p" style={{ position: 'relative', cursor: 'pointer' }} onClick={() => {
-                            navigator.clipboard.writeText(tempPassword);
-                            toast.success('Password copied to tactical clipboard');
-                        }} title="Click to Copy">
+                        <div className="password-display-p" style={{ position: 'relative', cursor: 'pointer', paddingRight: '48px' }} onClick={handleCopyPassword} title="Click to Copy">
                             {tempPassword}
-                            <div className="copy-hint" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', opacity: 0.5 }}>
-                                <FiCopy />
+                            <div className="copy-hint" style={{ 
+                                position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', 
+                                fontSize: '1.1rem', color: copiedPassword ? '#10b981' : '#c8a951',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease'
+                            }}>
+                                {copiedPassword ? <FiCheck /> : <FiCopy />}
                             </div>
                         </div>
                         <p className="note-p">This password will expire after one-time use.</p>

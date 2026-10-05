@@ -10,10 +10,19 @@ import axios from 'axios';
 import {
     FiDownload, FiFilter, FiSearch, FiMail, FiPhone, FiFileText,
     FiChevronRight, FiChevronLeft, FiArrowRight, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiCheckCircle,
-    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash
+    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash, FiRotateCcw
 } from 'react-icons/fi';
 import './Applicants.css';
 import PaginationFooter from '../../components/PaginationFooter';
+
+// Helper to get today's local date as YYYY-MM-DD
+const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 // Helper to render job description/requirements with better formatting
 const renderFormattedText = (text) => {
@@ -835,6 +844,8 @@ function Applicants({ admin }) {
     const [loading, setLoading] = useState(true);
     const [showDetail, setShowDetail] = useState(null);
     const [showRejectModal, setShowRejectModal] = useState(false);
+    const [showRevertModal, setShowRevertModal] = useState(false);
+    const [revertTarget, setRevertTarget] = useState(null);
     const [showShortlistModal, setShowShortlistModal] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [shortlistData, setShortlistData] = useState({
@@ -887,6 +898,22 @@ function Applicants({ admin }) {
             setActiveAdminTab('Relevant Skills');
         }
     }, [showDetail]);
+
+    useEffect(() => {
+        if (inviteTarget) {
+            const today = getTodayDateString();
+            setInviteData({
+                interview_type: inviteTarget.interview_type || 'Online',
+                interview_date: (inviteTarget.interview_date && inviteTarget.interview_date >= today) ? inviteTarget.interview_date : '',
+                interview_time: inviteTarget.interview_time || '',
+                interview_location: inviteTarget.interview_location || '',
+                interview_location_link: inviteTarget.interview_location_link || ''
+            });
+            if (inviteTarget.interview_type === 'On-site' && inviteTarget.interview_location) {
+                setLocationPreset('Other');
+            }
+        }
+    }, [inviteTarget]);
 
     const applyAutoMatch = () => {
         if (!selVac.id) {
@@ -1044,6 +1071,8 @@ function Applicants({ admin }) {
             await updateApplicationStatus({ id, status, rejection_reason: reason, ...extraData });
             toast.success(`Application marked as ${status}`);
             setShowRejectModal(false);
+            setShowRevertModal(false);
+            setRevertTarget(null);
             setShowShortlistModal(false);
             setShowConfirmShortlist(false);
             setRejectReason('');
@@ -1076,10 +1105,16 @@ function Applicants({ admin }) {
     // Step 2: Send interview invitation email
     const handleSendInterview = async () => {
         if (!inviteTarget) return;
+        const today = getTodayDateString();
+        if (inviteData.interview_date && inviteData.interview_date < today) {
+            toast.error('Interview date cannot be scheduled in the past. Please select today or a future date.');
+            return;
+        }
+        const isReschedule = Boolean(inviteTarget.interview_date);
         try {
             setSendingInvite(true);
             await sendInterviewInvitation({ id: inviteTarget.id, ...inviteData });
-            toast.success(`Interview invitation sent to ${inviteTarget.first_name}!`);
+            toast.success(isReschedule ? `Interview rescheduled & updated invitation sent to ${inviteTarget.first_name}!` : `Interview invitation sent to ${inviteTarget.first_name}!`);
             setShowSendInviteModal(false);
             setInviteTarget(null);
             setInviteData({ interview_type: 'Online', interview_date: '', interview_time: '', interview_location: '', interview_location_link: '' });
@@ -2054,17 +2089,19 @@ function Applicants({ admin }) {
                     <div className="premium-table-container">
                         <table className="premium-table applicants-table">
                             <colgroup>
-                                {admin.role !== 'super_admin' && <col style={{ width: '40px' }} />}
-                                <col style={{ width: '25%' }} />
-                                <col style={{ width: '26%' }} />
-                                <col style={{ width: '21%' }} />
-                                <col style={{ width: '16%' }} />
+                                {admin.role !== 'super_admin' && <col style={{ width: '38px' }} />}
+                                <col style={{ width: '22%' }} />
+                                <col style={{ width: '20%' }} />
                                 <col style={{ width: '12%' }} />
+                                <col style={{ width: '17%' }} />
+                                <col style={{ width: '12%' }} />
+                                <col style={{ width: '12%' }} />
+                                <col style={{ width: '5%' }} />
                             </colgroup>
                             <thead>
                                 <tr>
                                     {admin.role !== 'super_admin' && (
-                                        <th style={{ width: '40px', paddingLeft: '20px' }}>
+                                        <th style={{ width: '38px', paddingLeft: '16px' }}>
                                             <input
                                                 type="checkbox"
                                                 className="premium-checkbox"
@@ -2075,9 +2112,11 @@ function Applicants({ admin }) {
                                     )}
                                     <th>Candidate</th>
                                     <th>Target Position</th>
+                                    <th>Status</th>
                                     <th>Credentials</th>
-                                    <th>Applied Timeline</th>
-                                    <th style={{ textAlign: 'right', paddingRight: '24px' }}>Actions</th>
+                                    <th>Applied Date</th>
+                                    <th>Interview Schedule</th>
+                                    <th style={{ textAlign: 'right', paddingRight: '20px' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2104,9 +2143,22 @@ function Applicants({ admin }) {
                                                         <span className="candidate-name-txt" title={`${app.first_name} ${app.last_name}`}>
                                                             {app.first_name} {app.last_name}
                                                         </span>
-                                                        <span className={`status-pill status-${(app.status || 'pending').replace('_', '-')}`}>
-                                                            {(app.status || 'pending').replace('_', ' ')}
-                                                        </span>
+                                                        {(() => {
+                                                            const scoreData = calculateMatchScore(app);
+                                                            const score = scoreData.score;
+                                                            let badgeClass = 'match-pill-low';
+                                                            if (score >= 80) badgeClass = 'match-pill-high';
+                                                            else if (score >= 50) badgeClass = 'match-pill-medium';
+                                                            return (
+                                                                <span 
+                                                                    className={`match-score-pill ${badgeClass}`} 
+                                                                    style={{ fontSize: '0.66rem', padding: '2px 7px', fontWeight: 800, borderRadius: '100px' }}
+                                                                    title={`AI Match: ${score}% (Skills: ${scoreData.details.factors.skills}%, Exp: ${scoreData.details.factors.experience}%, Qual: ${scoreData.details.factors.qualification}%)`}
+                                                                >
+                                                                    {score}%
+                                                                </span>
+                                                            );
+                                                        })()}
                                                         {app.is_email_blocked == 1 && (
                                                             <span title="This email has been blocked in the Talent Pool" className="blocked-pill">
                                                                 <FiSlash size={9} /> Blocked
@@ -2122,17 +2174,8 @@ function Applicants({ admin }) {
                                         </td>
                                         <td data-label="Target Position">
                                             <div className="position-cell">
-                                                <img
-                                                    src={app.company_logo ? `${BACKEND_ROOT}/uploads/logos/${app.company_logo}` : '/gs-logo.png'}
-                                                    alt={app.company_name}
-                                                    onError={(e) => e.target.src = '/gs-logo.png'}
-                                                    className="company-logo-img"
-                                                />
                                                 <div className="position-details">
-                                                    <div className="position-title-row">
-                                                        <h4 className="position-title" title={app.vacancy_title}>{app.vacancy_title}</h4>
-                                                        {app.job_ref && <span className="ref-badge">#{app.job_ref}</span>}
-                                                    </div>
+                                                    <h4 className="position-title" title={app.vacancy_title}>{app.vacancy_title}</h4>
                                                     <div className="company-name" title={app.company_name}>
                                                         <FiBriefcase size={11} className="company-icon-subtle" />
                                                         <span>{app.company_name}</span>
@@ -2140,36 +2183,26 @@ function Applicants({ admin }) {
                                                 </div>
                                             </div>
                                         </td>
+                                        <td data-label="Status">
+                                            <span className={`status-pill status-${(app.status || 'pending').replace('_', '-')}`}>
+                                                {(app.status || 'pending').replace('_', ' ')}
+                                            </span>
+                                        </td>
                                         <td data-label="Credentials">
                                             <div className="credentials-cell">
                                                 <div className="credentials-badges-row">
                                                     {app.overall_experience && <span className="exp-badge">{app.overall_experience}</span>}
-                                                    {(() => {
+                                                    {filters.vacancy_id && (() => {
                                                         const scoreData = calculateMatchScore(app);
                                                         const isQual = scoreData.details.isQualified;
-                                                        const score = scoreData.score;
-                                                        
-                                                        let badgeClass = 'match-pill-low';
-                                                        if (score >= 80) badgeClass = 'match-pill-high';
-                                                        else if (score >= 50) badgeClass = 'match-pill-medium';
-                                                        
-                                                        return (
-                                                            <>
-                                                                <span className={`match-score-pill ${badgeClass}`} title={`Skills: ${scoreData.details.factors.skills}%, Exp: ${scoreData.details.factors.experience}%, Qual: ${scoreData.details.factors.qualification}%, Domain: ${scoreData.details.factors.keyword}%`}>
-                                                                    🎯 {score}% Match
-                                                                </span>
-                                                                {filters.vacancy_id && (
-                                                                    isQual ? (
-                                                                        <div className="match-indicator qualified" title="Meets/Exceeds Required Experience">
-                                                                            <FiCheckCircle size={12} />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="match-indicator under" title="Below Required Experience">
-                                                                            <FiAlertCircle size={12} />
-                                                                        </div>
-                                                                    )
-                                                                )}
-                                                            </>
+                                                        return isQual ? (
+                                                            <div className="match-indicator qualified" title="Meets/Exceeds Required Experience">
+                                                                <FiCheckCircle size={12} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="match-indicator under" title="Below Required Experience">
+                                                                <FiAlertCircle size={12} />
+                                                            </div>
                                                         );
                                                     })()}
                                                 </div>
@@ -2181,7 +2214,7 @@ function Applicants({ admin }) {
                                                 )}
                                             </div>
                                         </td>
-                                        <td data-label="Applied Timeline">
+                                        <td data-label="Applied Date">
                                             <div className="timeline-cell">
                                                 {(() => {
                                                     const rawDt = formatDateTime(app.applied_at);
@@ -2218,31 +2251,29 @@ function Applicants({ admin }) {
                                                         </div>
                                                     );
                                                 })()}
-                                                {app.status === 'shortlisted' && app.interview_date && (
-                                                    <div className="schedule-widget">
-                                                        <div className="schedule-header">
-                                                            <FiCalendar size={11} /> Scheduled
-                                                        </div>
-                                                        <div className="schedule-time">{formatDate(app.interview_date)}</div>
-                                                        <div className="schedule-time-sub">{app.interview_time}</div>
-                                                        <div style={{ marginTop: '4px' }}>
-                                                            {app.interview_confirmed === 'yes' ? (
-                                                                <span className="interview-pill confirmed">
-                                                                    ✅ Confirmed
-                                                                </span>
-                                                            ) : app.interview_confirmed === 'no' ? (
-                                                                <span className="interview-pill declined">
-                                                                    ❌ Declined
-                                                                </span>
-                                                            ) : (
-                                                                <span className="interview-pill invited">
-                                                                    📩 Invited
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
+                                        </td>
+                                        <td data-label="Interview Schedule">
+                                            {app.status === 'shortlisted' && app.interview_date ? (
+                                                <div className="schedule-widget">
+                                                    <div className="schedule-time-row">
+                                                        <FiCalendar size={12} style={{ color: '#059669', flexShrink: 0 }} />
+                                                        <span className="schedule-time">{formatDate(app.interview_date)}</span>
+                                                    </div>
+                                                    <div className="schedule-status-row">
+                                                        <span className="schedule-time-sub">{app.interview_time}</span>
+                                                        {app.interview_confirmed === 'yes' ? (
+                                                            <span className="interview-pill confirmed">Confirmed</span>
+                                                        ) : app.interview_confirmed === 'no' ? (
+                                                            <span className="interview-pill declined">Declined</span>
+                                                        ) : (
+                                                            <span className="interview-pill invited">Invited</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 500 }}>—</span>
+                                            )}
                                         </td>
                                         <td data-label="Actions">
                                             <div className="actions-cell">
@@ -2258,6 +2289,22 @@ function Applicants({ admin }) {
                                                         disabled={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role)}
                                                     >
                                                         <FiMail size={16} />
+                                                    </button>
+                                                ) : app.status === 'rejected' ? (
+                                                    <button
+                                                        className="action-btn warning"
+                                                        title={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? "Action restricted" : "Revert Rejection / Re-evaluate Candidate"}
+                                                        style={{
+                                                            opacity: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 0.5 : 1,
+                                                            cursor: ['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role) ? 'not-allowed' : 'pointer',
+                                                            background: '#fff7ed',
+                                                            color: '#c2410c',
+                                                            borderColor: '#ffedd5'
+                                                        }}
+                                                        onClick={(e) => { e.stopPropagation(); setRevertTarget(app); setShowRevertModal(true); }}
+                                                        disabled={['super_admin', 'sub_admin2', 'sub_admin'].includes(admin.role)}
+                                                    >
+                                                        <FiRotateCcw size={16} />
                                                     </button>
                                                 ) : (
                                                     <button
@@ -2318,8 +2365,13 @@ function Applicants({ admin }) {
                                                 {(showDetail.status || 'pending').replace('_', ' ')}
                                             </span>
                                         </h2>
-                                        <div className="modal-subheaders">
+                                        <div className="modal-subheaders" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                             <p className="modal-prospect-tag">{showDetail.is_suggestion ? 'Pool Candidate' : `${showDetail.vacancy_title} Prospect`}</p>
+                                            {showDetail.job_ref && (
+                                                <span className="ref-badge" style={{ fontSize: '0.72rem', padding: '3px 8px', borderRadius: '6px' }}>
+                                                    #{showDetail.job_ref}
+                                                </span>
+                                            )}
                                             {cleanLocation && (
                                                 <p className="modal-location-tag">
                                                     <FiMapPin size={12} style={{ color: 'var(--gold-accent)' }} />
@@ -2748,7 +2800,7 @@ function Applicants({ admin }) {
                                                 className="btn-status-action btn-status-shortlist"
                                                 onClick={() => { setInviteTarget(showDetail); setShowDetail(null); setShowSendInviteModal(true); }}
                                             >
-                                                🔁 Re-send Invite
+                                                📅 Reschedule / Re-send Invite
                                             </button>
                                         )}
                                     </>
@@ -2802,6 +2854,100 @@ function Applicants({ admin }) {
                 </div>
             )}
 
+            {/* Revert Rejection Modal */}
+            {showRevertModal && revertTarget && (
+                <div className="confirm-overlay" style={{ zIndex: 1100 }} onClick={() => setShowRevertModal(false)}>
+                    <div className="confirm-modal card-p animated-zoom" style={{ maxWidth: '480px', width: '90%', padding: '32px 28px' }} onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header-p" style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fff7ed', border: '1.5px solid #ffedd5', color: '#c2410c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <FiRotateCcw size={20} />
+                                </div>
+                                <div>
+                                    <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: 800 }}>Revert Rejection</h2>
+                                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Change status for {revertTarget.first_name} {revertTarget.last_name}</span>
+                                </div>
+                            </div>
+                            <button className="close-btn-p" onClick={() => setShowRevertModal(false)}><FiX /></button>
+                        </div>
+
+                        <div className="modal-body-p">
+                            {revertTarget.rejection_reason && (
+                                <div style={{ background: '#fff1f2', border: '1px solid #ffe4e6', borderRadius: '12px', padding: '12px 16px', marginBottom: '20px' }}>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#be123c', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Previous Rejection Reason:</span>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#9f1239', fontWeight: 600, fontStyle: 'italic' }}>
+                                        "{revertTarget.rejection_reason}"
+                                    </p>
+                                </div>
+                            )}
+
+                            <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>
+                                Select a new evaluation status to restore <strong>{revertTarget.first_name}</strong> back to active recruitment:
+                            </p>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <button
+                                    className="btn"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '14px 18px', borderRadius: '12px', border: '1.5px solid #e2e8f0',
+                                        background: '#f8fafc', color: '#0f172a', fontWeight: 700, fontSize: '0.88rem',
+                                        cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--crimson)'; e.currentTarget.style.background = '#fff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#f8fafc'; }}
+                                    onClick={() => handleStatusUpdate(revertTarget.id, 'pending')}
+                                    disabled={processingStatus}
+                                >
+                                    <span>🔄 Restore to Pending (New Applicant)</span>
+                                    <FiChevronRight />
+                                </button>
+
+                                <button
+                                    className="btn"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '14px 18px', borderRadius: '12px', border: '1.5px solid #e2e8f0',
+                                        background: '#f8fafc', color: '#0f172a', fontWeight: 700, fontSize: '0.88rem',
+                                        cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--crimson)'; e.currentTarget.style.background = '#fff'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#f8fafc'; }}
+                                    onClick={() => handleStatusUpdate(revertTarget.id, 'under_review')}
+                                    disabled={processingStatus}
+                                >
+                                    <span>🔍 Move to Under Review</span>
+                                    <FiChevronRight />
+                                </button>
+
+                                <button
+                                    className="btn"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '14px 18px', borderRadius: '12px', border: '1.5px solid #a7f3d0',
+                                        background: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: '0.88rem',
+                                        cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#d1fae5'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = '#ecfdf5'; }}
+                                    onClick={() => handleQuickShortlist(revertTarget)}
+                                    disabled={processingStatus}
+                                >
+                                    <span>✓ Directly Shortlist Candidate</span>
+                                    <FiChevronRight />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+                            <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '10px 20px', fontWeight: 600 }} onClick={() => setShowRevertModal(false)}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── Step 1: Confirm Shortlist Modal (no email) ── */}
             {showConfirmShortlist && showDetail && (
                 <div className="confirm-overlay" style={{ zIndex: 1100 }} onClick={() => setShowConfirmShortlist(false)}>
@@ -2841,7 +2987,9 @@ function Applicants({ admin }) {
                             {/* Icon + Title */}
                             <div className="invite-modal-title-row">
                                 <div className="invite-modal-icon-lg"><FiMail size={24} /></div>
-                                <h2 className="invite-modal-title-text">Send Interview Invitation</h2>
+                                <h2 className="invite-modal-title-text">
+                                    {inviteTarget.interview_date ? 'Reschedule Interview' : 'Send Interview Invitation'}
+                                </h2>
                             </div>
 
                             {/* Candidate info rows */}
@@ -2866,6 +3014,14 @@ function Applicants({ admin }) {
                             </div>
                         </div>
                         <div className="modal-body-p">
+                            {inviteTarget.interview_date && (
+                                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', fontSize: '0.82rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FiCalendar size={16} style={{ flexShrink: 0, color: '#16a34a' }} />
+                                    <div>
+                                        <strong>Current Schedule:</strong> {formatDate(inviteTarget.interview_date)} at {inviteTarget.interview_time} ({inviteTarget.interview_type || 'Online'})
+                                    </div>
+                                </div>
+                            )}
                             <div style={{ gap: '16px', display: 'flex', flexDirection: 'column' }}>
                                 <div className="form-group-p">
                                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Interview Type</label>
@@ -2881,8 +3037,22 @@ function Applicants({ admin }) {
                                 <div className="invite-modal-date-grid">
                                     <div className="form-group-p">
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Interview Date</label>
-                                        <input type="date" className="styled-input" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                            value={inviteData.interview_date} onChange={(e) => setInviteData({ ...inviteData, interview_date: e.target.value })} />
+                                        <input
+                                            type="date"
+                                            className="styled-input"
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                            min={getTodayDateString()}
+                                            value={inviteData.interview_date}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                const today = getTodayDateString();
+                                                if (val && val < today) {
+                                                    toast.warning('Cannot schedule interview on a past date. Please select today or a future date.');
+                                                    return;
+                                                }
+                                                setInviteData({ ...inviteData, interview_date: val });
+                                            }}
+                                        />
                                     </div>
                                     <div className="form-group-p">
                                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: '6px', color: 'var(--text-secondary)' }}>Interview Time</label>
@@ -2985,9 +3155,11 @@ function Applicants({ admin }) {
                                 <button
                                     className="btn-status-action btn-status-shortlist"
                                     onClick={handleSendInterview}
-                                    disabled={sendingInvite || !inviteData.interview_date || !inviteData.interview_time || !inviteData.interview_location}
+                                    disabled={sendingInvite || !inviteData.interview_date || !inviteData.interview_time || !inviteData.interview_location || (inviteData.interview_date < getTodayDateString())}
                                 >
-                                    {sendingInvite ? 'Sending…' : '📩 Send Interview Email'}
+                                    {sendingInvite
+                                        ? (inviteTarget.interview_date ? 'Rescheduling…' : 'Sending…')
+                                        : (inviteTarget.interview_date ? '📅 Reschedule & Send Email' : '📩 Send Interview Email')}
                                 </button>
                             </div>
                         </div>
@@ -3032,8 +3204,17 @@ function Applicants({ admin }) {
                                             type="date"
                                             className="styled-input"
                                             style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                            min={getTodayDateString()}
                                             value={shortlistData.interview_date}
-                                            onChange={(e) => setShortlistData({ ...shortlistData, interview_date: e.target.value })}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                const today = getTodayDateString();
+                                                if (val && val < today) {
+                                                    toast.warning('Cannot schedule interview on a past date. Please select today or a future date.');
+                                                    return;
+                                                }
+                                                setShortlistData({ ...shortlistData, interview_date: val });
+                                            }}
                                         />
                                     </div>
                                     <div className="form-group-p">
@@ -3066,7 +3247,7 @@ function Applicants({ admin }) {
                                 <button
                                     className="btn-status-action btn-status-shortlist"
                                     onClick={() => handleStatusUpdate(showDetail.id, 'shortlisted', '', shortlistData)}
-                                    disabled={processingStatus || !shortlistData.interview_date || !shortlistData.interview_time || !shortlistData.interview_location}
+                                    disabled={processingStatus || !shortlistData.interview_date || !shortlistData.interview_time || !shortlistData.interview_location || (shortlistData.interview_date < getTodayDateString())}
                                 >
                                     {processingStatus ? 'Sending...' : 'Confirm & Send Invitation'}
                                 </button>

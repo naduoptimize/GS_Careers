@@ -418,10 +418,10 @@ function TalentPool({ admin }) {
             <div className="premium-table-container">
                 <table className="premium-table">
                     <colgroup>
-                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '27%' }} />
+                        <col style={{ width: '27%' }} />
                         <col style={{ width: '22%' }} />
-                        <col style={{ width: '25%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '14%' }} />
                         <col style={{ width: '10%' }} />
                     </colgroup>
                     <thead>
@@ -457,48 +457,125 @@ function TalentPool({ admin }) {
                             <tr key={idx} onClick={() => setShowDetail(cand)} style={{ cursor: 'pointer' }}>
                                 <td>
                                     <div className="candidate-cell">
-                                        <div className="avatar-p"><FiUser /></div>
+                                        <div className="avatar-p">
+                                            {cand.first_name ? cand.first_name[0].toUpperCase() : <FiUser />}
+                                        </div>
                                         <div className="info-p">
-                                            <div className="name-p">
-                                                {cand.first_name} {cand.last_name}
+                                            <div className="name-row-p">
+                                                <span className="name-p">{cand.first_name} {cand.last_name}</span>
+                                                {cand.is_blocked == 1 && (
+                                                    <span className="blocked-pill" title={cand.block_reason || 'Candidate is blocked'}>
+                                                        <FiSlash size={9} /> Blocked
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
-                                                {cand.last_status === 'shortlisted' && <span className="status-badge-p badge-shortlisted">Favored</span>}
-                                                {cand.last_status === 'rejected' && <span className="status-badge-p badge-rejected">Refused</span>}
-                                                {cand.is_blocked == 1 && <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 100, fontSize: '0.6rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 3 }}><FiSlash size={9} /> Blocked</span>}
+                                            {cand.last_status && (
+                                                <div className="status-row-p">
+                                                    {cand.last_status === 'shortlisted' && (
+                                                        <span className="status-badge-p badge-shortlisted">
+                                                            <FiUserCheck size={10} /> Favored
+                                                        </span>
+                                                    )}
+                                                    {cand.last_status === 'rejected' && (
+                                                        <span className="status-badge-p badge-rejected">
+                                                            Refused
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="candidate-contact-links">
+                                                <span className="email-p" title={cand.email}>
+                                                    <FiMail size={11} /> {cand.email}
+                                                </span>
+                                                {cand.contact_number && (
+                                                    <span className="phone-p" title={cand.contact_number}>
+                                                        <FiPhone size={10} /> {cand.contact_number}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <span className="email-p"><FiMail size={11} /> {cand.email}</span>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
                                     <div className="classification-cell">
-                                        <span className="class-badge">{cand.qualification}</span>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                                            {cand.tags ? cand.tags.split(',').slice(0, 3).map((t, i) => (
-                                                <span key={i} className="tag-chip">#{t.trim()}</span>
-                                            )) : null}
-                                        </div>
+                                        {cand.qualification && cand.qualification.trim() ? (
+                                            <div className="class-badge-wrap">
+                                                <span className="class-badge" title={`Highest Qualification: ${cand.qualification}`}>
+                                                    <FiBookOpen size={11} className="class-badge-icon" />
+                                                    <span>{cand.qualification}</span>
+                                                </span>
+                                            </div>
+                                        ) : null}
+                                        {(() => {
+                                            const tagList = (cand.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+                                            if (tagList.length === 0 && (!cand.qualification || !cand.qualification.trim())) {
+                                                return <span className="empty-dash">—</span>;
+                                            }
+                                            if (tagList.length === 0) return null;
+                                            return (
+                                                <div className="talent-tags-wrap">
+                                                    {tagList.slice(0, 3).map((tag, i) => (
+                                                        <span key={i} className="tag-chip" title={tag}>
+                                                            <span className="tag-hash">#</span>{tag}
+                                                        </span>
+                                                    ))}
+                                                    {tagList.length > 3 && (
+                                                        <span 
+                                                            className="tag-chip-more" 
+                                                            title={`Additional tags: ${tagList.slice(3).join(', ')}`}
+                                                        >
+                                                            +{tagList.length - 3}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </td>
                                 <td>
                                     <div className="pos-entity-cell">
-                                        <span className="pos-name">{cand.last_applied_vacancy || 'Direct Application'}</span>
-                                        <span className="entity-name">{cand.last_applied_company || 'George Steuart'}</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div className="timeline-cell">
-                                        <strong>{cand.overall_experience || '0 years'}</strong>
-                                        <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', marginTop: '3px' }}>
-                                            <FiCalendar size={12} /> {formatDate(cand.applied_at)}
+                                        <span className="pos-name" title={cand.last_applied_vacancy || 'Direct Application'}>
+                                            {cand.last_applied_vacancy || 'Direct Application'}
+                                        </span>
+                                        <span className="entity-name" title={cand.last_applied_company || 'George Steuart'}>
+                                            <FiBriefcase size={11} className="entity-icon" />
+                                            <span>{cand.last_applied_company || 'George Steuart'}</span>
                                         </span>
                                     </div>
                                 </td>
                                 <td>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <div className="timeline-cell">
+                                        <div className="exp-highlight">
+                                            <span className="exp-val">{cand.overall_experience || '0 years'}</span>
+                                            {cand.relevant_experience && cand.relevant_experience !== cand.overall_experience && (
+                                                <span className="exp-rel-sub" title={`${cand.relevant_experience} relevant experience`}>
+                                                    ({cand.relevant_experience} rel.)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="applied-date-sub" title={`Applied on ${formatDate(cand.applied_at)}`}>
+                                            <FiCalendar size={11} /> {formatDate(cand.applied_at)}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div className="table-actions-cluster">
+                                        {cand.cv_path && (
+                                            <button 
+                                                type="button"
+                                                className="action-btn-p cv-btn"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setViewingCV(cand);
+                                                }}
+                                                title="Preview Candidate CV"
+                                            >
+                                                <FiFileText size={15} />
+                                            </button>
+                                        )}
                                         {!isReadOnly && (
                                             <button 
+                                                type="button"
                                                 className="action-btn-p danger"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
@@ -510,7 +587,8 @@ function TalentPool({ admin }) {
                                             </button>
                                         )}
                                         <button 
-                                            className="action-btn-p"
+                                            type="button"
+                                            className="action-btn-p view"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setShowDetail(cand);

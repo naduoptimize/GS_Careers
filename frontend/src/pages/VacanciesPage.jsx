@@ -159,6 +159,16 @@ function VacanciesPage() {
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
+                                {search && (
+                                    <button
+                                        type="button"
+                                        className="v2-search-clear"
+                                        onClick={() => setSearch("")}
+                                        title="Clear search"
+                                    >
+                                        <FiX />
+                                    </button>
+                                )}
                             </div>
                             <div className="v2-select-group">
                                 <div className="v2-select-wrapper">
@@ -167,6 +177,7 @@ function VacanciesPage() {
                                         <option value="">All Companies</option>
                                         {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                     </select>
+                                    <FiChevronDown className="v2-select-chevron" />
                                 </div>
                                 <div className="v2-select-wrapper">
                                     <FiMapPin className="v2-icon-small" />
@@ -174,12 +185,50 @@ function VacanciesPage() {
                                         <option value="">All Locations</option>
                                         {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
                                     </select>
+                                    <FiChevronDown className="v2-select-chevron" />
                                 </div>
                             </div>
                             <button type="submit" className="v2-btn-find">
                                 <FiSearch /> <span>Find Opportunities</span>
                             </button>
                         </form>
+
+                        {(search || companyFilter || locationFilter) && (
+                            <div className="v2-active-filters-bar">
+                                <span className="v2-active-filters-label">Active Filters:</span>
+                                {search && (
+                                    <span className="v2-filter-chip">
+                                        <span>Keyword: <strong>"{search}"</strong></span>
+                                        <button type="button" onClick={() => setSearch("")} aria-label="Remove keyword filter">
+                                            <FiX />
+                                        </button>
+                                    </span>
+                                )}
+                                {companyFilter && (
+                                    <span className="v2-filter-chip">
+                                        <span>Company: <strong>{companies.find(c => String(c.id) === String(companyFilter))?.name || "Company"}</strong></span>
+                                        <button type="button" onClick={() => setCompanyFilter("")} aria-label="Remove company filter">
+                                            <FiX />
+                                        </button>
+                                    </span>
+                                )}
+                                {locationFilter && (
+                                    <span className="v2-filter-chip">
+                                        <span>Location: <strong>{locationFilter}</strong></span>
+                                        <button type="button" onClick={() => setLocationFilter("")} aria-label="Remove location filter">
+                                            <FiX />
+                                        </button>
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    className="v2-btn-clear-all"
+                                    onClick={() => { setSearch(""); setCompanyFilter(""); setLocationFilter(""); }}
+                                >
+                                    Reset All
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -14,6 +14,7 @@ import {
 } from '../../services/api';
 import './CvExtractionsPage.css';
 import PaginationFooter from '../../components/PaginationFooter';
+import { copyToClipboard } from '../../utils/constants';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -603,10 +604,14 @@ function CvExtractionsPage({ admin }) {
         setShowModal(true);
     };
 
-    const handleCopyText = (text) => {
+    const handleCopyText = async (text) => {
         if (!text) return;
-        navigator.clipboard.writeText(text);
-        toast.success('CV text copied to clipboard!');
+        const ok = await copyToClipboard(text);
+        if (ok) {
+            toast.success('CV text copied to clipboard!');
+        } else {
+            toast.error('Failed to copy text');
+        }
     };
 
     const cleanCandidateName = (str) => {

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FiLock, FiShield, FiArrowLeft, FiCheckCircle } from 'react-icons/fi';
+import { FiLock, FiKey, FiEye, FiEyeOff, FiArrowLeft, FiCheckCircle, FiShield } from 'react-icons/fi';
 import api from '../../services/api';
 
 function ChangePasswordPage() {
     const navigate = useNavigate();
     const [form, setForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -34,9 +37,8 @@ function ChangePasswordPage() {
                 new_password: form.new_password
             });
 
-            toast.success('Security Profile Updated. Re-Authorizing...');
+            toast.success('Password updated successfully! Re-authorizing...');
 
-            // Clear session to force a fresh login
             localStorage.removeItem('gs_admin_token');
             localStorage.removeItem('gs_admin_data');
 
@@ -51,229 +53,378 @@ function ChangePasswordPage() {
     };
 
     return (
-        <div className="login-split-page">
-            {/* Left: Branding & Security Vibe */}
-            <div className="login-branding-panel">
-                <div className="branding-overlay"></div>
-                <img src="/admin-branding.png" alt="Branding" className="branding-bg" />
-                <div className="branding-content">
-                    <img src="/gs-logo.png" alt="GS Logo" className="branding-logo" />
-                    <div className="branding-text">
-                        <span className="est-badge">SECURITY PROTOCOL</span>
-                        <h1 className="serif-title">Protect. <br/>Validate. <br/>Secure.</h1>
-                        <p>Credentials Update | George Steuart Recruitment Orchestration</p>
-                    </div>
-                    <div className="branding-footer">
-                        <div className="secure-badge">
-                            <FiShield /> ADVANCED ENCRYPTION ACTIVE
-                        </div>
-                    </div>
-                </div>
+        <div className="minimal-setup-container">
+            {/* Top Navigation */}
+            <div className="minimal-nav">
+                <button className="minimal-back-btn" onClick={() => navigate('/admin/login')}>
+                    <FiArrowLeft size={16} /> <span>Return to Login</span>
+                </button>
             </div>
 
-            {/* Right: Security Interface */}
-            <div className="login-form-panel">
-                <button className="back-home-minimal" onClick={() => navigate('/admin/login')}>
-                    <FiArrowLeft /> Return to Login
-                </button>
-
-                <div className="login-glass-container animated-fade-in">
-                    <div className="login-header-p">
-                        <div className="access-icon"><FiLock /></div>
-                        <h2>Update Credentials</h2>
-                        <p>You are using a temporary password. Please establish a permanent secure passphrase.</p>
+            {/* Main Card */}
+            <div className="minimal-card-wrapper">
+                <div className="minimal-card">
+                    {/* Brand Header */}
+                    <div className="minimal-brand-header">
+                        <div className="minimal-logo-box">
+                            <img src="/gs-logo.png" alt="George Steuart Logo" className="minimal-logo-img" />
+                        </div>
+                        <h1 className="minimal-title">Update Credentials</h1>
+                        <p className="minimal-subtitle">
+                            You are using a temporary password. Establish a new secure password for your account.
+                        </p>
                     </div>
 
-                    <form className="premium-login-form" onSubmit={handleSubmit}>
-                        <div className="form-group-p">
-                            <label htmlFor="current_password"><FiLock /> TEMPORARY PASSWORD</label>
-                            <input
-                                id="current_password"
-                                name="current_password"
-                                type="password"
-                                autoComplete="current-password"
-                                placeholder="Enter current/temp password"
-                                value={form.current_password}
-                                onChange={(e) => setForm({ ...form, current_password: e.target.value })}
-                                required
-                            />
-                        </div>
-                        
-                        <div style={{ padding: '10px 0', borderBottom: '1px solid #f1f5f9', marginBottom: '20px' }}></div>
-
-                        <div className="form-group-p">
-                            <label htmlFor="new_password"><FiShield /> NEW SECURE PASSWORD</label>
-                            <input
-                                id="new_password"
-                                name="new_password"
-                                type="password"
-                                autoComplete="new-password"
-                                placeholder="Min 6 characters"
-                                value={form.new_password}
-                                onChange={(e) => setForm({ ...form, new_password: e.target.value })}
-                                required
-                            />
-                        </div>
-                        <div className="form-group-p">
-                            <label htmlFor="confirm_password"><FiShield /> CONFIRM PASSWORD</label>
-                            <input
-                                id="confirm_password"
-                                name="confirm_password"
-                                type="password"
-                                autoComplete="new-password"
-                                placeholder="Repeat new password"
-                                value={form.confirm_password}
-                                onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
-                                required
-                            />
+                    {/* Form */}
+                    <form className="minimal-form" onSubmit={handleSubmit}>
+                        {/* Temporary Password */}
+                        <div className="minimal-field-group">
+                            <label htmlFor="current_password">TEMPORARY PASSWORD</label>
+                            <div className="minimal-input-wrapper">
+                                <FiKey className="input-icon" size={16} />
+                                <input
+                                    id="current_password"
+                                    name="current_password"
+                                    type={showCurrent ? "text" : "password"}
+                                    autoComplete="current-password"
+                                    placeholder="Enter current/temp password"
+                                    value={form.current_password}
+                                    onChange={(e) => setForm({ ...form, current_password: e.target.value })}
+                                    required
+                                />
+                                <button 
+                                    type="button" 
+                                    className="input-eye-btn" 
+                                    onClick={() => setShowCurrent(!showCurrent)}
+                                    tabIndex={-1}
+                                    title={showCurrent ? "Hide password" : "Show password"}
+                                >
+                                    {showCurrent ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                                </button>
+                            </div>
                         </div>
 
-                        <button type="submit" className="login-btn-premium" disabled={loading}>
+                        <div className="minimal-divider"></div>
+
+                        {/* New Password */}
+                        <div className="minimal-field-group">
+                            <label htmlFor="new_password">NEW SECURE PASSWORD</label>
+                            <div className="minimal-input-wrapper">
+                                <FiLock className="input-icon" size={16} />
+                                <input
+                                    id="new_password"
+                                    name="new_password"
+                                    type={showNew ? "text" : "password"}
+                                    autoComplete="new-password"
+                                    placeholder="Min 6 characters"
+                                    value={form.new_password}
+                                    onChange={(e) => setForm({ ...form, new_password: e.target.value })}
+                                    required
+                                />
+                                <button 
+                                    type="button" 
+                                    className="input-eye-btn" 
+                                    onClick={() => setShowNew(!showNew)}
+                                    tabIndex={-1}
+                                    title={showNew ? "Hide password" : "Show password"}
+                                >
+                                    {showNew ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Confirm Password */}
+                        <div className="minimal-field-group">
+                            <label htmlFor="confirm_password">CONFIRM PASSWORD</label>
+                            <div className="minimal-input-wrapper">
+                                <FiShield className="input-icon" size={16} />
+                                <input
+                                    id="confirm_password"
+                                    name="confirm_password"
+                                    type={showConfirm ? "text" : "password"}
+                                    autoComplete="new-password"
+                                    placeholder="Repeat new password"
+                                    value={form.confirm_password}
+                                    onChange={(e) => setForm({ ...form, confirm_password: e.target.value })}
+                                    required
+                                />
+                                <button 
+                                    type="button" 
+                                    className="input-eye-btn" 
+                                    onClick={() => setShowConfirm(!showConfirm)}
+                                    tabIndex={-1}
+                                    title={showConfirm ? "Hide password" : "Show password"}
+                                >
+                                    {showConfirm ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button type="submit" className="minimal-submit-btn" disabled={loading}>
                             {loading ? (
                                 <div className="spinner-small"></div>
                             ) : (
-                                <>ACTIVATE NEW CREDENTIALS <FiCheckCircle style={{ marginLeft: 8 }} /></>
+                                <>
+                                    <span>ACTIVATE NEW CREDENTIALS</span>
+                                    <FiCheckCircle size={16} />
+                                </>
                             )}
                         </button>
                     </form>
                 </div>
 
-                <div className="login-footer-p">
-                    &copy; 2026 George Steuart & Company Limited. Security Governance.
+                {/* Footer note */}
+                <div className="minimal-footer">
+                    &copy; {new Date().getFullYear()} George Steuart & Company Limited. Security Governance.
                 </div>
             </div>
 
             <style jsx="true">{`
-                /* REUSING THE CORE LOGIN STYLES FOR CONSISTENCY */
-                .login-split-page {
-                    display: grid;
-                    grid-template-columns: 1.1fr 0.9fr;
+                .minimal-setup-container {
                     min-height: 100vh;
-                    background: #fcfcfd;
-                    overflow: hidden;
-                }
-
-                @media (max-width: 992px) {
-                    .login-split-page { grid-template-columns: 1fr; }
-                    .login-branding-panel { display: none; }
-                }
-
-                .login-branding-panel {
+                    width: 100%;
+                    background: #f8fafc;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
                     position: relative;
-                    height: 100vh;
-                    overflow: hidden;
-                    background: #2a050b;
+                    padding: 32px 20px;
+                    font-family: inherit;
                 }
 
-                .branding-bg {
-                    width: 100%; height: 100%; object-fit: cover; opacity: 0.6;
-                    filter: saturate(0.8) contrast(1.1);
+                .minimal-nav {
+                    position: absolute;
+                    top: 24px;
+                    left: 28px;
+                    right: 28px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
                 }
 
-                .branding-overlay {
-                    position: absolute; inset: 0;
-                    background: linear-gradient(to right, #2a050b 0%, transparent 60%, rgba(0,0,0,0.6) 100%);
-                    z-index: 1;
+                .minimal-back-btn {
+                    background: transparent;
+                    border: none;
+                    color: #64748b;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    cursor: pointer;
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    transition: all 0.2s ease;
                 }
 
-                .branding-content {
-                    position: absolute; inset: 0; z-index: 2; padding: 40px;
-                    display: flex; flex-direction: column; justify-content: space-between;
+                .minimal-back-btn:hover {
+                    color: #800020;
+                    background: rgba(128, 0, 32, 0.06);
                 }
 
-                .branding-logo { width: 140px; filter: brightness(0) invert(1); }
-
-                .est-badge {
-                    display: inline-block; padding: 4px 12px;
-                    background: rgba(200, 169, 81, 0.2); border: 1px solid rgba(200, 169, 81, 0.3);
-                    color: var(--gold-accent); font-size: 0.7rem; font-weight: 800;
-                    letter-spacing: 2px; border-radius: 4px; margin-bottom: 24px;
+                .minimal-card-wrapper {
+                    width: 100%;
+                    max-width: 430px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    animation: fadeIn 0.4s ease-out;
+                    margin-top: 20px;
                 }
 
-                .serif-title {
-                    font-family: var(--font-heading); font-size: 3.5rem; color: #fff;
-                    line-height: 0.95; margin: 0; letter-spacing: -2px;
+                .minimal-card {
+                    width: 100%;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 24px;
+                    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.04);
+                    padding: 40px 36px;
                 }
 
-                .branding-text p {
-                    color: rgba(255,255,255,0.6); font-size: 1.1rem; margin-top: 24px;
-                    letter-spacing: 0.5px;
+                .minimal-brand-header {
+                    text-align: center;
+                    margin-bottom: 28px;
                 }
 
-                .secure-badge {
-                    display: flex; align-items: center; gap: 10px;
-                    color: rgba(255,255,255,0.4); font-size: 0.75rem; font-weight: 700;
-                    letter-spacing: 1px;
+                .minimal-logo-box {
+                    width: 60px;
+                    height: 60px;
+                    background: #ffffff;
+                    border: 1.5px solid #f1f5f9;
+                    border-radius: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 18px;
+                    padding: 10px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
                 }
 
-                .login-form-panel {
-                    padding: 40px; display: flex; flex-direction: column;
-                    justify-content: center; align-items: center; position: relative;
-                    background: radial-gradient(circle at 10% 20%, #f1f5f9 0%, #ffffff 100%);
+                .minimal-logo-img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
                 }
 
-                .back-home-minimal {
-                    position: absolute; top: 40px; right: 40px; background: none; border: none;
-                    color: #94a3b8; font-size: 0.9rem; font-weight: 600; display: flex;
-                    align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s;
-                }
-                .back-home-minimal:hover { color: var(--crimson); transform: translateX(-5px); }
-
-                .login-glass-container { width: 100%; max-width: 440px; }
-
-                .login-header-p { text-align: center; margin-bottom: 40px; }
-                .access-icon {
-                    width: 64px; height: 64px; background: #f8fafc; border: 1px solid #e2e8f0;
-                    border-radius: 20px; display: flex; align-items: center; justify-content: center;
-                    margin: 0 auto 20px; font-size: 1.6rem; color: var(--crimson);
-                    box-shadow: 0 10px 20px rgba(0,0,0,0.02);
+                .minimal-title {
+                    font-size: 1.5rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    margin: 0 0 6px 0;
+                    letter-spacing: -0.4px;
                 }
 
-                .login-header-p h2 { font-family: var(--font-heading); font-size: 1.8rem; margin: 0; color: #1e293b; }
-                .login-header-p p { color: #64748b; margin-top: 8px; font-size: 0.9rem; }
-
-                .form-group-p { margin-bottom: 20px; }
-                .form-group-p label {
-                    display: flex; align-items: center; gap: 6px; font-size: 0.65rem;
-                    font-weight: 800; color: #94a3b8; margin-bottom: 10px;
-                    letter-spacing: 1.5px;
+                .minimal-subtitle {
+                    font-size: 0.85rem;
+                    color: #64748b;
+                    margin: 0;
+                    line-height: 1.5;
                 }
 
-                .form-group-p input {
-                    width: 100%; padding: 14px 18px; background: #fff; border: 1px solid #e2e8f0;
-                    border-radius: 14px; font-size: 1rem; color: #1e293b; transition: all 0.2s;
-                    box-shadow: var(--shadow-sm);
-                }
-                .form-group-p input:focus {
-                    border-color: var(--gold-accent); box-shadow: 0 0 0 4px rgba(200, 169, 81, 0.1);
-                    transform: translateY(-2px); outline: none;
+                .minimal-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 18px;
                 }
 
-                .login-btn-premium {
-                    width: 100%; padding: 18px; background: #2a050b; color: #fff; border: none;
-                    border-radius: 18px; font-weight: 800; font-size: 1rem; letter-spacing: 1px;
-                    cursor: pointer; transition: all 0.3s; display: flex; align-items: center;
-                    justify-content: center; box-shadow: 0 15px 30px rgba(42, 5, 11, 0.2);
-                    margin-top: 10px;
-                }
-                .login-btn-premium:hover {
-                    background: #4a0914; transform: translateY(-4px);
-                    box-shadow: 0 20px 40px rgba(42, 5, 11, 0.3);
+                .minimal-field-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 7px;
                 }
 
-                .login-footer-p {
-                    position: absolute; bottom: 40px; font-size: 0.75rem; color: #94a3b8;
-                    letter-spacing: 0.5px;
+                .minimal-field-group label {
+                    font-size: 0.68rem;
+                    font-weight: 800;
+                    color: #64748b;
+                    letter-spacing: 1.2px;
                 }
 
-                .animated-fade-in { animation: fadeIn 0.6s ease-out; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                .minimal-input-wrapper {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                }
+
+                .input-icon {
+                    position: absolute;
+                    left: 14px;
+                    color: #94a3b8;
+                    pointer-events: none;
+                }
+
+                .minimal-input-wrapper input {
+                    width: 100%;
+                    height: 46px;
+                    padding: 0 42px 0 40px;
+                    border: 1.5px solid #e2e8f0;
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    font-size: 0.92rem;
+                    color: #0f172a;
+                    outline: none;
+                    transition: all 0.2s ease;
+                }
+
+                .minimal-input-wrapper input:focus {
+                    border-color: #800020;
+                    background: #ffffff;
+                    box-shadow: 0 0 0 4px rgba(128, 0, 32, 0.08);
+                }
+
+                .input-eye-btn {
+                    position: absolute;
+                    right: 12px;
+                    background: transparent;
+                    border: none;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    padding: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px;
+                    transition: color 0.2s ease;
+                }
+
+                .input-eye-btn:hover {
+                    color: #475569;
+                }
+
+                .minimal-divider {
+                    height: 1px;
+                    background: #f1f5f9;
+                    margin: 2px 0;
+                }
+
+                .minimal-submit-btn {
+                    width: 100%;
+                    height: 48px;
+                    background: #800020;
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 14px;
+                    font-size: 0.88rem;
+                    font-weight: 800;
+                    letter-spacing: 0.8px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 8px;
+                    margin-top: 6px;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 10px 25px rgba(128, 0, 32, 0.2);
+                }
+
+                .minimal-submit-btn:hover:not(:disabled) {
+                    background: #600018;
+                    transform: translateY(-2px);
+                    box-shadow: 0 14px 30px rgba(128, 0, 32, 0.3);
+                }
+
+                .minimal-submit-btn:disabled {
+                    opacity: 0.7;
+                    cursor: not-allowed;
+                }
+
+                .minimal-footer {
+                    margin-top: 24px;
+                    font-size: 0.75rem;
+                    color: #94a3b8;
+                    text-align: center;
+                }
 
                 .spinner-small {
-                    width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.2);
-                    border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite;
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-top-color: #ffffff;
+                    border-radius: 50%;
+                    animation: spin 0.8s linear infinite;
                 }
-                @keyframes spin { to { transform: rotate(360deg); } }
+
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+
+                @media (max-width: 480px) {
+                    .minimal-card {
+                        padding: 28px 20px;
+                        border-radius: 20px;
+                    }
+                    .minimal-nav {
+                        top: 16px;
+                        left: 16px;
+                    }
+                }
             `}</style>
         </div>
     );

@@ -306,6 +306,37 @@ function ApplyPage() {
         overall_experience: '', relevant_experience: '', qualification: '',
         salary_expectation: '', cv: null, future_consent: null
     });
+    const [touched, setTouched] = useState({ email: false, contact_number: false });
+    const [fieldErrors, setFieldErrors] = useState({ email: '', contact_number: '' });
+
+    // Validation helpers for Email and Contact Number
+    const validateEmail = (email) => {
+        if (!email || !email.trim()) return "Email address is required.";
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email.trim())) return "Please enter a valid email address (e.g. name@example.com).";
+        return "";
+    };
+
+    const validateContactNumber = (phone) => {
+        if (!phone || !phone.trim()) return "Contact number is required.";
+        const cleanPhone = phone.trim().replace(/[\s\-\(\)]/g, '');
+        if (!/^\+?\d+$/.test(cleanPhone)) {
+            return "Contact number can only contain digits, spaces, and optional +.";
+        }
+        if (cleanPhone.startsWith('+94') || cleanPhone.startsWith('94') || cleanPhone.startsWith('0')) {
+            let digitsOnly = cleanPhone.startsWith('+94') ? cleanPhone.substring(3) : (cleanPhone.startsWith('94') ? cleanPhone.substring(2) : cleanPhone.substring(1));
+            if (digitsOnly.length !== 9) {
+                return "Sri Lankan contact number must have 9 digits (e.g. 077 123 4567 or +94 77 123 4567).";
+            }
+        } else {
+            const digitsCount = cleanPhone.replace(/\+/g, '').length;
+            if (digitsCount < 9 || digitsCount > 15) {
+                return "Please enter a valid contact number (9 to 15 digits).";
+            }
+        }
+        return "";
+    };
+
     const [matchedSkills, setMatchedSkills] = useState([]); // skills auto-detected from CV
     const [userSkills, setUserSkills] = useState([]); // candidate general skills (editable/manual)
     const [skillsMetadata, setSkillsMetadata] = useState([]); // structured skills metadata with experience/context/category
@@ -332,7 +363,16 @@ function ApplyPage() {
         fetchVacancy();
     }, [id, navigate]);
 
-    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setForm(prev => ({ ...prev, [name]: value }));
+        if (name === 'email' && touched.email) {
+            setFieldErrors(prev => ({ ...prev, email: validateEmail(value) }));
+        }
+        if (name === 'contact_number' && touched.contact_number) {
+            setFieldErrors(prev => ({ ...prev, contact_number: validateContactNumber(value) }));
+        }
+    };
 
     const requiredSkillsList = vacancy?.required_skills
         ? vacancy.required_skills.split(',').map(s => s.trim()).filter(Boolean)
@@ -660,6 +700,18 @@ function ApplyPage() {
 
     const handleReview = (e) => {
         e.preventDefault();
+
+        // Validate Email & Contact Number
+        const emailErr = validateEmail(form.email);
+        const phoneErr = validateContactNumber(form.contact_number);
+
+        if (emailErr || phoneErr) {
+            setTouched({ email: true, contact_number: true });
+            setFieldErrors({ email: emailErr, contact_number: phoneErr });
+            toast.error(emailErr || phoneErr);
+            return;
+        }
+
         if (!form.cv) { toast.error('Please upload your CV.'); return; }
 
         // Validate Salary Expectation (LKR)
@@ -1471,19 +1523,53 @@ function ApplyPage() {
                                             </div>
                                             <div className="apb-field">
                                                 <label>Email <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiMail className="apb-ico" />
-                                                    <input type="email" name="email" className="apb-input"
-                                                        value={form.email} onChange={handleChange}
-                                                        placeholder="you@example.com" required />
+                                                <div className="apb-iw">
+                                                    <FiMail className="apb-ico" style={fieldErrors.email ? { color: '#ef4444' } : {}} />
+                                                    <input 
+                                                        type="email" 
+                                                        name="email" 
+                                                        className="apb-input"
+                                                        style={fieldErrors.email ? { borderColor: '#ef4444', backgroundColor: '#fff5f5' } : {}}
+                                                        value={form.email} 
+                                                        onChange={handleChange}
+                                                        onBlur={() => {
+                                                            setTouched(prev => ({ ...prev, email: true }));
+                                                            setFieldErrors(prev => ({ ...prev, email: validateEmail(form.email) }));
+                                                        }}
+                                                        placeholder="you@example.com" 
+                                                        required 
+                                                    />
                                                 </div>
+                                                {fieldErrors.email && (
+                                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                                                        <FiAlertCircle size={13} /> {fieldErrors.email}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="apb-field">
                                                 <label>Contact Number <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiPhone className="apb-ico" />
-                                                    <input type="tel" name="contact_number" className="apb-input"
-                                                        value={form.contact_number} onChange={handleChange}
-                                                        placeholder="+94 77 123 4567" required />
+                                                <div className="apb-iw">
+                                                    <FiPhone className="apb-ico" style={fieldErrors.contact_number ? { color: '#ef4444' } : {}} />
+                                                    <input 
+                                                        type="tel" 
+                                                        name="contact_number" 
+                                                        className="apb-input"
+                                                        style={fieldErrors.contact_number ? { borderColor: '#ef4444', backgroundColor: '#fff5f5' } : {}}
+                                                        value={form.contact_number} 
+                                                        onChange={handleChange}
+                                                        onBlur={() => {
+                                                            setTouched(prev => ({ ...prev, contact_number: true }));
+                                                            setFieldErrors(prev => ({ ...prev, contact_number: validateContactNumber(form.contact_number) }));
+                                                        }}
+                                                        placeholder="+94 77 123 4567" 
+                                                        required 
+                                                    />
                                                 </div>
+                                                {fieldErrors.contact_number && (
+                                                    <span style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                                                        <FiAlertCircle size={13} /> {fieldErrors.contact_number}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 
