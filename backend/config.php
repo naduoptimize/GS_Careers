@@ -46,20 +46,20 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
 
 // ---- OLLAMA SERVER ----
-define('OLLAMA_SERVER', getenv('OLLAMA_SERVER') ?: 'http://172.16.7.21:11434');
+define('OLLAMA_SERVER', getenv('OLLAMA_SERVER') ?: 'http://localhost:11434');
 define('OLLAMA_MODEL', getenv('OLLAMA_MODEL') ?: 'qwen2.5:3b');
 define('GEMINI_API_KEY', getenv('GEMINI_API_KEY') ?: '');
 
 // ---- JWT SECRET ----
-define('JWT_SECRET', getenv('JWT_SECRET') ?: 'gs_job_portal_secret_key_2026');
+define('JWT_SECRET', getenv('JWT_SECRET') ?: 'default_jwt_secret_key');
 
 // ---- EMAIL SETTINGS ----
 define('EMAIL_ENABLED', getenv('EMAIL_ENABLED') !== false ? filter_var(getenv('EMAIL_ENABLED'), FILTER_VALIDATE_BOOLEAN) : true);
 define('SMTP_HOST', getenv('SMTP_HOST') ?: 'smtp.gmail.com');
 define('SMTP_PORT', getenv('SMTP_PORT') ? (int)getenv('SMTP_PORT') : 587);
 define('SMTP_SECURE', getenv('SMTP_SECURE') ?: 'tls');
-define('SMTP_USER', getenv('SMTP_USER') ?: 'nadumi672@gmail.com');
-define('SMTP_PASS', getenv('SMTP_PASS') ?: 'qkaw thob iauz dfqe');
+define('SMTP_USER', getenv('SMTP_USER') ?: '');
+define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
 define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: 'George Steuart Careers');
 define('SMTP_REPLY_TO', getenv('SMTP_REPLY_TO') ?: 'no-reply@georgesteuart.com');
 define('SMTP_DEBUG', getenv('SMTP_DEBUG') !== false ? (int)getenv('SMTP_DEBUG') : 0);
