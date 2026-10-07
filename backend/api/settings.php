@@ -30,11 +30,7 @@ function getSettings()
 
     $settings = [];
     foreach ($results as $row) {
-        if ($row['setting_key'] === 'smtp_pass' && !empty($row['setting_value'])) {
-            $settings[$row['setting_key']] = '********';
-        } else {
-            $settings[$row['setting_key']] = $row['setting_value'];
-        }
+        $settings[$row['setting_key']] = $row['setting_value'];
     }
 
     // Default fallback values for PDPA settings

@@ -434,23 +434,37 @@ function SettingsPage({ admin }) {
 
             {activeTab === 'mail' && (
                 /* Active Mail Status Card */
-                <div className="stat-glass-card gold settings-sender-card" style={{ marginBottom: '24px', flexWrap: 'wrap', gap: '16px', display: 'flex', flexDirection: 'row', alignItems: 'center', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '16px', padding: '20px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#fef3c7', display: 'flex', alignItems: 'center', justify: 'center', fontSize: '1.4rem', color: '#d97706', flexShrink: 0 }}>
-                        <FiMail />
+                <div className="stat-glass-card gold settings-sender-card" style={{
+                    marginBottom: '24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    background: '#fffbeb',
+                    border: '1px solid #fef3c7',
+                    borderRadius: '16px',
+                    padding: '24px 20px',
+                    gap: '12px'
+                }}>
+                    <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: '#fef3c7',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.4rem',
+                        color: '#d97706',
+                        flexShrink: 0
+                    }}>
+                        <FiMail style={{ display: 'block', margin: '0 auto' }} />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                         <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active System Sender Address</span>
-                        <span style={{ display: 'block', fontSize: '1.25rem', fontWeight: 800, color: '#78350f', marginTop: '2px', wordBreak: 'break-all' }}>
+                        <span style={{ display: 'block', fontSize: '1.3rem', fontWeight: 800, color: '#78350f', marginTop: '4px', wordBreak: 'break-all' }}>
                             {settings.system_email || settings.smtp_user || settings.default_email}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '4px', display: 'block' }}>
-                            <strong>Mode:</strong> {
-                                settings.smtp_host && settings.smtp_user 
-                                    ? 'Custom Sender (Alias/Relay)' 
-                                    : (settings.system_email 
-                                        ? `Custom Sender via Default SMTP (${settings.default_email})` 
-                                        : `Default SMTP Account Fallback (${settings.default_email})`)
-                            }
                         </span>
                     </div>
                 </div>
@@ -609,8 +623,19 @@ function SettingsPage({ admin }) {
 
                                         <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
                                             <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Password / App Password</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiLock style={{ color: 'var(--crimson)' }} /> {settings.smtp_pass ? '••••••••' : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>•••••••• (Default)</span>}
+                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    <FiLock style={{ color: 'var(--crimson)', flexShrink: 0 }} /> 
+                                                    {showPassword ? (settings.smtp_pass || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Not set</span>) : (settings.smtp_pass ? '••••••••' : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>•••••••• (Default)</span>)}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    title={showPassword ? "Hide Password" : "Show Password"}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1.1rem', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                                >
+                                                    {showPassword ? <FiEyeOff /> : <FiEye />}
+                                                </button>
                                             </span>
                                         </div>
                                     </div>
@@ -787,7 +812,7 @@ function SettingsPage({ admin }) {
                                                 </button>
                                             </div>
                                             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                Secure app password or password. Saved passwords show as <code>••••••••</code>.
+                                                Secure app password or password. Click the eye icon to view or hide the password.
                                             </p>
                                         </div>
                                     </div>
