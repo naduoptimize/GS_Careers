@@ -33,6 +33,8 @@ function CreateVacancy({ admin }) {
         employment_type: 'Full-Time',
         min_experience: '0 years',
         min_relevant_experience: '0 years',
+        min_salary: '',
+        max_salary: '',
         publish_date: new Date().toISOString().split('T')[0],
         expire_date: '',
         is_active: 1,
@@ -133,6 +135,8 @@ function CreateVacancy({ admin }) {
                         employment_type: vacancy.employment_type,
                         min_experience: vacancy.min_experience || '0 years',
                         min_relevant_experience: vacancy.min_relevant_experience || '0 years',
+                        min_salary: vacancy.min_salary || '',
+                        max_salary: vacancy.max_salary || '',
                         publish_date: vacancy.publish_date,
                         expire_date: vacancy.expire_date,
                         is_active: vacancy.is_active,
@@ -539,6 +543,40 @@ function CreateVacancy({ admin }) {
                                         <option value="8-10 years">8–10 years</option>
                                         <option value="10+ years">10+ years</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div className="form-group-p">
+                                <label htmlFor="min_salary">Min Expected Salary (LKR)</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        id="min_salary"
+                                        type="number"
+                                        name="min_salary"
+                                        value={form.min_salary}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 100000"
+                                        className="premium-input"
+                                        min="0"
+                                        step="5000"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group-p">
+                                <label htmlFor="max_salary">Max Expected Salary (LKR)</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        id="max_salary"
+                                        type="number"
+                                        name="max_salary"
+                                        value={form.max_salary}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 150000"
+                                        className="premium-input"
+                                        min="0"
+                                        step="5000"
+                                    />
                                 </div>
                             </div>
 

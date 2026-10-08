@@ -10,10 +10,11 @@ import axios from 'axios';
 import {
     FiDownload, FiFilter, FiSearch, FiMail, FiPhone, FiFileText,
     FiChevronRight, FiChevronLeft, FiArrowRight, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiCheckCircle,
-    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash, FiRotateCcw
+    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash, FiRotateCcw, FiAlertTriangle, FiDollarSign
 } from 'react-icons/fi';
 import './Applicants.css';
 import PaginationFooter from '../../components/PaginationFooter';
+import { calculateCandidateMatchScore, calculateSalaryMatchScore, parseNumericSalary } from '../../utils/scoreCalculator';
 
 // Helper to get today's local date as YYYY-MM-DD
 const getTodayDateString = () => {
@@ -403,7 +404,141 @@ const DOMAIN_SKILL_CATEGORIES = {
     ]
 };
 
+const extractFullQualificationsFromCVText = (cvText, fallbackQual, existingQuals = []) => {
+    let result = [];
+    
+    if (Array.isArray(existingQuals) && existingQuals.length > 0) {
+        existingQuals.forEach(q => {
+            if (q && typeof q === 'string') {
+                const trimmed = q.trim();
+                const lw = trimmed.toLowerCase();
+                if (trimmed.length > 8 && !['master', 'bachelor', 'diploma', 'hnd', 'msc', 'bsc', 'phd', 'mba'].includes(lw)) {
+                    result.push(trimmed);
+                }
+            }
+        });
+    }
+
+    if (cvText && typeof cvText === 'string') {
+        const lines = cvText.split('\n');
+        const qualPatterns = [
+            /(?:Bachelor[s]?|B\.?Sc\.?|B\.?A\.?|B\.?Com\.?|B\.?B\.?A\.?|B\.?I\.?C\.?T\.?|B\.?Tech\.?)(?:\s*\(Hons\))?(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Master[s]?|M\.?Sc\.?|M\.?A\.?|M\.?B\.?A\.?|M\.?Com\.?|M\.?Tech\.?)(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Diploma|Higher National Diploma|HND|Post\s*Graduate\s*Diploma|PG\s*Diploma|Advanced\s*Diploma)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Doctorate|Ph\.?D\.?)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:CIMA|ACCA|AAT|CA\s+Sri\s+Lanka|ICASL|CMA\s+Sri\s+Lanka)(?:\s+(?:Passed\s+Finalist|Finalist|Member|Affiliate|Strategic\s+Level|Operational\s+Level|Executive\s+Level|Passed|Qualified))?/i,
+        ];
+
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+            if (/^(?:EDUCATIONAL|ACADEMIC|PROFESSIONAL)\s+(?:QUALIFICATIONS|BACKGROUND|EDUCATION)$/i.test(trimmedLine)) return;
+
+            qualPatterns.forEach(pattern => {
+                const match = trimmedLine.match(pattern);
+                if (match) {
+                    let cleaned = match[0].trim();
+                    cleaned = cleaned.replace(/\s*[-–|@,]\s*(?:University|Institute|College|Campus|Sri Lanka|UK|USA|\d{4}).*$/i, '');
+                    cleaned = cleaned.replace(/\s*\(\d{4}(?:\s*-\s*\d{4}|\s*-\s*Present)?\).*$/i, '');
+                    cleaned = cleaned.replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+
+                    const lw = cleaned.toLowerCase();
+                    if (lw === 'master') cleaned = "Master's Degree";
+                    else if (lw === 'bachelor') cleaned = "Bachelor's Degree";
+                    else if (lw === 'diploma') cleaned = "Diploma";
+
+                    if (cleaned.length >= 4 && !result.some(r => r.toLowerCase() === cleaned.toLowerCase())) {
+                        result.push(cleaned);
+                    }
+                }
+            });
+        });
+    }
+
+    if (result.length === 0) {
+        if (fallbackQual && typeof fallbackQual === 'string') {
+            let fQual = fallbackQual.trim();
+            const lw = fQual.toLowerCase();
+            if (lw === 'master') fQual = "Master's Degree";
+            else if (lw === 'bachelor') fQual = "Bachelor's Degree";
+            else if (lw === 'diploma') fQual = "Diploma";
+            result.push(fQual);
+        } else {
+            result.push('Bachelors Degree');
+        }
+    }
+
+    return Array.from(new Set(result));
+};
+
+const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
+    let result = [];
+
+    if (Array.isArray(existingCerts) && existingCerts.length > 0) {
+        existingCerts.forEach(c => {
+            if (c && typeof c === 'string' && c.trim().length >= 3) {
+                result.push(c.trim());
+            }
+        });
+    }
+
+    if (cvText && typeof cvText === 'string') {
+        const certPatterns = [
+            /(?:AWS|Amazon Web Services)\s+(?:Certified\s+)?[A-Za-z0-9\s-]{3,40}/gi,
+            /(?:PMP|Project Management Professional)/gi,
+            /(?:Certified Scrum Master|Scrum Master|CSM)/gi,
+            /(?:Microsoft Certified|MCSE|MCSA|AZ-\d+|MS-\d+)[A-Za-z0-9\s-]{0,30}/gi,
+            /(?:Cisco Certified|CCNA|CCNP|CCIE)/gi,
+            /(?:ITIL(?:\s+Foundation)?)/gi,
+            /(?:Google Analytics Certified|Google Ads Certified)/gi,
+            /(?:ISO \d+(?:\s*Lead Auditor)?|HACCP|GMP)/gi,
+            /(?:Diploma|Certificate)\s+in\s+[A-Za-z0-9\s]{3,40}(?:Hacking|Security|Cyber|Testing|Design|Marketing|SEO|Python|Java|Web)/gi,
+            /(?:Ethical Hack(?:er|ing)|CEH|VAPT|CompTIA [A-Za-z+]+)/gi
+        ];
+
+        certPatterns.forEach(pat => {
+            const matches = cvText.match(pat);
+            if (matches) {
+                matches.forEach(m => {
+                    let cleaned = m.trim().replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+                    if (cleaned.length >= 3 && !result.some(r => r.toLowerCase() === cleaned.toLowerCase())) {
+                        result.push(cleaned);
+                    }
+                });
+            }
+        });
+    }
+
+    return Array.from(new Set(result));
+};
+
 const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}) => {
+    const isUnextracted = (
+        candidateObj.extraction_status === 'unextracted' ||
+        (candidateObj.extraction_status !== 'extracted' && candidateObj.is_manual_extracted != 1) ||
+        candidateObj.is_extracted === 0 ||
+        candidateObj.is_extracted === false ||
+        candidateObj.is_extracted === '0' ||
+        (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
+    );
+
+    if (isUnextracted) {
+        return {
+            skills: [],
+            parsedReport: {
+                is_unextracted: true,
+                is_job_mismatch: true,
+                mismatch_reason: 'CV auto-extraction skipped because candidate match score is below minimum threshold (<50%).',
+                experience_summary: 'Extraction Skipped: Candidate match score is below 50% threshold. Admins can manually extract this CV.',
+                recruiter_insights: ['⚠️ Auto-extraction skipped (<50% Match Score). Manual extraction available.'],
+                fully_demonstrated_skills: [],
+                partially_demonstrated_skills: [],
+                requirements_without_evidence: [],
+                additional_skills: []
+            }
+        };
+    }
+
     let parsedReport = null;
 
     const tryParse = (val) => {
@@ -519,13 +654,15 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const cvTextContent = candidateObj.cv_text || '';
     const isGarbled = (str) => {
         if (!str || typeof str !== 'string') return true;
+        if (/(Monotype|VeriSign|Type Solutions|OpenType Layout|kern" table|\/Image\d+|re\s+W\*\s+n|xmpmeta|CDEFGHIJSTUVWXYZcdefghijstuvwxyz)/i.test(str)) return true;
+        if (/(.)\1{5,}/.test(str)) return true;
         const len = str.length;
         if (len < 10) return false;
-        const symbolMatches = str.match(/[\[\]\{\}\^\/\\_>~`|]/g) || [];
+        const symbolMatches = str.match(/[\[\]\{\}\^\/\\_>~`|#@$%\*+=]/g) || [];
         return (symbolMatches.length / len) > 0.07;
     };
 
-    if (cvTextContent && candidateObj.extraction_status !== 'unextracted' && !isGarbled(cvTextContent)) {
+    if (cvTextContent && (candidateObj.extraction_status === 'extracted' || candidateObj.is_manual_extracted == 1) && !isGarbled(cvTextContent)) {
         // A. Match against dictionary
         Object.entries(DOMAIN_SKILL_CATEGORIES).forEach(([categoryName, kwList]) => {
             kwList.forEach(kw => {
@@ -714,14 +851,6 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const sortedDomains = Object.keys(cvScores).sort((a, b) => cvScores[b] - cvScores[a]);
     const cvActualDomain = cvScores[sortedDomains[0]] > 0 ? sortedDomains[0] : 'General';
 
-    const isUnextracted = (
-        candidateObj.extraction_status === 'unextracted' ||
-        candidateObj.is_extracted === 0 ||
-        candidateObj.is_extracted === false ||
-        candidateObj.is_extracted === '0' ||
-        (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
-    );
-
     let isMismatch = false;
     let mismatchReason = '';
 
@@ -801,24 +930,11 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
         }
     }
 
-    // Ensure Qualifications Found is populated
-    if (!Array.isArray(parsedReport.qualifications_found) || parsedReport.qualifications_found.length === 0) {
-        parsedReport.qualifications_found = [candidateQual];
-    }
+    // Ensure Qualifications Found is populated with exact qualification titles
+    parsedReport.qualifications_found = extractFullQualificationsFromCVText(cvTextContent, candidateQual, parsedReport.qualifications_found);
 
-    // Ensure Certifications Found has scan fallback
-    if (!Array.isArray(parsedReport.certifications_found) || parsedReport.certifications_found.length === 0) {
-        const certKeywords = ['AWS', 'PMP', 'Scrum Master', 'CIMA', 'ACCA', 'CCNA', 'ITIL', 'ISO 22000', 'HACCP', 'IATA', 'AAT', 'CMA'];
-        const foundCerts = [];
-        certKeywords.forEach(ck => {
-            if (cvTextContent && new RegExp(`\\b${ck}\\b`, 'i').test(cvTextContent)) {
-                foundCerts.push(ck + ' Certified');
-            }
-        });
-        if (foundCerts.length > 0) {
-            parsedReport.certifications_found = foundCerts;
-        }
-    }
+    // Ensure Certifications Found has full scan fallback
+    parsedReport.certifications_found = extractCertificationsFromCVText(cvTextContent, parsedReport.certifications_found);
 
     return { skills, parsedReport };
 };
@@ -886,6 +1002,7 @@ function Applicants({ admin }) {
         status: '',
         search: '',
         interview_date: '',
+        salary_match: '',
         sortBy: 'highExperience' // newest, oldest, highExperience, lowExperience
     });
 
@@ -1020,6 +1137,7 @@ function Applicants({ admin }) {
             status: '',
             search: '',
             interview_date: '',
+            salary_match: '',
             sortBy: 'highExperience'
         });
         setSelectedIds([]);
@@ -1033,6 +1151,7 @@ function Applicants({ admin }) {
         filters.qualification ||
         filters.status ||
         filters.interview_date ||
+        filters.salary_match ||
         (filters.sortBy && filters.sortBy !== 'highExperience')
     );
 
@@ -1175,180 +1294,33 @@ function Applicants({ admin }) {
 
     // Upgraded 4-Factor Multi-Weighted Scoring Model
     const calculateMatchScore = (app) => {
-        const qualWeights = {
-            'PhD': 100, 'Masters Degree': 90, 'Bachelors Degree': 80,
-            'Professional Certification': 75, 'Diploma': 65,
-            'A/L': 45, 'O/L': 25
-        };
-
-        const expWeights = {
-            '10+ years': 100,
-            '8-10 years': 85,
-            '5-7 years': 70,
-            '3-4 years': 55,
-            '1-2 years': 35,
-            '0-1 years': 15,
-            '0 years': 5,
-        };
-
-        const selectedVac = vacancies.find(v => v.id == (filters.vacancy_id || app.vacancy_id));
-
-        let details = {
-            factors: {
-                skills: 0,
-                experience: 0,
-                qualification: 0,
-                keyword: 0
-            },
-            matchedKeywords: [],
-            isQualified: true
-        };
-
-        // If no specific vacancy is selected, we do a general profile strength score
-        const targetTitle = selectedVac ? selectedVac.title.toLowerCase() : '';
-        const targetReqs = selectedVac ? (selectedVac.requirements || '').toLowerCase() : '';
-        const targetDesc = selectedVac ? (selectedVac.description || '').toLowerCase() : '';
-        const targetFullText = targetTitle + ' ' + targetReqs + ' ' + targetDesc;
-
-        // 1. SKILLS MATCH (40%)
-        let skillsScore = 0;
-        const parsedSkillsData = getNormalizedSkills(app.skills_metadata, app.tags);
-        const report = parsedSkillsData.parsedReport || {};
-        const skillsList = parsedSkillsData.skills || [];
-
-        if (skillsList.length > 0) {
-            // Count verified Relevant Skills and Related Skills
-            const numRelevant = skillsList.filter(s => s.category === 'Relevant Skills' && s.verified !== false).length;
-            const numRelated = skillsList.filter(s => s.category === 'Related Skills' && s.verified !== false).length;
-            
-            // Check mandatory requirements status
-            const numFully = Array.isArray(report.fully_demonstrated_skills) ? report.fully_demonstrated_skills.length : 0;
-            const numPartially = Array.isArray(report.partially_demonstrated_skills) ? report.partially_demonstrated_skills.length : 0;
-            const numMissing = Array.isArray(report.requirements_without_evidence) ? report.requirements_without_evidence.length : 0;
-            const totalMandatory = numFully + numPartially + numMissing;
-
-            let mandatoryRatio = 1.0;
-            if (totalMandatory > 0) {
-                mandatoryRatio = (numFully * 1.0 + numPartially * 0.5) / totalMandatory;
-            }
-
-            // High score for having relevant skills, scaled by mandatory match success
-            const rawSkillsScore = (numRelevant * 15) + (numRelated * 5); 
-            skillsScore = Math.min(100, rawSkillsScore) * mandatoryRatio;
-            
-            // Penalty for missing mandatory requirements
-            if (numMissing > 0) {
-                skillsScore *= Math.max(0.4, 1 - (numMissing * 0.15));
-            }
-
-            details.matchedKeywords = skillsList
-                .filter(s => s.category === 'Relevant Skills' || s.category === 'Related Skills')
-                .map(s => s.skill);
-        } else {
-            // Fallback for legacy applications: dynamically extract skills from targets and match vs applicant profile
-            let possibleSkills = [];
-            Object.values(DOMAIN_KEYWORDS).flat().forEach(word => {
-                if (targetFullText.includes(word)) possibleSkills.push(word);
-            });
-            possibleSkills = [...new Set(possibleSkills)];
-            const candidateInfo = (app.qualification + ' ' + (app.applied_vacancy || '') + ' ' + (app.last_applied_vacancy || '') + ' ' + app.tags).toLowerCase();
-
-            if (possibleSkills.length > 0) {
-                const matches = possibleSkills.filter(s => candidateInfo.includes(s));
-                skillsScore = (matches.length / possibleSkills.length) * 100;
-                details.matchedKeywords = matches.map(m => m.charAt(0).toUpperCase() + m.slice(1));
-            } else {
-                skillsScore = 70;
-            }
-        }
-        details.factors.skills = Math.round(skillsScore);
-
-        // 2. EXPERIENCE MATCH (25%)
-        let expScore = 0;
-        const appOverallWeight = expWeights[app.overall_experience] || 0;
-        const appRelevantWeight = expWeights[app.relevant_experience] || 0;
-
-        if (selectedVac) {
-            const minOverallWeight = expWeights[selectedVac.min_experience] || 15;
-            const minRelWeight = expWeights[selectedVac.min_relevant_experience] || 15;
-
-            const overallRatio = appOverallWeight / minOverallWeight;
-            const relRatio = appRelevantWeight / minRelWeight;
-
-            // Average of the two ratios, capped at 1.2 (bonus for over-qualification)
-            const combinedRatio = Math.min(1.2, (overallRatio + relRatio) / 2);
-            expScore = combinedRatio * 100;
-
-            if (appOverallWeight < minOverallWeight) details.isQualified = false;
-        } else {
-            expScore = (appOverallWeight + appRelevantWeight) / 2;
-        }
-        details.factors.experience = Math.round(expScore);
-
-        // 3. QUALIFICATION MATCH (15%)
-        let qualScore = 0;
-        const appQualWeight = qualWeights[app.qualification] || 0;
-
-        if (selectedVac) {
-            // Infer required qualification from target text (heuristic)
-            let requiredQualWeight = 80; // Default Bachelors
-            if (targetFullText.includes('phd') || targetFullText.includes('doctorate')) requiredQualWeight = 100;
-            else if (targetFullText.includes('masters') || targetFullText.includes('msc') || targetFullText.includes('mba')) requiredQualWeight = 90;
-            else if (targetFullText.includes('diploma')) requiredQualWeight = 65;
-            else if (targetFullText.includes('a/l')) requiredQualWeight = 45;
-
-            qualScore = (appQualWeight / requiredQualWeight) * 100;
-            if (appQualWeight < requiredQualWeight) qualScore *= 0.8; // penalty
-        } else {
-            qualScore = appQualWeight;
-        }
-        details.factors.qualification = Math.round(Math.min(100, qualScore));
-
-        // 4. KEYWORD / TEXT MATCH (20%)
-        let keywordScore = 0;
-        let jobDomain = '';
-
-        for (const [domain, keywords] of Object.entries(DOMAIN_KEYWORDS)) {
-            const domainMatchCount = keywords.filter(k => targetFullText.includes(k)).length;
-            if (domainMatchCount > 2) {
-                jobDomain = domain;
-                break;
-            }
-        }
-
-        const candidateInfo = (app.qualification + ' ' + (app.applied_vacancy || '') + ' ' + (app.last_applied_vacancy || '') + ' ' + app.tags).toLowerCase();
-
-        if (jobDomain && DOMAIN_KEYWORDS[jobDomain]) {
-            const domainKeywords = DOMAIN_KEYWORDS[jobDomain];
-            const candidateDomainMatches = domainKeywords.filter(k => candidateInfo.includes(k)).length;
-            keywordScore = Math.min(100, (candidateDomainMatches / Math.min(8, domainKeywords.length)) * 100);
-        } else {
-            keywordScore = 50; 
-        }
-
-        // Bonus for job title similarity
-        if (selectedVac && app.vacancy_title && app.vacancy_title.toLowerCase().includes(selectedVac.designation.toLowerCase())) {
-            keywordScore += 20;
-        }
-
-        details.factors.keyword = Math.round(Math.min(100, keywordScore));
-
-        // FINAL WEIGHTED CALCULATION
-        const finalScore = (details.factors.skills * 0.40) +
-            (details.factors.experience * 0.25) +
-            (details.factors.qualification * 0.15) +
-            (details.factors.keyword * 0.20);
-
-        return { score: Math.min(100, Math.round(finalScore)), details };
+        return calculateCandidateMatchScore(app, vacancies);
     };
 
     const filteredApps = applications
         .filter(app => {
-            if (!filters.search) return true;
-            const q = filters.search.toLowerCase();
-            return (app.first_name + ' ' + app.last_name).toLowerCase().includes(q) ||
-                app.email.toLowerCase().includes(q) ||
-                app.contact_number.includes(q);
+            if (filters.search) {
+                const q = filters.search.toLowerCase();
+                const matchSearch = (app.first_name + ' ' + app.last_name).toLowerCase().includes(q) ||
+                    app.email.toLowerCase().includes(q) ||
+                    app.contact_number.includes(q);
+                if (!matchSearch) return false;
+            }
+
+            if (filters.salary_match) {
+                const appVac = vacancies.find(v => String(v.id) === String(app.vacancy_id)) || selVac || {};
+                const minB = appVac.min_salary || selVac.min_salary;
+                const maxB = appVac.max_salary || selVac.max_salary;
+                const matchResult = calculateSalaryMatchScore(app.salary_expectation, minB, maxB);
+
+                if (filters.salary_match === 'within' && matchResult.status !== 'within_range') return false;
+                if (filters.salary_match === 'above' && matchResult.status !== 'above_range') return false;
+                if (filters.salary_match === 'below' && matchResult.status !== 'below_range') return false;
+                if (filters.salary_match === 'specified' && parseNumericSalary(app.salary_expectation) === null) return false;
+                if (filters.salary_match === 'unspecified' && parseNumericSalary(app.salary_expectation) !== null) return false;
+            }
+
+            return true;
         })
         .sort((a, b) => {
             if (filters.sortBy === 'newest') return new Date(b.applied_at) - new Date(a.applied_at);
@@ -1521,6 +1493,26 @@ function Applicants({ admin }) {
                             >
                                 <option value="">Any Qual.</option>
                                 {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="filter-group">
+                        <label htmlFor="salary_filter" className="filter-label">Salary Range Match</label>
+                        <div className="select-orchestrator">
+                            <FiTarget className="f-icon" />
+                            <select
+                                id="salary_filter"
+                                name="salary_match"
+                                value={filters.salary_match}
+                                onChange={(e) => setFilters({ ...filters, salary_match: e.target.value })}
+                            >
+                                <option value="">All Salaries</option>
+                                <option value="within">🎯 Within Job Budget</option>
+                                <option value="above">📈 Above Job Budget</option>
+                                <option value="below">📉 Below Job Budget</option>
+                                <option value="specified">💵 Expectation Mentioned</option>
+                                <option value="unspecified">❓ Expectation Not Mentioned</option>
                             </select>
                         </div>
                     </div>
@@ -1718,6 +1710,25 @@ function Applicants({ admin }) {
                                         <FiTag size={13} style={{ color: '#805ad5' }} />
                                         <span style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Type</span>
                                         <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#805ad5' }}>{selVac.employment_type}</span>
+                                    </div>
+                                )}
+
+                                {/* Salary Budget */}
+                                {(selVac.min_salary || selVac.max_salary || selVac.salary_range) && (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: 7,
+                                        background: '#fff', border: '1px solid rgba(16,185,129,0.3)',
+                                        borderRadius: 10, padding: '7px 14px'
+                                    }}>
+                                        <FiDollarSign size={13} style={{ color: '#10b981' }} />
+                                        <span style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Salary Budget</span>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#059669' }}>
+                                            {selVac.min_salary || selVac.max_salary ? (
+                                                `LKR ${selVac.min_salary ? Number(selVac.min_salary).toLocaleString() : '0'} - ${selVac.max_salary ? Number(selVac.max_salary).toLocaleString() : 'Negotiable'}`
+                                            ) : (
+                                                selVac.salary_range
+                                            )}
+                                        </span>
                                     </div>
                                 )}
 
@@ -2090,12 +2101,13 @@ function Applicants({ admin }) {
                         <table className="premium-table applicants-table">
                             <colgroup>
                                 {admin.role !== 'super_admin' && <col style={{ width: '38px' }} />}
-                                <col style={{ width: '22%' }} />
-                                <col style={{ width: '20%' }} />
-                                <col style={{ width: '12%' }} />
-                                <col style={{ width: '17%' }} />
-                                <col style={{ width: '12%' }} />
-                                <col style={{ width: '12%' }} />
+                                <col style={{ width: '18%' }} />
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '16%' }} />
+                                <col style={{ width: '10%' }} />
+                                <col style={{ width: '14%' }} />
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '10%' }} />
                                 <col style={{ width: '5%' }} />
                             </colgroup>
                             <thead>
@@ -2112,6 +2124,7 @@ function Applicants({ admin }) {
                                     )}
                                     <th>Candidate</th>
                                     <th>Target Position</th>
+                                    <th>CV Match</th>
                                     <th>Status</th>
                                     <th>Credentials</th>
                                     <th>Applied Date</th>
@@ -2143,22 +2156,6 @@ function Applicants({ admin }) {
                                                         <span className="candidate-name-txt" title={`${app.first_name} ${app.last_name}`}>
                                                             {app.first_name} {app.last_name}
                                                         </span>
-                                                        {(() => {
-                                                            const scoreData = calculateMatchScore(app);
-                                                            const score = scoreData.score;
-                                                            let badgeClass = 'match-pill-low';
-                                                            if (score >= 80) badgeClass = 'match-pill-high';
-                                                            else if (score >= 50) badgeClass = 'match-pill-medium';
-                                                            return (
-                                                                <span 
-                                                                    className={`match-score-pill ${badgeClass}`} 
-                                                                    style={{ fontSize: '0.66rem', padding: '2px 7px', fontWeight: 800, borderRadius: '100px' }}
-                                                                    title={`AI Match: ${score}% (Skills: ${scoreData.details.factors.skills}%, Exp: ${scoreData.details.factors.experience}%, Qual: ${scoreData.details.factors.qualification}%)`}
-                                                                >
-                                                                    {score}%
-                                                                </span>
-                                                            );
-                                                        })()}
                                                         {app.is_email_blocked == 1 && (
                                                             <span title="This email has been blocked in the Talent Pool" className="blocked-pill">
                                                                 <FiSlash size={9} /> Blocked
@@ -2182,6 +2179,52 @@ function Applicants({ admin }) {
                                                     </div>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td data-label="CV Match" style={{ whiteSpace: 'nowrap' }}>
+                                            {(() => {
+                                                const scoreData = calculateCandidateMatchScore(app);
+                                                const matchScore = scoreData.score || 0;
+                                                const factors = scoreData.details?.factors || {};
+
+                                                const salary = typeof factors.salary === 'number' ? factors.salary : 100;
+                                                const experience = typeof factors.experience === 'number' ? factors.experience : 0;
+                                                const qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
+                                                const skillsScore = typeof factors.skills === 'number' ? factors.skills : 0;
+                                                const keywordScore = typeof factors.keyword === 'number' ? factors.keyword : 0;
+                                                const jdSkills = Math.min(100, Math.max(10, Math.round((skillsScore * 0.5) + (keywordScore * 0.5))));
+
+                                                let matchClass = 'high';
+                                                let matchLabel = 'High Match';
+                                                if (matchScore < 50) {
+                                                    matchClass = 'low';
+                                                    matchLabel = 'Low (<50%)';
+                                                } else if (matchScore < 75) {
+                                                    matchClass = 'medium';
+                                                    matchLabel = 'Medium';
+                                                }
+
+                                                return (
+                                                    <div className="cve-match-cell">
+                                                        <span className={`cve-match-pill ${matchClass}`}>
+                                                            <FiTarget /> {matchScore}% <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>({matchLabel})</span>
+                                                        </span>
+                                                        <div className="cve-match-breakdown-grid">
+                                                            <span className="cve-micro-rate" title="Salary Budget Match Rate">
+                                                                Sal: <strong>{salary}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Relevant Experience Match Rate">
+                                                                Exp: <strong>{experience}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Qualifications Field Match Rate">
+                                                                Qual: <strong>{qualification}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Job Description & Skills Match Rate">
+                                                                JD: <strong>{jdSkills}%</strong>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td data-label="Status">
                                             <span className={`status-pill status-${(app.status || 'pending').replace('_', '-')}`}>
@@ -2210,6 +2253,36 @@ function Applicants({ admin }) {
                                                     <div className="degree-txt" title={app.qualification}>
                                                         <FiAward size={12} className="degree-icon-subtle" />
                                                         <span className="degree-text-inner">{app.qualification}</span>
+                                                    </div>
+                                                )}
+                                                {app.salary_expectation && (
+                                                    <div style={{ fontSize: '0.73rem', color: '#475569', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }} title={`Expected Salary: ${formatSalaryVal(app.salary_expectation)}`}>
+                                                        <span style={{ fontWeight: 600 }}>Salary:</span>
+                                                        <span style={{ color: '#0f172a', fontWeight: 700 }}>{formatSalaryVal(app.salary_expectation)}</span>
+                                                        {(() => {
+                                                            const appVac = vacancies.find(v => String(v.id) === String(app.vacancy_id)) || selVac || {};
+                                                            const minB = appVac.min_salary || selVac.min_salary;
+                                                            const maxB = appVac.max_salary || selVac.max_salary;
+                                                            if (minB || maxB) {
+                                                                const salResult = calculateSalaryMatchScore(app.salary_expectation, minB, maxB);
+                                                                let badgeBg = '#f1f5f9';
+                                                                let badgeColor = '#64748b';
+                                                                let badgeText = 'N/A';
+                                                                if (salResult.status === 'within_range') {
+                                                                    badgeBg = '#ecfdf5'; badgeColor = '#059669'; badgeText = 'Within Budget';
+                                                                } else if (salResult.status === 'above_range') {
+                                                                    badgeBg = '#fff7ed'; badgeColor = '#c2410c'; badgeText = 'Above Budget';
+                                                                } else if (salResult.status === 'below_range') {
+                                                                    badgeBg = '#eff6ff'; badgeColor = '#1d4ed8'; badgeText = 'Below Budget';
+                                                                }
+                                                                return (
+                                                                    <span style={{ fontSize: '0.62rem', background: badgeBg, color: badgeColor, padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                                                        {badgeText}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                     </div>
                                                 )}
                                             </div>
@@ -2528,6 +2601,26 @@ function Applicants({ admin }) {
                                                         <span>Steuart AI Recruiter Evaluation Report</span>
                                                     </div>
                                                 </div>
+
+                                                {parsedReport && !parsedReport.is_unextracted && parsedReport.is_job_mismatch && (
+                                                    <div className="job-mismatch-banner" style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b' }}>
+                                                        <FiAlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                                                        <div style={{ flex: 1 }}>
+                                                            <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#b91c1c', display: 'block', margin: 0 }}>⚠️ Job &amp; CV Mismatch Warning</span>
+                                                            <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements.`}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {parsedReport && !parsedReport.is_unextracted && !parsedReport.is_job_mismatch && (showDetail.vacancy_title || showDetail.applied_vacancy) && (
+                                                    <div className="job-match-banner" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#166534' }}>
+                                                        <FiCheckCircle size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                                                        <div style={{ flex: 1 }}>
+                                                            <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#15803d', display: 'block', margin: 0 }}>✅ Verified Job Requirement Alignment</span>
+                                                            <span style={{ fontSize: '0.82rem', color: '#166534', marginTop: '2px', display: 'block' }}>Candidate background &amp; verified competencies align well with target vacancy requirements for "{showDetail.vacancy_title || showDetail.applied_vacancy}".</span>
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {parsedReport && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
                                                     <div className="recruiter-report-summary">

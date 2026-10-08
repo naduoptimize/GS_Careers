@@ -166,10 +166,18 @@ function generateToken($adminId, $role, $companyId)
 
 function verifyToken()
 {
-    $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    $authHeader = '';
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+        }
+    }
+    if (empty($authHeader)) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_AUTHORISATION'] ?? '';
+    }
 
-    if (empty($authHeader) || !preg_match('/Bearer\s+(.+)/', $authHeader, $matches)) {
+    if (empty($authHeader) || !preg_match('/Bearer\s+(.+)/i', $authHeader, $matches)) {
         jsonResponse(401, 'Authentication required');
     }
 
@@ -219,6 +227,21 @@ if (!is_dir(UPLOAD_DIR)) {
 }
 
 // ---- EMAIL UTILITY ----
+function isCandidateEmailEnabled()
+{
+    try {
+        $db = getDB();
+        $stmt = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_candidate_emails'");
+        $val = $stmt->fetchColumn();
+        if ($val === '0' || $val === 'false' || $val === false) {
+            return false;
+        }
+        return true;
+    } catch (\Exception $e) {
+        return true;
+    }
+}
+
 function sendEmail($to, $toName, $subject, $body)
 {
     if (!defined('EMAIL_ENABLED') || !EMAIL_ENABLED)

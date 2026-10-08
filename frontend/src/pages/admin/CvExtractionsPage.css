@@ -567,6 +567,42 @@ input:checked + .cve-slider:before {
     border: 1px solid #fde68a;
 }
 
+.cve-badge.disabled-low {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+/* Match Score Pill */
+.cve-match-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cve-match-pill.high {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.cve-match-pill.medium {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.cve-match-pill.low {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
 /* Actions Column */
 .cve-actions {
     display: flex;
@@ -1265,9 +1301,353 @@ input:checked + .cve-slider:before {
     border: 1px solid #e2e8f0;
 }
 
-.skill-match-status-badge.unmatched {
-    background-color: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
+
+/* =========================================================
+   Match Score Legend & Info Bar Styles
+   ========================================================= */
+.cve-match-bar {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 10px 20px;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.03);
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    transition: all 0.25s ease;
 }
+
+.cve-match-bar:hover {
+    box-shadow: 0 6px 24px -4px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
+}
+
+.cve-match-left-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.cve-target-icon-ring {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(122, 18, 40, 0.25);
+    background: rgba(122, 18, 40, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7A1228;
+    font-size: 1.1rem;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.cve-match-title {
+    font-size: 0.96rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.cve-match-divider {
+    width: 1px;
+    height: 20px;
+    background: #e2e8f0;
+    margin: 0 14px;
+    flex-shrink: 0;
+}
+
+.cve-match-badges-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.cve-match-badge-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 30px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    transition: transform 0.15s ease;
+}
+
+.cve-match-badge-pill:hover {
+    transform: translateY(-1px);
+}
+
+.cve-match-badge-pill.high {
+    background: #eefdf5;
+    border: 1px solid #d1fae5;
+    color: #15803d;
+}
+
+.cve-match-badge-pill.medium {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #b45309;
+}
+
+.cve-match-badge-pill.low {
+    background: #fff5f5;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+}
+
+.cve-dot-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.cve-dot-indicator.green { background: #10b981; }
+.cve-dot-indicator.amber { background: #d97706; }
+.cve-dot-indicator.red   { background: #ef4444; }
+
+.cve-badge-label {
+    font-weight: 800;
+    margin-right: 2px;
+}
+
+.cve-badge-range {
+    font-weight: 600;
+    opacity: 0.95;
+}
+
+.cve-match-info-group {
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #7A1228;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-right: 4px;
+}
+
+.cve-match-info-link {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: opacity 0.15s ease;
+}
+
+.cve-match-info-link:hover {
+    opacity: 0.8;
+}
+
+.cve-tooltip-card {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    width: 220px;
+    max-width: 85vw;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    font-size: 0.78rem;
+    color: #475569;
+    line-height: 1.4;
+    white-space: normal;
+    word-wrap: break-word;
+    box-sizing: border-box;
+    animation: fadeIn 0.15s ease-out;
+}
+
+.cve-tooltip-arrow {
+    position: absolute;
+    top: -5px;
+    right: 20px;
+    width: 9px;
+    height: 9px;
+    background: #ffffff;
+    border-left: 1px solid #e2e8f0;
+    border-top: 1px solid #e2e8f0;
+    transform: rotate(45deg);
+}
+
+@media (max-width: 950px) {
+    .cve-match-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 16px;
+    }
+
+    .cve-match-left-group {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .cve-match-badges-group {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .cve-match-info-group {
+        align-self: flex-end;
+    }
+
+    .cve-tooltip-card {
+        right: 0;
+        width: 220px;
+    }
+}
+
+/* =========================================================
+   Pre-Extraction Match Assessment & Rate Breakdown
+   ========================================================= */
+.cve-match-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+.cve-match-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
+    gap: 4px;
+    width: 100%;
+    max-width: 175px;
+}
+
+.cve-micro-rate {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 3px 6px;
+    font-size: 0.69rem;
+    color: #475569;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+}
+
+.cve-micro-rate:hover {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.cve-micro-rate strong {
+    font-weight: 800;
+    color: #0f172a;
+    margin-left: 2px;
+}
+
+/* Modal Pre-Extraction Assessment Card */
+.cve-match-assessment-card {
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #7A1228;
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.03);
+}
+
+.cve-assessment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.cve-overall-score-badge {
+    background: rgba(122, 18, 40, 0.08);
+    color: #7A1228;
+    border: 1px solid rgba(122, 18, 40, 0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.cve-assessment-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .cve-assessment-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cve-metric-box {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.85rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.cve-metric-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 6px;
+}
+
+.cve-progress-bg {
+    height: 7px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.cve-progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.4s ease;
+}
+
+.bg-high { background: linear-gradient(90deg, #10b981, #059669); }
+.bg-med  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+.bg-low  { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+.txt-high { color: #059669; }
+.txt-med  { color: #d97706; }
+.txt-low  { color: #dc2626; }
+
+.cve-metric-sub {
+    font-size: 0.73rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+
+
 

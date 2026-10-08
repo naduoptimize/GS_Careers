@@ -3,13 +3,13 @@ import { toast } from 'react-toastify';
 import { 
     FiSettings, FiMail, FiCheck, FiActivity, FiServer, 
     FiLock, FiUser, FiEye, FiEyeOff, FiPlay, FiInfo, 
-    FiCheckCircle, FiAlertTriangle, FiChevronDown, FiChevronUp,
-    FiEdit, FiX, FiFileText, FiCpu
+    FiCheckCircle, FiXCircle, FiAlertTriangle, FiChevronDown, FiChevronUp,
+    FiEdit, FiX, FiFileText, FiCpu, FiTarget
 } from 'react-icons/fi';
 import { getSettings, saveSettings, testSmtpSettings } from '../../services/api';
 
 function SettingsPage({ admin }) {
-    const [activeTab, setActiveTab] = useState('mail');
+    const [activeTab, setActiveTab] = useState('score');
     const [activeEmailSubTab, setActiveEmailSubTab] = useState('candidate');
     const [settings, setSettings] = useState({
         system_email: '',
@@ -19,6 +19,11 @@ function SettingsPage({ admin }) {
         smtp_user: '',
         smtp_pass: '',
         smtp_from_name: '',
+        enable_candidate_emails: '1',
+        
+        // Match Score Thresholds
+        min_high_match_score: '75',
+        min_medium_match_score: '50',
         
         // PDPA Settings
         pdpa_title: '',
@@ -87,6 +92,10 @@ function SettingsPage({ admin }) {
                 smtp_user: data.smtp_user || '',
                 smtp_pass: data.smtp_pass || '',
                 smtp_from_name: data.smtp_from_name || '',
+                enable_candidate_emails: data.enable_candidate_emails !== undefined ? data.enable_candidate_emails : '1',
+                
+                min_high_match_score: data.min_high_match_score || '75',
+                min_medium_match_score: data.min_medium_match_score || '50',
                 
                 pdpa_title: data.pdpa_title || '',
                 pdpa_description: data.pdpa_description || '',
@@ -146,6 +155,7 @@ function SettingsPage({ admin }) {
                 smtp_user: settings.smtp_user,
                 smtp_pass: settings.smtp_pass,
                 smtp_from_name: settings.smtp_from_name,
+                enable_candidate_emails: settings.enable_candidate_emails,
                 pdpa_title: settings.pdpa_title,
                 pdpa_description: settings.pdpa_description,
                 pdpa_purpose: settings.pdpa_purpose,
@@ -227,6 +237,9 @@ function SettingsPage({ admin }) {
                 smtp_user: settings.smtp_user,
                 smtp_pass: settings.smtp_pass,
                 smtp_from_name: settings.smtp_from_name,
+                enable_candidate_emails: settings.enable_candidate_emails,
+                min_high_match_score: settings.min_high_match_score,
+                min_medium_match_score: settings.min_medium_match_score,
                 pdpa_title: settings.pdpa_title,
                 pdpa_description: settings.pdpa_description,
                 pdpa_purpose: settings.pdpa_purpose,
@@ -312,15 +325,45 @@ function SettingsPage({ admin }) {
     }
 
     return (
-        <div className="premium-settings-page" style={{ maxWidth: '1000px', margin: '0 auto', animation: 'fadeIn 0.4s ease-out' }}>
-            {/* HERO */}
-            <div className="dashboard-hero-premium">
-                <div className="hero-content-p">
-                    <div className="hero-badge-p"><FiActivity /> System Executive Suite</div>
-                    <h1 className="hero-title-p">Portal Settings</h1>
-                    <p className="hero-subtitle-p">George Steuart Recruitment Orchestration | Global System Configurations</p>
+        <div className="premium-settings-page" style={{ maxWidth: '1050px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
+            {/* MODERN SIMPLE PAGE HEADER */}
+            <div style={{
+                display: 'flex',
+                justify: 'space-between',
+                alignItems: 'center',
+                marginBottom: '24px',
+                flexWrap: 'wrap',
+                gap: '16px',
+                background: '#fff',
+                padding: '24px 28px',
+                borderRadius: '20px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+            }}>
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{
+                            background: 'rgba(122, 18, 40, 0.08)',
+                            color: '#7A1228',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            padding: '3px 10px',
+                            borderRadius: '20px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                        }}>
+                            System Configurations
+                        </span>
+                    </div>
+                    <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0, tracking: '-0.02em' }}>
+                        Portal Settings
+                    </h1>
+                    <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '4px 0 0 0' }}>
+                        Configure match score thresholds, SMTP mail servers, email templates, and AI resume parser options.
+                    </p>
                 </div>
-                <div className="hero-actions-p" style={{ zIndex: 1 }}>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
                     {!isEditing && (
                         <button
                             type="button"
@@ -329,106 +372,159 @@ function SettingsPage({ admin }) {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                padding: '12px 24px',
+                                padding: '10px 20px',
                                 borderRadius: '12px',
                                 fontWeight: 700,
-                                fontSize: '0.95rem',
-                                border: '1px solid #fff',
-                                background: '#fff',
-                                color: 'var(--crimson)',
+                                fontSize: '0.9rem',
+                                border: 'none',
+                                background: '#7A1228',
+                                color: '#fff',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
-                                boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
+                                boxShadow: '0 4px 12px rgba(122, 18, 40, 0.2)'
                             }}
                         >
                             <FiEdit /> Edit Settings
                         </button>
                     )}
                 </div>
-                <div className="hero-bg-accent"></div>
             </div>
 
-            {/* TAB MENU */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '24px', gap: '8px' }}>
+            {/* SINGLE-ROW SEGMENTED PILL TAB NAVIGATION */}
+            <div style={{
+                background: '#f1f5f9',
+                padding: '5px',
+                borderRadius: '16px',
+                display: 'flex',
+                gap: '4px',
+                marginBottom: '24px',
+                overflowX: 'auto',
+                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
+            }}>
                 <button
                     type="button"
-                    onClick={() => setActiveTab('mail')}
+                    onClick={() => setActiveTab('score')}
                     style={{
-                        padding: '12px 24px',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        background: 'none',
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        fontWeight: activeTab === 'score' ? 800 : 600,
+                        fontSize: '0.88rem',
                         border: 'none',
-                        borderBottom: activeTab === 'mail' ? '3px solid var(--crimson)' : '3px solid transparent',
-                        color: activeTab === 'mail' ? 'var(--crimson)' : '#64748b',
+                        background: activeTab === 'score' ? '#fff' : 'transparent',
+                        color: activeTab === 'score' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        justifyContent: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: activeTab === 'score' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                     }}
                 >
-                    <FiMail /> Mail & SMTP Settings
+                    <FiTarget style={{ fontSize: '1rem', color: activeTab === 'score' ? '#7A1228' : '#94a3b8' }} />
+                    Match Score
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('mail')}
+                    style={{
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        fontWeight: activeTab === 'mail' ? 800 : 600,
+                        fontSize: '0.88rem',
+                        border: 'none',
+                        background: activeTab === 'mail' ? '#fff' : 'transparent',
+                        color: activeTab === 'mail' ? '#7A1228' : '#64748b',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: activeTab === 'mail' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                    }}
+                >
+                    <FiMail style={{ fontSize: '1rem', color: activeTab === 'mail' ? '#7A1228' : '#94a3b8' }} />
+                    Mail &amp; SMTP
                 </button>
                 <button
                     type="button"
                     onClick={() => setActiveTab('email')}
                     style={{
-                        padding: '12px 24px',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        background: 'none',
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        fontWeight: activeTab === 'email' ? 800 : 600,
+                        fontSize: '0.88rem',
                         border: 'none',
-                        borderBottom: activeTab === 'email' ? '3px solid var(--crimson)' : '3px solid transparent',
-                        color: activeTab === 'email' ? 'var(--crimson)' : '#64748b',
+                        background: activeTab === 'email' ? '#fff' : 'transparent',
+                        color: activeTab === 'email' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        justifyContent: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: activeTab === 'email' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                     }}
                 >
-                    <FiFileText /> Email Templates
+                    <FiFileText style={{ fontSize: '1rem', color: activeTab === 'email' ? '#7A1228' : '#94a3b8' }} />
+                    Email Templates
                 </button>
                 <button
                     type="button"
                     onClick={() => setActiveTab('pdpa')}
                     style={{
-                        padding: '12px 24px',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        background: 'none',
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        fontWeight: activeTab === 'pdpa' ? 800 : 600,
+                        fontSize: '0.88rem',
                         border: 'none',
-                        borderBottom: activeTab === 'pdpa' ? '3px solid var(--crimson)' : '3px solid transparent',
-                        color: activeTab === 'pdpa' ? 'var(--crimson)' : '#64748b',
+                        background: activeTab === 'pdpa' ? '#fff' : 'transparent',
+                        color: activeTab === 'pdpa' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        justifyContent: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: activeTab === 'pdpa' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                     }}
                 >
-                    <FiInfo /> PDPA Consent Guidelines
+                    <FiInfo style={{ fontSize: '1rem', color: activeTab === 'pdpa' ? '#7A1228' : '#94a3b8' }} />
+                    PDPA Consent
                 </button>
                 <button
                     type="button"
                     onClick={() => setActiveTab('ai')}
                     style={{
-                        padding: '12px 24px',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        background: 'none',
+                        flex: 1,
+                        padding: '10px 16px',
+                        borderRadius: '12px',
+                        fontWeight: activeTab === 'ai' ? 800 : 600,
+                        fontSize: '0.88rem',
                         border: 'none',
-                        borderBottom: activeTab === 'ai' ? '3px solid var(--crimson)' : '3px solid transparent',
-                        color: activeTab === 'ai' ? 'var(--crimson)' : '#64748b',
+                        background: activeTab === 'ai' ? '#fff' : 'transparent',
+                        color: activeTab === 'ai' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        justifyContent: 'center',
+                        gap: '8px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: activeTab === 'ai' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                     }}
                 >
-                    <FiCpu /> AI Resume Parser Settings
+                    <FiCpu style={{ fontSize: '1rem', color: activeTab === 'ai' ? '#7A1228' : '#94a3b8' }} />
+                    AI Resume Parser
                 </button>
             </div>
 
@@ -472,9 +568,666 @@ function SettingsPage({ admin }) {
 
             <form onSubmit={handleSubmit}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {activeTab === 'score' && (
+                        <div className="card-p" style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
+                            <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#7A1228', fontWeight: 800 }}>
+                                        <FiTarget style={{ color: '#7A1228', fontSize: '1.35rem' }} /> CV Match Score &amp; Extraction Thresholds
+                                    </h3>
+                                    <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '6px', marginBottom: 0, lineHeight: '1.5' }}>
+                                        Configure score percentage boundaries for High, Medium, and Low match badges, as well as automatic vs. manual extraction limits.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                {!isEditing ? (
+                                    /* READ-ONLY 3 CARDS VIEW */
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
+                                        {/* 1. High Match Read-only Card */}
+                                        <div style={{
+                                            background: '#f0fdf4',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #bbf7d0',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(22, 163, 74, 0.04)',
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#15803d' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>🟢</span> High Match Badge
+                                                </div>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #bbf7d0',
+                                                    borderRadius: '14px',
+                                                    padding: '6px 16px',
+                                                    fontSize: '1.2rem',
+                                                    fontWeight: 900,
+                                                    color: '#15803d',
+                                                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.08)'
+                                                }}>
+                                                    ≥ {settings.min_high_match_score || 75}%
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#15803d', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_high_match_score || 75}% – 100%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#166534', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Candidates scoring {settings.min_high_match_score || 75}% or higher receive top-priority Green High Match badge.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* 2. Medium Match Read-only Card */}
+                                        <div style={{
+                                            background: '#fffbeb',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #fde68a',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.04)',
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#b45309' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>🟡</span> Medium Match (Auto Extract)
+                                                </div>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #fde68a',
+                                                    borderRadius: '14px',
+                                                    padding: '6px 16px',
+                                                    fontSize: '1.2rem',
+                                                    fontWeight: 900,
+                                                    color: '#b45309',
+                                                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
+                                                }}>
+                                                    ≥ {settings.min_medium_match_score || 50}%
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_medium_match_score || 50}% – {(parseInt(settings.min_high_match_score || 75) - 1)}%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#92400e', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Resumes scoring in this range are automatically extracted by system.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Low Match Read-only Card */}
+                                        <div style={{
+                                            background: '#fff1f2',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #fecdd3',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(220, 38, 38, 0.04)',
+                                            transition: 'all 0.2s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#b91c1c' }}>
+                                                    <span style={{ fontSize: '0.9rem' }}>🔴</span> Low Match (Manual Extract)
+                                                </div>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #fecdd3',
+                                                    borderRadius: '14px',
+                                                    padding: '6px 16px',
+                                                    fontSize: '1.2rem',
+                                                    fontWeight: 900,
+                                                    color: '#b91c1c',
+                                                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.08)'
+                                                }}>
+                                                    &lt; {settings.min_medium_match_score || 50}%
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b91c1c', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>&lt; {settings.min_medium_match_score || 50}%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#991b1b', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Scores below {settings.min_medium_match_score || 50}% skip auto-extraction. Admins can manually extract them on demand.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* EDITABLE 3 CARDS VIEW WITH SLIDERS AND NUMBER INPUTS */
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
+                                        {/* 1. High Match Edit Card */}
+                                        <div style={{
+                                            background: '#f0fdf4',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #bbf7d0',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(22, 163, 74, 0.04)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <label htmlFor="min_high_match_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                    <span>🟢</span> High Match Minimum (%)
+                                                </label>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #86efac',
+                                                    borderRadius: '14px',
+                                                    padding: '4px 12px',
+                                                    fontSize: '1.15rem',
+                                                    fontWeight: 900,
+                                                    color: '#15803d',
+                                                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.08)'
+                                                }}>
+                                                    ≥ {settings.min_high_match_score || 75}%
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <input
+                                                    type="range"
+                                                    min="50"
+                                                    max="95"
+                                                    value={settings.min_high_match_score || 75}
+                                                    onChange={(e) => {
+                                                        const val = Math.max(parseInt(e.target.value), parseInt(settings.min_medium_match_score || 50) + 1);
+                                                        setSettings({ ...settings, min_high_match_score: val.toString() });
+                                                    }}
+                                                    style={{ flex: 1, accentColor: '#16a34a', cursor: 'pointer', height: '6px' }}
+                                                />
+                                                <input
+                                                    id="min_high_match_score"
+                                                    name="min_high_match_score"
+                                                    type="number"
+                                                    min="1"
+                                                    max="100"
+                                                    value={settings.min_high_match_score}
+                                                    onChange={handleChange}
+                                                    style={{
+                                                        width: '72px',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '12px',
+                                                        border: '2px solid #16a34a',
+                                                        background: '#ffffff',
+                                                        fontSize: '1rem',
+                                                        fontWeight: '800',
+                                                        textAlign: 'center',
+                                                        color: '#15803d',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#15803d', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_high_match_score || 75}% – 100%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#166534', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Candidates scoring {settings.min_high_match_score || 75}% or higher receive top-priority Green High Match badge.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* 2. Medium Match Edit Card */}
+                                        <div style={{
+                                            background: '#fffbeb',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #fde68a',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.04)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <label htmlFor="min_medium_match_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                    <span>🟡</span> Medium Match Minimum (%)
+                                                </label>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #fcd34d',
+                                                    borderRadius: '14px',
+                                                    padding: '4px 12px',
+                                                    fontSize: '1.15rem',
+                                                    fontWeight: 900,
+                                                    color: '#b45309',
+                                                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
+                                                }}>
+                                                    ≥ {settings.min_medium_match_score || 50}%
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <input
+                                                    type="range"
+                                                    min="10"
+                                                    max="90"
+                                                    value={settings.min_medium_match_score || 50}
+                                                    onChange={(e) => {
+                                                        const val = Math.min(parseInt(e.target.value), parseInt(settings.min_high_match_score || 75) - 1);
+                                                        setSettings({ ...settings, min_medium_match_score: val.toString() });
+                                                    }}
+                                                    style={{ flex: 1, accentColor: '#d97706', cursor: 'pointer', height: '6px' }}
+                                                />
+                                                <input
+                                                    id="min_medium_match_score"
+                                                    name="min_medium_match_score"
+                                                    type="number"
+                                                    min="1"
+                                                    max="100"
+                                                    value={settings.min_medium_match_score}
+                                                    onChange={handleChange}
+                                                    style={{
+                                                        width: '72px',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '12px',
+                                                        border: '2px solid #d97706',
+                                                        background: '#ffffff',
+                                                        fontSize: '1rem',
+                                                        fontWeight: '800',
+                                                        textAlign: 'center',
+                                                        color: '#b45309',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_medium_match_score || 50}% – {(parseInt(settings.min_high_match_score || 75) - 1)}%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#92400e', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Resumes scoring in this range are automatically extracted by system.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Low Match Edit Card */}
+                                        <div style={{
+                                            background: '#fff1f2',
+                                            padding: '24px',
+                                            borderRadius: '20px',
+                                            border: '1.5px solid #fecdd3',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px',
+                                            boxShadow: '0 4px 16px rgba(220, 38, 38, 0.04)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <label htmlFor="low_manual_extract_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                                    <span>🔴</span> Low Match &amp; Manual Limit
+                                                </label>
+                                                <div style={{
+                                                    background: '#ffffff',
+                                                    border: '1.5px solid #fca5a5',
+                                                    borderRadius: '14px',
+                                                    padding: '4px 12px',
+                                                    fontSize: '1.15rem',
+                                                    fontWeight: 900,
+                                                    color: '#b91c1c',
+                                                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.08)'
+                                                }}>
+                                                    &lt; {settings.min_medium_match_score || 50}%
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                                <input
+                                                    type="range"
+                                                    min="10"
+                                                    max="90"
+                                                    value={settings.min_medium_match_score || 50}
+                                                    onChange={(e) => {
+                                                        const val = Math.min(parseInt(e.target.value), parseInt(settings.min_high_match_score || 75) - 1);
+                                                        setSettings({ ...settings, min_medium_match_score: val.toString() });
+                                                    }}
+                                                    style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer', height: '6px' }}
+                                                />
+                                                <input
+                                                    id="low_manual_extract_score"
+                                                    type="number"
+                                                    min="1"
+                                                    max="100"
+                                                    value={settings.min_medium_match_score}
+                                                    onChange={(e) => {
+                                                        setSettings({ ...settings, min_medium_match_score: e.target.value });
+                                                    }}
+                                                    style={{
+                                                        width: '72px',
+                                                        padding: '6px 10px',
+                                                        borderRadius: '12px',
+                                                        border: '2px solid #dc2626',
+                                                        background: '#ffffff',
+                                                        fontSize: '1rem',
+                                                        fontWeight: '800',
+                                                        textAlign: 'center',
+                                                        color: '#b91c1c',
+                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b91c1c', marginBottom: '6px' }}>
+                                                    Active Range: <span style={{ fontWeight: 900 }}>&lt; {settings.min_medium_match_score || 50}%</span>
+                                                </div>
+                                                <p style={{ fontSize: '0.83rem', color: '#991b1b', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
+                                                    Scores below {settings.min_medium_match_score || 50}% skip auto-extraction. Admins can manually extract them on demand.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* SCORING MODEL GUIDE & FORMULA EXPLANATION CARD */}
+                                <div style={{
+                                    marginTop: '12px',
+                                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                                    border: '1.5px solid #cbd5e1',
+                                    borderRadius: '20px',
+                                    padding: '24px',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(122, 18, 40, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A1228', fontSize: '1.2rem', fontWeight: 800 }}>
+                                            📊
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
+                                                AI Smart Candidate Match Scoring Model (100% Total)
+                                            </h4>
+                                            <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                                                Evaluates candidate CVs against ALL job creation details (Job Title, Designation, Relevant Exp, Salary Range, Description &amp; Skills)
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* 4 Category Match Factor Cards Grid (100% Total) */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+                                        {/* Factor 1: JD & Skills */}
+                                        <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '14px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0369a1' }}>🎯 Job Description &amp; Skills</span>
+                                                <span style={{ background: '#0284c7', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>40% Weight</span>
+                                            </div>
+                                            <p style={{ fontSize: '0.78rem', color: '#0c4a6e', margin: 0, lineHeight: '1.4' }}>
+                                                Evaluates Job Description keyphrases, mandatory &amp; preferred skills, and overall title/designation alignment.
+                                            </p>
+                                        </div>
+
+                                        {/* Factor 2: Relevant Experience */}
+                                        <div style={{ background: '#fdf4ff', border: '1.5px solid #f5d0fe', borderRadius: '14px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#7e22ce' }}>💼 Relevant Experience</span>
+                                                <span style={{ background: '#a855f7', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>30% Weight</span>
+                                            </div>
+                                            <p style={{ fontSize: '0.78rem', color: '#581c87', margin: 0, lineHeight: '1.4' }}>
+                                                Compares candidate's relevant years of experience against the required job position experience.
+                                            </p>
+                                        </div>
+
+                                        {/* Factor 3: Qualifications */}
+                                        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '14px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#15803d' }}>🎓 Field Qualifications</span>
+                                                <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>20% Weight</span>
+                                            </div>
+                                            <p style={{ fontSize: '0.78rem', color: '#14532d', margin: 0, lineHeight: '1.4' }}>
+                                                Matches candidate highest education level &amp; field-relevant qualifications against job criteria.
+                                            </p>
+                                        </div>
+
+                                        {/* Factor 4: Expected Salary */}
+                                        <div style={{ background: '#fefce8', border: '1.5px solid #fef08a', borderRadius: '14px', padding: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#a16207' }}>💰 Expected Salary</span>
+                                                <span style={{ background: '#ca8a04', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>10% Weight</span>
+                                            </div>
+                                            <p style={{ fontSize: '0.78rem', color: '#713f12', margin: 0, lineHeight: '1.4' }}>
+                                                Compares candidate expected salary against the job min/max salary budget range (100% if within budget).
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Job Creation Parameters Evaluated & Advanced Rules */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '16px' }}>
+                                        {/* Evaluated Job Details List */}
+                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
+                                            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#334155', display: 'block', marginBottom: '8px' }}>
+                                                📋 Evaluated Pre-Extraction Categories
+                                            </span>
+                                            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.78rem', color: '#475569', lineHeight: '1.5' }}>
+                                                <li><strong>Job Description &amp; Skills (40%):</strong> Keyphrase extraction &amp; skills match.</li>
+                                                <li><strong>Relevant Experience (30%):</strong> Relevant industry &amp; job role years.</li>
+                                                <li><strong>Relevant Field Qualifications (20%):</strong> Educational degree/diploma fit.</li>
+                                                <li><strong>Salary Expectation (10%):</strong> Budget range compatibility.</li>
+                                            </ul>
+                                        </div>
+
+                                        {/* Pre-Extraction Rules */}
+                                        <div style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '14px', padding: '14px' }}>
+                                            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#9d174d', display: 'block', marginBottom: '8px' }}>
+                                                ⚡ Automatic Calculation Pre-Extraction
+                                            </span>
+                                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#831843', lineHeight: '1.5' }}>
+                                                Calculated <strong>prior to full CV extraction</strong> using candidate application notes, resume text, and job posting parameters. If overall match is <strong>≥ 50%</strong>, full extraction is enabled automatically.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Formula Summary Box */}
+                                    <div style={{ background: '#0f172a', borderRadius: '12px', padding: '14px 18px', color: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                                        <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                                            🧮 <span style={{ color: '#93c5fd' }}>Unified Overall Formula:</span> Score = (JD &amp; Skills × 0.40) + (Experience × 0.30) + (Qualification × 0.20) + (Salary × 0.10)
+                                        </div>
+                                        <div style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', color: '#cbd5e1' }}>
+                                            100% Pre-Extraction Evaluation
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     
                     {activeTab === 'mail' && (
                         <>
+                            {/* CARD 0: CANDIDATE AUTOMATED EMAIL DISPATCH TOGGLE */}
+                            <div className="card-p" style={{
+                                background: '#ffffff',
+                                borderRadius: '24px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.03)',
+                                overflow: 'hidden',
+                                marginBottom: '24px'
+                            }}>
+                                {/* Header */}
+                                <div style={{
+                                    padding: '24px 32px',
+                                    borderBottom: '1px solid #f1f5f9',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: '20px',
+                                    background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <div style={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '16px',
+                                            background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
+                                                ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+                                                : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                                            border: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
+                                                ? '1px solid #a7f3d0'
+                                                : '1px solid #fecaca',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '1.35rem',
+                                            color: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#059669' : '#dc2626',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                                            flexShrink: 0
+                                        }}>
+                                            <FiMail />
+                                        </div>
+
+                                        <div>
+                                            <h3 style={{ fontSize: '1.2rem', margin: 0, color: '#0f172a', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                Candidate Automated Email Dispatch
+                                            </h3>
+                                            <p style={{ fontSize: '0.86rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.4' }}>
+                                                Global master switch for candidate notifications (Application Receipts, Shortlist, Interview Invites &amp; Rejections)
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Action / Toggle Switch Container */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', padding: '8px 16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>DISPATCH STATUS</span>
+                                            <span style={{
+                                                fontSize: '0.86rem',
+                                                fontWeight: 900,
+                                                color: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#059669' : '#dc2626',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}>
+                                                <span style={{
+                                                    width: '8px',
+                                                    height: '8px',
+                                                    borderRadius: '50%',
+                                                    background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#10b981' : '#ef4444',
+                                                    boxShadow: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '0 0 0 3px rgba(16,185,129,0.2)' : '0 0 0 3px rgba(239,68,68,0.2)'
+                                                }}></span>
+                                                {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? 'ENABLED (YES)' : 'DISABLED (NO)'}
+                                            </span>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            disabled={saving}
+                                            onClick={async () => {
+                                                const nextVal = (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '0' : '1';
+                                                try {
+                                                    setSaving(true);
+                                                    await saveSettings({
+                                                        ...settings,
+                                                        enable_candidate_emails: nextVal
+                                                    });
+                                                    setSettings(prev => ({ ...prev, enable_candidate_emails: nextVal }));
+                                                    toast.success(`Candidate automated emails are now ${nextVal === '1' ? 'ENABLED (YES)' : 'DISABLED (NO)'}`);
+                                                } catch (err) {
+                                                    toast.error('Failed to update candidate email setting');
+                                                } finally {
+                                                    setSaving(false);
+                                                }
+                                            }}
+                                            style={{
+                                                background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
+                                                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                                    : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                padding: '9px 20px',
+                                                borderRadius: '12px',
+                                                fontWeight: 800,
+                                                fontSize: '0.82rem',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                boxShadow: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
+                                                    ? '0 4px 14px rgba(16, 185, 129, 0.25)'
+                                                    : '0 4px 14px rgba(239, 68, 68, 0.25)',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                        >
+                                            {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? (
+                                                <><span>Turn Off</span> <FiXCircle size={15} /></>
+                                            ) : (
+                                                <><span>Turn On</span> <FiCheckCircle size={15} /></>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Status Detail Box */}
+                                <div style={{ padding: '24px 32px' }}>
+                                    {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? (
+                                        <div style={{
+                                            background: '#f0fdf4',
+                                            border: '1.5px solid #bbf7d0',
+                                            borderRadius: '16px',
+                                            padding: '20px 24px',
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '16px'
+                                        }}>
+                                            <FiCheckCircle size={22} style={{ color: '#16a34a', flexShrink: 0, marginTop: '2px' }} />
+                                            <div>
+                                                <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#15803d' }}>
+                                                    Automated Candidate Emails Active
+                                                </h5>
+                                                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#166534', lineHeight: '1.55' }}>
+                                                    Applicants will receive real-time email notifications for:
+                                                </p>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
+                                                        📩 Application Submission Receipts
+                                                    </span>
+                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
+                                                        📅 Interview Invitations &amp; Schedules
+                                                    </span>
+                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
+                                                        ✉️ RSVP Receipt Confirmations
+                                                    </span>
+                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
+                                                        📋 Application Status Updates
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            background: '#fef2f2',
+                                            border: '1.5px solid #fecaca',
+                                            borderRadius: '16px',
+                                            padding: '20px 24px',
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '16px'
+                                        }}>
+                                            <FiAlertTriangle size={22} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                                            <div>
+                                                <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#991b1b' }}>
+                                                    Automated Candidate Emails Paused (Mails Disabled)
+                                                </h5>
+                                                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#991b1b', lineHeight: '1.55' }}>
+                                                    All outbound emails to applicants are currently suspended. Candidates will <strong>NOT</strong> receive application receipts, interview invites, or status change notifications until re-enabled.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* CARD 1: SENDER IDENTITY */}
                     <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
                         <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
@@ -2027,51 +2780,48 @@ function SettingsPage({ admin }) {
                             </div>
                         </>
                     )}
-
-                    {/* SAVE & CANCEL BUTTON FOOTER */}
                     {isEditing && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '24px', marginBottom: '40px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '14px', paddingTop: '20px', marginTop: '24px', borderTop: '1px solid #e2e8f0' }}>
                             <button
                                 type="button"
                                 onClick={handleCancelEdit}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '8px',
+                                    gap: '6px',
                                     padding: '12px 24px',
                                     borderRadius: '12px',
                                     fontWeight: 700,
                                     fontSize: '0.95rem',
                                     border: '1.5px solid #cbd5e1',
-                                    cursor: 'pointer',
                                     background: '#fff',
                                     color: '#64748b',
+                                    cursor: 'pointer',
                                     transition: 'all 0.2s'
                                 }}
                             >
                                 <FiX /> Cancel
                             </button>
-                            <button 
-                                type="submit" 
-                                className="btn btn-gold" 
+                            <button
+                                type="submit"
                                 disabled={saving}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                    padding: '12px 32px',
+                                    padding: '12px 28px',
                                     borderRadius: '12px',
-                                    fontWeight: 700,
+                                    fontWeight: 800,
                                     fontSize: '0.95rem',
                                     border: 'none',
+                                    background: 'linear-gradient(135deg, #7A1228, #991b1b)',
+                                    color: '#fff',
                                     cursor: saving ? 'not-allowed' : 'pointer',
-                                    background: 'var(--gold-accent)',
-                                    color: '#2a050b',
-                                    transition: 'all 0.2s',
-                                    boxShadow: '0 4px 14px rgba(217, 119, 6, 0.2)'
+                                    boxShadow: '0 4px 14px rgba(122, 18, 40, 0.25)',
+                                    transition: 'all 0.2s'
                                 }}
                             >
-                                {saving ? 'Saving Settings...' : <><FiCheck /> Save All Settings</>}
+                                <FiCheck /> {saving ? 'Saving...' : 'Save All Settings'}
                             </button>
                         </div>
                     )}

@@ -208,8 +208,11 @@ function createVacancy()
         }
     }
 
+    $minSalary = (isset($input['min_salary']) && $input['min_salary'] !== '' && $input['min_salary'] !== null) ? (float)$input['min_salary'] : null;
+    $maxSalary = (isset($input['max_salary']) && $input['max_salary'] !== '' && $input['max_salary'] !== null) ? (float)$input['max_salary'] : null;
+
     $db = getDB();
-    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, required_skills, location, employment_type, min_experience, min_relevant_experience, publish_date, expire_date, created_by, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, required_skills, location, employment_type, min_experience, min_relevant_experience, min_salary, max_salary, publish_date, expire_date, created_by, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -222,6 +225,8 @@ function createVacancy()
         $input['employment_type'] ?? 'Full-Time',
         $input['min_experience'] ?? '0-1 years',
         $input['min_relevant_experience'] ?? '0-1 years',
+        $minSalary,
+        $maxSalary,
         $input['publish_date'],
         $input['expire_date'],
         $auth['admin_id'],
@@ -299,7 +304,10 @@ function updateVacancy()
         $rej_at = null;
     }
 
-    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, required_skills = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?");
+    $minSalary = (isset($input['min_salary']) && $input['min_salary'] !== '' && $input['min_salary'] !== null) ? (float)$input['min_salary'] : null;
+    $maxSalary = (isset($input['max_salary']) && $input['max_salary'] !== '' && $input['max_salary'] !== null) ? (float)$input['max_salary'] : null;
+
+    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, required_skills = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, min_salary = ?, max_salary = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -312,6 +320,8 @@ function updateVacancy()
         $input['employment_type'] ?? 'Full-Time',
         $input['min_experience'] ?? '0-1 years',
         $input['min_relevant_experience'] ?? '0-1 years',
+        $minSalary,
+        $maxSalary,
         $input['publish_date'],
         $input['expire_date'],
         (int)($input['is_active'] ?? 1),

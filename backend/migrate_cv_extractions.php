@@ -33,9 +33,9 @@ try {
         echo "Added column 'extracted_data'\n";
     }
 
-    // Update existing rows with cv_text or skills_metadata to 'extracted' status
-    $db->exec("UPDATE applications SET extraction_status = 'extracted' WHERE (skills_metadata IS NOT NULL AND skills_metadata != '') OR (cv_text IS NOT NULL AND cv_text != '')");
-    echo "Updated extraction_status for existing applications.\n";
+    // Update existing unextracted applications to have null skills_metadata and cv_text
+    $db->exec("UPDATE applications SET skills_metadata = NULL, cv_text = NULL, extracted_data = NULL, tags = '' WHERE extraction_status = 'unextracted'");
+    echo "Cleaned up skills_metadata for unextracted applications.\n";
 
     // 5. Ensure enable_cv_extraction exists in settings table
     $stmt = $db->prepare("SELECT COUNT(*) FROM settings WHERE setting_key = 'enable_cv_extraction'");

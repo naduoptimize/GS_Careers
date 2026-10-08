@@ -3,7 +3,7 @@ import {
     FiCpu, FiCheckCircle, FiAlertCircle, FiXCircle, FiSearch,
     FiEye, FiRefreshCw, FiFileText, FiDownload, FiX,
     FiUser, FiBriefcase, FiLayers, FiCopy, FiChevronLeft, FiChevronRight,
-    FiAward, FiTarget, FiAlertTriangle
+    FiAward, FiTarget, FiAlertTriangle, FiInfo
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
 import {
@@ -15,6 +15,7 @@ import {
 import './CvExtractionsPage.css';
 import PaginationFooter from '../../components/PaginationFooter';
 import { copyToClipboard } from '../../utils/constants';
+import { calculateCandidateMatchScore } from '../../utils/scoreCalculator';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -48,7 +49,147 @@ const DOMAIN_SKILL_CATEGORIES = {
     ]
 };
 
+const extractFullQualificationsFromCVText = (cvText, fallbackQual, existingQuals = []) => {
+    let result = [];
+    
+    if (Array.isArray(existingQuals) && existingQuals.length > 0) {
+        existingQuals.forEach(q => {
+            if (q && typeof q === 'string') {
+                const trimmed = q.trim();
+                const lw = trimmed.toLowerCase();
+                if (trimmed.length > 8 && !['master', 'bachelor', 'diploma', 'hnd', 'msc', 'bsc', 'phd', 'mba'].includes(lw)) {
+                    result.push(trimmed);
+                }
+            }
+        });
+    }
+
+    if (cvText && typeof cvText === 'string') {
+        const lines = cvText.split('\n');
+        const qualPatterns = [
+            /(?:Bachelor[s]?|B\.?Sc\.?|B\.?A\.?|B\.?Com\.?|B\.?B\.?A\.?|B\.?I\.?C\.?T\.?|B\.?Tech\.?)(?:\s*\(Hons\))?(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Master[s]?|M\.?Sc\.?|M\.?A\.?|M\.?B\.?A\.?|M\.?Com\.?|M\.?Tech\.?)(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Diploma|Higher National Diploma|HND|Post\s*Graduate\s*Diploma|PG\s*Diploma|Advanced\s*Diploma)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:Doctorate|Ph\.?D\.?)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /(?:CIMA|ACCA|AAT|CA\s+Sri\s+Lanka|ICASL|CMA\s+Sri\s+Lanka)(?:\s+(?:Passed\s+Finalist|Finalist|Member|Affiliate|Strategic\s+Level|Operational\s+Level|Executive\s+Level|Passed|Qualified))?/i,
+        ];
+
+        lines.forEach(line => {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) return;
+            if (/^(?:EDUCATIONAL|ACADEMIC|PROFESSIONAL)\s+(?:QUALIFICATIONS|BACKGROUND|EDUCATION)$/i.test(trimmedLine)) return;
+
+            qualPatterns.forEach(pattern => {
+                const match = trimmedLine.match(pattern);
+                if (match) {
+                    let cleaned = match[0].trim();
+                    cleaned = cleaned.replace(/\s*[-–|@,]\s*(?:University|Institute|College|Campus|Sri Lanka|UK|USA|\d{4}).*$/i, '');
+                    cleaned = cleaned.replace(/\s*\(\d{4}(?:\s*-\s*\d{4}|\s*-\s*Present)?\).*$/i, '');
+                    cleaned = cleaned.replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+
+                    const lw = cleaned.toLowerCase();
+                    if (lw === 'master') cleaned = "Master's Degree";
+                    else if (lw === 'bachelor') cleaned = "Bachelor's Degree";
+                    else if (lw === 'diploma') cleaned = "Diploma";
+
+                    if (cleaned.length >= 4 && !result.some(r => r.toLowerCase() === cleaned.toLowerCase())) {
+                        result.push(cleaned);
+                    }
+                }
+            });
+        });
+    }
+
+    if (result.length === 0) {
+        if (fallbackQual && typeof fallbackQual === 'string') {
+            let fQual = fallbackQual.trim();
+            const lw = fQual.toLowerCase();
+            if (lw === 'master') fQual = "Master's Degree";
+            else if (lw === 'bachelor') fQual = "Bachelor's Degree";
+            else if (lw === 'diploma') fQual = "Diploma";
+            result.push(fQual);
+        } else {
+            result.push('Bachelors Degree');
+        }
+    }
+
+    return Array.from(new Set(result));
+};
+
+const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
+    let result = [];
+
+    if (Array.isArray(existingCerts) && existingCerts.length > 0) {
+        existingCerts.forEach(c => {
+            if (c && typeof c === 'string' && c.trim().length >= 3) {
+                result.push(c.trim());
+            }
+        });
+    }
+
+    if (cvText && typeof cvText === 'string') {
+        const certPatterns = [
+            /(?:AWS|Amazon Web Services)\s+(?:Certified\s+)?[A-Za-z0-9\s-]{3,40}/gi,
+            /(?:PMP|Project Management Professional)/gi,
+            /(?:Certified Scrum Master|Scrum Master|CSM)/gi,
+            /(?:Microsoft Certified|MCSE|MCSA|AZ-\d+|MS-\d+)[A-Za-z0-9\s-]{0,30}/gi,
+            /(?:Cisco Certified|CCNA|CCNP|CCIE)/gi,
+            /(?:ITIL(?:\s+Foundation)?)/gi,
+            /(?:Google Analytics Certified|Google Ads Certified)/gi,
+            /(?:ISO \d+(?:\s*Lead Auditor)?|HACCP|GMP)/gi,
+            /(?:Diploma|Certificate)\s+in\s+[A-Za-z0-9\s]{3,40}(?:Hacking|Security|Cyber|Testing|Design|Marketing|SEO|Python|Java|Web)/gi,
+            /(?:Ethical Hack(?:er|ing)|CEH|VAPT|CompTIA [A-Za-z+]+)/gi
+        ];
+
+        certPatterns.forEach(pat => {
+            const matches = cvText.match(pat);
+            if (matches) {
+                matches.forEach(m => {
+                    let cleaned = m.trim().replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+                    if (cleaned.length >= 3 && !result.some(r => r.toLowerCase() === cleaned.toLowerCase())) {
+                        result.push(cleaned);
+                    }
+                });
+            }
+        });
+    }
+
+    return Array.from(new Set(result));
+};
+
 const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}) => {
+    const minMed = candidateObj.min_medium_match_score || 50;
+    const scoreVal = calculateMatchScore(candidateObj);
+    const isLowMatch = scoreVal < minMed;
+    const isManual = candidateObj.is_manual_extracted === 1 || candidateObj.is_manual_extracted === '1' || candidateObj.is_manual_extracted === true;
+
+    const isUnextracted = (
+        !isManual && (
+            candidateObj.extraction_status === 'unextracted' ||
+            isLowMatch ||
+            candidateObj.auto_extraction_enabled === false ||
+            candidateObj.enable_cv_extraction === false ||
+            (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
+        )
+    );
+
+    if (isUnextracted) {
+        return {
+            skills: [],
+            parsedReport: {
+                is_unextracted: true,
+                is_job_mismatch: false,
+                mismatch_reason: `CV auto-extraction skipped because candidate match score (${scoreVal}%) is below minimum threshold (<${minMed}%).`,
+                experience_summary: `Extraction Skipped: Candidate match score (${scoreVal}%) is below ${minMed}% threshold. Admins can manually extract this CV.`,
+                recruiter_insights: [`⚠️ Auto-extraction skipped (${scoreVal}% Match Score < ${minMed}%). Click Manual Extract to parse with AI.`],
+                fully_demonstrated_skills: [],
+                partially_demonstrated_skills: [],
+                requirements_without_evidence: [],
+                additional_skills: []
+            }
+        };
+    }
+
     let parsedReport = null;
 
     const tryParse = (val) => {
@@ -164,9 +305,11 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const cvTextContent = candidateObj.cv_text || '';
     const isGarbled = (str) => {
         if (!str || typeof str !== 'string') return true;
+        if (/(Monotype|VeriSign|Type Solutions|OpenType Layout|kern" table|\/Image\d+|re\s+W\*\s+n|xmpmeta|CDEFGHIJSTUVWXYZcdefghijstuvwxyz)/i.test(str)) return true;
+        if (/(.)\1{5,}/.test(str)) return true;
         const len = str.length;
         if (len < 10) return false;
-        const symbolMatches = str.match(/[\[\]\{\}\^\/\\_>~`|]/g) || [];
+        const symbolMatches = str.match(/[\[\]\{\}\^\/\\_>~`|#@$%\*+=]/g) || [];
         return (symbolMatches.length / len) > 0.07;
     };
 
@@ -359,14 +502,6 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const sortedDomains = Object.keys(cvScores).sort((a, b) => cvScores[b] - cvScores[a]);
     const cvActualDomain = cvScores[sortedDomains[0]] > 0 ? sortedDomains[0] : 'General';
 
-    const isUnextracted = (
-        candidateObj.extraction_status === 'unextracted' ||
-        candidateObj.is_extracted === 0 ||
-        candidateObj.is_extracted === false ||
-        candidateObj.is_extracted === '0' ||
-        (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
-    );
-
     let isMismatch = false;
     let mismatchReason = '';
 
@@ -377,11 +512,11 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
         if (relevantSkillsFound.length === 0) {
             isMismatch = true;
             mismatchReason = cvActualDomain !== 'General' && cvActualDomain !== targetDomain
-                ? `Candidate CV background (${cvActualDomain}) does not align with target vacancy requirements for "${candidateJob}".`
-                : `Candidate CV profile lacks required domain competencies for "${candidateJob}".`;
+                ? `Background focus (${cvActualDomain}) differs from target role (${candidateJob}).`
+                : `Profile lacks core competencies required for "${candidateJob}".`;
         } else if (cvActualDomain !== 'General' && cvActualDomain !== targetDomain && relevantSkillsFound.length < 2) {
             isMismatch = true;
-            mismatchReason = `Candidate CV background (${cvActualDomain}) does not closely align with target vacancy requirements for "${candidateJob}".`;
+            mismatchReason = `Background (${cvActualDomain}) does not closely align with "${candidateJob}".`;
         }
     }
 
@@ -449,26 +584,39 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
         }
     }
 
-    // Ensure Qualifications Found is populated
-    if (!Array.isArray(parsedReport.qualifications_found) || parsedReport.qualifications_found.length === 0) {
-        parsedReport.qualifications_found = [candidateQual];
-    }
+    // Ensure Qualifications Found is populated with exact qualification titles
+    parsedReport.qualifications_found = extractFullQualificationsFromCVText(cvTextContent, candidateQual, parsedReport.qualifications_found);
 
-    // Ensure Certifications Found has scan fallback
-    if (!Array.isArray(parsedReport.certifications_found) || parsedReport.certifications_found.length === 0) {
-        const certKeywords = ['AWS', 'PMP', 'Scrum Master', 'CIMA', 'ACCA', 'CCNA', 'ITIL', 'ISO 22000', 'HACCP', 'IATA', 'AAT', 'CMA'];
-        const foundCerts = [];
-        certKeywords.forEach(ck => {
-            if (cvTextContent && new RegExp(`\\b${ck}\\b`, 'i').test(cvTextContent)) {
-                foundCerts.push(ck + ' Certified');
-            }
-        });
-        if (foundCerts.length > 0) {
-            parsedReport.certifications_found = foundCerts;
-        }
-    }
+    // Ensure Certifications Found has full scan fallback
+    parsedReport.certifications_found = extractCertificationsFromCVText(cvTextContent, parsedReport.certifications_found);
 
     return { skills, parsedReport };
+};
+
+const calculateMatchScore = (app) => {
+    return calculateCandidateMatchScore(app).score;
+};
+
+const getMatchBreakdown = (app) => {
+    if (!app) return { overall: 0, salary: 0, experience: 0, qualification: 0, jdSkills: 0 };
+    const res = calculateCandidateMatchScore(app);
+    const score = res.score || 0;
+    const factors = res.details?.factors || {};
+
+    const salary = typeof factors.salary === 'number' ? factors.salary : 100;
+    const experience = typeof factors.experience === 'number' ? factors.experience : 0;
+    const qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
+    const skillsScore = typeof factors.skills === 'number' ? factors.skills : 0;
+    const keywordScore = typeof factors.keyword === 'number' ? factors.keyword : 0;
+    const jdSkills = Math.round((skillsScore * 0.5) + (keywordScore * 0.5));
+
+    return {
+        overall: score,
+        salary,
+        experience,
+        qualification,
+        jdSkills: Math.min(100, Math.max(10, jdSkills))
+    };
 };
 
 function CvExtractionsPage({ admin }) {
@@ -488,11 +636,14 @@ function CvExtractionsPage({ admin }) {
     // Setting
     const [autoExtractionEnabled, setAutoExtractionEnabled] = useState(true);
     const [settingLoading, setSettingLoading] = useState(false);
+    const [minHighScore, setMinHighScore] = useState(75);
+    const [minMediumScore, setMinMediumScore] = useState(50);
 
     // Detail Modal
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
+    const [showScoringTooltip, setShowScoringTooltip] = useState(false);
 
     const fetchExtractionsData = useCallback(async () => {
         setLoading(true);
@@ -509,6 +660,12 @@ function CvExtractionsPage({ admin }) {
             if (data.stats) setStats(data.stats);
             if (data.enable_cv_extraction !== undefined) {
                 setAutoExtractionEnabled(!!data.enable_cv_extraction);
+            }
+            if (data.min_high_match_score !== undefined) {
+                setMinHighScore(parseInt(data.min_high_match_score) || 75);
+            }
+            if (data.min_medium_match_score !== undefined) {
+                setMinMediumScore(parseInt(data.min_medium_match_score) || 50);
             }
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to load extractions queue.');
@@ -647,25 +804,27 @@ function CvExtractionsPage({ admin }) {
                     <p>Automated candidate resume text parsing & profile extraction dashboard</p>
                 </div>
 
-                {/* Clean Toggle Card */}
-                <div className="cve-toggle-card">
-                    <div className="cve-toggle-text">
-                        <span className="cve-toggle-title">Auto Extraction</span>
-                        <span className={`cve-status-pill ${autoExtractionEnabled ? 'active' : 'inactive'}`}>
-                            <span className="cve-status-dot"></span>
-                            {autoExtractionEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
+                {/* Clean Toggle Card (Super Admin Only) */}
+                {admin?.role === 'super_admin' && (
+                    <div className="cve-toggle-card">
+                        <div className="cve-toggle-text">
+                            <span className="cve-toggle-title">Auto Extraction</span>
+                            <span className={`cve-status-pill ${autoExtractionEnabled ? 'active' : 'inactive'}`}>
+                                <span className="cve-status-dot"></span>
+                                {autoExtractionEnabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                        </div>
+                        <label className="cve-switch">
+                            <input
+                                type="checkbox"
+                                checked={autoExtractionEnabled}
+                                onChange={handleToggleSetting}
+                                disabled={settingLoading}
+                            />
+                            <span className="cve-slider"></span>
+                        </label>
                     </div>
-                    <label className="cve-switch">
-                        <input
-                            type="checkbox"
-                            checked={autoExtractionEnabled}
-                            onChange={handleToggleSetting}
-                            disabled={settingLoading}
-                        />
-                        <span className="cve-slider"></span>
-                    </label>
-                </div>
+                )}
             </div>
 
             {/* Micro KPI Stat Cards */}
@@ -716,6 +875,63 @@ function CvExtractionsPage({ admin }) {
                             style={{ width: `${(stats.total_apps || total) > 0 ? Math.round(((stats.unextracted_count || 0) / (stats.total_apps || total)) * 100) : 0}%` }}
                         ></div>
                     </div>
+                </div>
+            </div>
+
+            {/* CV MATCH SCORE LEGEND & TOOLTIP BAR */}
+            <div className="cve-match-bar">
+                {/* Left: Target Icon & Match Score Title */}
+                <div className="cve-match-left-group">
+                    <div className="cve-target-icon-ring">
+                        <FiTarget />
+                    </div>
+                    <span className="cve-match-title">
+                        Match Score
+                    </span>
+                    <div className="cve-match-divider"></div>
+                </div>
+
+                {/* Middle: 3 Color Badges */}
+                <div className="cve-match-badges-group">
+                    {/* High Match Badge */}
+                    <div className="cve-match-badge-pill high">
+                        <span className="cve-dot-indicator green"></span>
+                        <span className="cve-badge-label">High</span>
+                        <span className="cve-badge-range">{minHighScore}% – 100%</span>
+                    </div>
+
+                    {/* Medium Match Badge */}
+                    <div className="cve-match-badge-pill medium">
+                        <span className="cve-dot-indicator amber"></span>
+                        <span className="cve-badge-label">Medium</span>
+                        <span className="cve-badge-range">{minMediumScore}% – {minHighScore - 1}%</span>
+                    </div>
+
+                    {/* Low Match Badge */}
+                    <div className="cve-match-badge-pill low">
+                        <span className="cve-dot-indicator red"></span>
+                        <span className="cve-badge-label">Low</span>
+                        <span className="cve-badge-range">&lt; {minMediumScore}%</span>
+                    </div>
+                </div>
+
+                {/* Right: How Scoring Works & Tooltip */}
+                <div
+                    className="cve-match-info-group"
+                    onMouseEnter={() => setShowScoringTooltip(true)}
+                    onMouseLeave={() => setShowScoringTooltip(false)}
+                    onClick={() => setShowScoringTooltip(!showScoringTooltip)}
+                >
+                    <FiInfo style={{ fontSize: '1.05rem', color: '#7A1228' }} />
+                    <span className="cve-match-info-link">How scoring works</span>
+
+                    {/* Floating Tooltip Box */}
+                    {showScoringTooltip && (
+                        <div className="cve-tooltip-card">
+                            <div className="cve-tooltip-arrow"></div>
+                            Scores {minMediumScore}% or above are extracted automatically. Scores below {minMediumScore}% require manual extraction.
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -784,10 +1000,11 @@ function CvExtractionsPage({ admin }) {
                             <table className="cve-table">
                                 <colgroup>
                                     <col style={{ width: '4%' }} />
-                                    <col style={{ width: '30%' }} />
-                                    <col style={{ width: '26%' }} />
-                                    <col style={{ width: '16%' }} />
-                                    <col style={{ width: '14%' }} />
+                                    <col style={{ width: '25%' }} />
+                                    <col style={{ width: '22%' }} />
+                                    <col style={{ width: '13%' }} />
+                                    <col style={{ width: '13%' }} />
+                                    <col style={{ width: '13%' }} />
                                     <col style={{ width: '10%' }} />
                                 </colgroup>
                                 <thead>
@@ -802,6 +1019,7 @@ function CvExtractionsPage({ admin }) {
                                         </th>
                                         <th>Candidate</th>
                                         <th>Target Vacancy</th>
+                                        <th>CV Match</th>
                                         <th>Applied Date</th>
                                         <th>Extraction Status</th>
                                         <th style={{ textAlign: 'center' }}>Actions</th>
@@ -813,9 +1031,22 @@ function CvExtractionsPage({ admin }) {
                                         const isSelected = selectedIds.includes(item.id);
                                         const initials = ((item.first_name?.[0] || '') + (item.last_name?.[0] || '')).toUpperCase() || 'CV';
                                         const dtObj = formatDateObj(item.applied_at);
+                                        const matchBreakdown = getMatchBreakdown(item);
+                                        const matchScore = matchBreakdown.overall;
+                                        const isLowMatch = matchScore < minMediumScore;
+
+                                        let matchClass = 'high';
+                                        let matchLabel = 'High Match';
+                                        if (isLowMatch) {
+                                            matchClass = 'low';
+                                            matchLabel = `Low (<${minMediumScore}%)`;
+                                        } else if (matchScore < minHighScore) {
+                                            matchClass = 'medium';
+                                            matchLabel = 'Medium';
+                                        }
 
                                         return (
-                                            <tr key={item.id} className={isSelected ? 'selected-row' : ''}>
+                                            <tr key={item.id} className={`${isSelected ? 'selected-row' : ''} ${isLowMatch && item.extraction_status !== 'extracted' ? 'cve-row-low-match' : ''}`}>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <input
                                                         type="checkbox"
@@ -839,13 +1070,38 @@ function CvExtractionsPage({ admin }) {
                                                     <div className="cve-company-sub">{item.company_name}</div>
                                                 </td>
                                                 <td style={{ whiteSpace: 'nowrap' }}>
+                                                    <div className="cve-match-cell">
+                                                        <span className={`cve-match-pill ${matchClass}`}>
+                                                            <FiTarget /> {matchScore}% <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>({matchLabel})</span>
+                                                        </span>
+                                                        <div className="cve-match-breakdown-grid">
+                                                            <span className="cve-micro-rate" title="Salary Expectation vs Job Budget">
+                                                                💵 Sal: <strong>{matchBreakdown.salary}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Relevant Experience vs Requirement">
+                                                                💼 Exp: <strong>{matchBreakdown.experience}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Relevant Field Qualifications">
+                                                                🎓 Qual: <strong>{matchBreakdown.qualification}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate" title="Job Description & Skills Overlap">
+                                                                🎯 JD: <strong>{matchBreakdown.jdSkills}%</strong>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>
                                                     <div className="cve-date-main">{dtObj.date}</div>
                                                     <div className="cve-date-sub">{dtObj.time}</div>
                                                 </td>
                                                 <td style={{ whiteSpace: 'nowrap' }}>
-                                                    {item.extraction_status === 'extracted' ? (
+                                                    {((item.extraction_status === 'extracted' || item.is_manual_extracted == 1) && (!isLowMatch || item.is_manual_extracted == 1)) ? (
                                                         <span className="cve-badge extracted">
-                                                            <FiCheckCircle /> Extracted
+                                                            <FiCheckCircle /> Extracted {item.is_manual_extracted == 1 && <span style={{ fontSize: '0.72rem', opacity: 0.85 }}>(Manual)</span>}
+                                                        </span>
+                                                    ) : (autoExtractionEnabled && isLowMatch) ? (
+                                                        <span className="cve-badge disabled-low" title={`Match score is below ${minMediumScore}%. Auto-extraction skipped; manual extraction is available.`}>
+                                                            <FiXCircle /> Disabled (&lt;{minMediumScore}%)
                                                         </span>
                                                     ) : (
                                                         <span className="cve-badge unextracted">
@@ -862,12 +1118,13 @@ function CvExtractionsPage({ admin }) {
                                                         >
                                                             <FiEye />
                                                         </button>
-                                                        {item.extraction_status !== 'extracted' && (
+                                                        {!((item.extraction_status === 'extracted' || item.is_manual_extracted == 1) && (!isLowMatch || item.is_manual_extracted == 1)) && (
                                                             <button
                                                                 className="cve-btn-icon extract"
-                                                                title="Extract CV Now"
+                                                                title={isLowMatch ? `Manual Extract CV (Score < ${minMediumScore}%)` : "Extract CV Now"}
                                                                 onClick={() => handleSingleExtract(item.id)}
                                                                 disabled={isExtracting}
+                                                                style={isLowMatch ? { borderColor: '#fca5a5', color: '#dc2626', background: '#fff5f5' } : {}}
                                                             >
                                                                 {isExtracting ? (
                                                                     <FiRefreshCw className="spin-cv" />
@@ -910,39 +1167,157 @@ function CvExtractionsPage({ admin }) {
                         </div>
 
                         <div className="cve-modal-body">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1.3rem', margin: 0, color: '#0f172a', fontWeight: '800' }}>
-                                        {cleanCandidateName(selectedCandidate.first_name)} {cleanCandidateName(selectedCandidate.last_name)}
-                                    </h3>
-                                    <div style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '4px' }}>
-                                        Applied for: <strong style={{ color: '#7A1228' }}>{selectedCandidate.vacancy_title}</strong>
-                                    </div>
-                                </div>
+                            {(() => {
+                                const modalBreakdown = getMatchBreakdown(selectedCandidate);
+                                const mScore = modalBreakdown.overall;
+                                const isLow = mScore < minMediumScore;
+                                return (
+                                    <>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                    <h3 style={{ fontSize: '1.3rem', margin: 0, color: '#0f172a', fontWeight: '800' }}>
+                                                        {cleanCandidateName(selectedCandidate.first_name)} {cleanCandidateName(selectedCandidate.last_name)}
+                                                    </h3>
+                                                    <span className={`cve-match-pill ${isLow ? 'low' : (mScore < minHighScore ? 'medium' : 'high')}`}>
+                                                        <FiTarget /> {mScore}% Overall Match
+                                                    </span>
+                                                </div>
+                                                <div style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '4px' }}>
+                                                    Applied for: <strong style={{ color: '#7A1228' }}>{selectedCandidate.vacancy_title}</strong>
+                                                </div>
+                                            </div>
 
-                                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                    {selectedCandidate.cv_path && (
-                                        <a
-                                            href={`${BACKEND_ROOT}/uploads/cv/${selectedCandidate.cv_path}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="cve-btn-primary"
-                                            style={{ textDecoration: 'none', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
-                                        >
-                                            <FiDownload /> View / Download CV
-                                        </a>
-                                    )}
+                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                                {selectedCandidate.cv_path && (
+                                                    <a
+                                                        href={`${BACKEND_ROOT}/uploads/cv/${selectedCandidate.cv_path}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="cve-btn-primary"
+                                                        style={{ textDecoration: 'none', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+                                                    >
+                                                        <FiDownload /> View / Download CV
+                                                    </a>
+                                                )}
 
-                                    <button
-                                        className="cve-btn-primary"
-                                        style={{ background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
-                                        onClick={() => handleSingleExtract(selectedCandidate.id)}
-                                        disabled={extractingIds.includes(selectedCandidate.id)}
-                                    >
-                                        <FiCpu /> {selectedCandidate.extraction_status === 'extracted' ? 'Re-extract CV' : 'Extract CV Now'}
-                                    </button>
-                                </div>
-                            </div>
+                                                <button
+                                                    className="cve-btn-primary"
+                                                    style={{ background: isLow ? 'linear-gradient(135deg, #dc2626, #b91c1c)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)', padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+                                                    onClick={() => handleSingleExtract(selectedCandidate.id)}
+                                                    disabled={extractingIds.includes(selectedCandidate.id)}
+                                                >
+                                                    <FiCpu /> {(selectedCandidate.extraction_status === 'extracted' && (selectedCandidate.is_manual_extracted == 1 || !isLow)) ? 'Re-extract CV' : (isLow ? `Manual Extract CV (<${minMediumScore}%)` : 'Extract CV Now')}
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Pre-Extraction Match Breakdown Assessment Card */}
+                                        <div className="cve-match-assessment-card">
+                                            <div className="cve-assessment-header">
+                                                <div>
+                                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <FiTarget style={{ color: '#7A1228', fontSize: '1.1rem' }} /> Pre-Extraction Assessment: Candidate CV vs Job Description Match
+                                                    </h4>
+                                                    <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                                        Categorized match percentages evaluated between Candidate Profile/CV and Job Requirements before full extraction.
+                                                    </p>
+                                                </div>
+                                                <div className="cve-overall-score-badge">
+                                                    Overall Match: <strong>{mScore}%</strong>
+                                                </div>
+                                            </div>
+
+                                            <div className="cve-assessment-grid">
+                                                {/* 1. Salary Match Rate */}
+                                                <div className="cve-metric-box">
+                                                    <div className="cve-metric-title">
+                                                        <span>💵 Salary Expectation Match</span>
+                                                        <strong className={modalBreakdown.salary >= 75 ? 'txt-high' : modalBreakdown.salary >= 50 ? 'txt-med' : 'txt-low'}>
+                                                            {modalBreakdown.salary}%
+                                                        </strong>
+                                                    </div>
+                                                    <div className="cve-progress-bg">
+                                                        <div
+                                                            className={`cve-progress-bar ${modalBreakdown.salary >= 75 ? 'bg-high' : modalBreakdown.salary >= 50 ? 'bg-med' : 'bg-low'}`}
+                                                            style={{ width: `${modalBreakdown.salary}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <div className="cve-metric-sub">
+                                                        Salary Expectation: <strong>{selectedCandidate.salary_expectation || 'Not Specified'}</strong> vs Job Budget
+                                                    </div>
+                                                </div>
+
+                                                {/* 2. Relevant Experience Match Rate */}
+                                                <div className="cve-metric-box">
+                                                    <div className="cve-metric-title">
+                                                        <span>💼 Relevant Experience Match</span>
+                                                        <strong className={modalBreakdown.experience >= 75 ? 'txt-high' : modalBreakdown.experience >= 50 ? 'txt-med' : 'txt-low'}>
+                                                            {modalBreakdown.experience}%
+                                                        </strong>
+                                                    </div>
+                                                    <div className="cve-progress-bg">
+                                                        <div
+                                                            className={`cve-progress-bar ${modalBreakdown.experience >= 75 ? 'bg-high' : modalBreakdown.experience >= 50 ? 'bg-med' : 'bg-low'}`}
+                                                            style={{ width: `${modalBreakdown.experience}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <div className="cve-metric-sub">
+                                                        Relevant: <strong>{selectedCandidate.relevant_experience || '0-1 years'}</strong> | Overall: <strong>{selectedCandidate.overall_experience || '0-1 years'}</strong>
+                                                    </div>
+                                                </div>
+
+                                                {/* 3. Relevant Qualifications Match Rate */}
+                                                <div className="cve-metric-box">
+                                                    <div className="cve-metric-title">
+                                                        <span>🎓 Relevant Field Qualifications</span>
+                                                        <strong className={modalBreakdown.qualification >= 75 ? 'txt-high' : modalBreakdown.qualification >= 50 ? 'txt-med' : 'txt-low'}>
+                                                            {modalBreakdown.qualification}%
+                                                        </strong>
+                                                    </div>
+                                                    <div className="cve-progress-bg">
+                                                        <div
+                                                            className={`cve-progress-bar ${modalBreakdown.qualification >= 75 ? 'bg-high' : modalBreakdown.qualification >= 50 ? 'bg-med' : 'bg-low'}`}
+                                                            style={{ width: `${modalBreakdown.qualification}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <div className="cve-metric-sub">
+                                                        Candidate Qualification: <strong>{selectedCandidate.qualification || 'Bachelors Degree'}</strong>
+                                                    </div>
+                                                </div>
+
+                                                {/* 4. Job Description & Skills Match Rate */}
+                                                <div className="cve-metric-box">
+                                                    <div className="cve-metric-title">
+                                                        <span>🎯 Job Description & Skills Match</span>
+                                                        <strong className={modalBreakdown.jdSkills >= 75 ? 'txt-high' : modalBreakdown.jdSkills >= 50 ? 'txt-med' : 'txt-low'}>
+                                                            {modalBreakdown.jdSkills}%
+                                                        </strong>
+                                                    </div>
+                                                    <div className="cve-progress-bg">
+                                                        <div
+                                                            className={`cve-progress-bar ${modalBreakdown.jdSkills >= 75 ? 'bg-high' : modalBreakdown.jdSkills >= 50 ? 'bg-med' : 'bg-low'}`}
+                                                            style={{ width: `${modalBreakdown.jdSkills}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    <div className="cve-metric-sub">
+                                                        Target Vacancy: <strong>{selectedCandidate.vacancy_title}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {isLow && (selectedCandidate.extraction_status !== 'extracted' || selectedCandidate.is_manual_extracted != 1) && (
+                                            <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#991b1b', fontSize: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <FiAlertTriangle style={{ fontSize: '1.2rem', flexShrink: 0 }} />
+                                                <div>
+                                                    <strong>Low Match Score ({mScore}%):</strong> Auto-extraction skipped because match score is below {minMediumScore}%. You can manually extract this CV using the button above.
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
 
                             <div className="cve-detail-grid">
                                 {/* Personal Information Box */}
@@ -1021,12 +1396,35 @@ function CvExtractionsPage({ admin }) {
                                                 </div>
                                             </div>
 
+                                            {parsedReport && parsedReport.is_unextracted && (
+                                                <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '16px', padding: '24px 20px', margin: '16px 0', textAlign: 'center' }}>
+                                                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#ffe4e6', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto', fontSize: '1.4rem' }}>
+                                                        <FiAlertTriangle />
+                                                    </div>
+                                                    <h4 style={{ margin: '0 0 6px 0', color: '#991b1b', fontSize: '1.1rem', fontWeight: 800 }}>
+                                                        🔒 Auto-Extraction Skipped / Disabled ({calculateMatchScore(selectedCandidate)}% Match Score)
+                                                    </h4>
+                                                    <p style={{ margin: '0 0 16px 0', color: '#7f1d1d', fontSize: '0.88rem', lineHeight: '1.5', maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
+                                                        Candidate resume text has not been auto-extracted because the match score ({calculateMatchScore(selectedCandidate)}%) is below the minimum threshold (&lt;{minMediumScore}%). Admins can manually extract this candidate using the button below.
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        className="cve-btn-primary"
+                                                        style={{ background: 'linear-gradient(135deg, #dc2626, #b91c1c)', margin: '0 auto', display: 'inline-flex' }}
+                                                        onClick={() => handleSingleExtract(selectedCandidate.id)}
+                                                        disabled={extractingIds.includes(selectedCandidate.id)}
+                                                    >
+                                                        <FiCpu /> {extractingIds.includes(selectedCandidate.id) ? 'Extracting with AI...' : `Manual Extract CV Now (<${minMediumScore}%)`}
+                                                    </button>
+                                                </div>
+                                            )}
+
                                             {parsedReport && !parsedReport.is_unextracted && parsedReport.is_job_mismatch && (
-                                                <div className="job-mismatch-banner">
-                                                    <FiAlertTriangle size={20} className="mismatch-icon" />
-                                                    <div>
-                                                        <h6>⚠️ Job Description &amp; CV Requirement Mismatch Warning</h6>
-                                                        <p>{parsedReport.mismatch_reason || `Candidate CV profile does not closely align with target vacancy requirements for "${selectedCandidate.vacancy_title || selectedCandidate.applied_vacancy || 'target position'}".`}</p>
+                                                <div className="job-mismatch-banner" style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b' }}>
+                                                    <FiAlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                                                    <div style={{ flex: 1 }}>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#b91c1c', display: 'block', margin: 0 }}>⚠️ Job &amp; CV Mismatch Warning</span>
+                                                        <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements.`}</span>
                                                     </div>
                                                 </div>
                                             )}
@@ -1041,7 +1439,7 @@ function CvExtractionsPage({ admin }) {
                                                 </div>
                                             )}
 
-                                            {parsedReport && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
+                                            {parsedReport && !parsedReport.is_unextracted && (parsedReport.experience_summary || (Array.isArray(parsedReport.recruiter_insights) && parsedReport.recruiter_insights.length > 0)) && (
                                                 <div className="recruiter-report-summary">
                                                     {parsedReport.experience_summary && (
                                                         <div className="report-summary-block">
@@ -1062,7 +1460,7 @@ function CvExtractionsPage({ admin }) {
                                                 </div>
                                             )}
 
-                                            {parsedReport && (
+                                            {parsedReport && !parsedReport.is_unextracted && (
                                                 (Array.isArray(parsedReport.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0) ||
                                                 (Array.isArray(parsedReport.partially_demonstrated_skills) && parsedReport.partially_demonstrated_skills.length > 0) ||
                                                 (Array.isArray(parsedReport.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0)
@@ -1110,8 +1508,9 @@ function CvExtractionsPage({ admin }) {
                                                 </div>
                                             )}
 
-                                            <div className="skills-analysis-matrix-block">
-                                                <div className="apb-skills-tabs">
+                                            {!parsedReport?.is_unextracted && (
+                                                <div className="skills-analysis-matrix-block">
+                                                    <div className="apb-skills-tabs">
                                                     {tabCategories.map(tabName => {
                                                         const count = skills.filter(item => item.category === tabName).length;
                                                         const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
@@ -1182,8 +1581,9 @@ function CvExtractionsPage({ admin }) {
                                                     </div>
                                                 )}
                                             </div>
+                                            )}
 
-                                            {parsedReport && (
+                                            {parsedReport && !parsedReport.is_unextracted && (
                                                 (Array.isArray(parsedReport.qualifications_found) && parsedReport.qualifications_found.length > 0) ||
                                                 (Array.isArray(parsedReport.certifications_found) && parsedReport.certifications_found.length > 0)
                                             ) && (
@@ -1223,32 +1623,39 @@ function CvExtractionsPage({ admin }) {
                             </div>
 
                             {/* Extracted CV Text Box */}
-                            <div style={{ marginTop: '1.5rem' }}>
-                                <div className="cve-text-header">
-                                    <h3 style={{ fontSize: '0.98rem', fontWeight: '800', color: '#7A1228', margin: 0 }}>
-                                        Extracted CV Text Content
-                                    </h3>
-                                    {selectedCandidate.cv_text && (
-                                        <button
-                                            className="cve-btn-icon"
-                                            style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '4px' }}
-                                            onClick={() => handleCopyText(selectedCandidate.cv_text)}
-                                        >
-                                            <FiCopy /> Copy Text
-                                        </button>
-                                    )}
-                                </div>
+                            {(() => {
+                                const isLowMatchCand = calculateMatchScore(selectedCandidate) < (selectedCandidate.min_medium_match_score || minMediumScore || 50);
+                                const isManualCand = selectedCandidate.is_manual_extracted == 1 || selectedCandidate.is_manual_extracted === '1' || selectedCandidate.is_manual_extracted === true;
+                                const isExtractedCand = isManualCand || (selectedCandidate.extraction_status === 'extracted' && !isLowMatchCand);
 
-                                {selectedCandidate.cv_text ? (
-                                    <div className="cve-text-preview">
-                                        {selectedCandidate.cv_text}
+                                if (isExtractedCand && selectedCandidate.cv_text) {
+                                    return (
+                                        <div style={{ marginTop: '1.5rem' }}>
+                                            <div className="cve-text-header">
+                                                <h3 style={{ fontSize: '0.98rem', fontWeight: '800', color: '#7A1228', margin: 0 }}>
+                                                    Extracted CV Text Content
+                                                </h3>
+                                                <button
+                                                    className="cve-btn-icon"
+                                                    style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '4px' }}
+                                                    onClick={() => handleCopyText(selectedCandidate.cv_text)}
+                                                >
+                                                    <FiCopy /> Copy Text
+                                                </button>
+                                            </div>
+                                            <div className="cve-text-box">
+                                                {selectedCandidate.cv_text}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div style={{ marginTop: '1.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '12px', color: '#64748b', fontStyle: 'italic', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                        No text has been extracted for this CV yet. Click "Manual Extract CV" button above to run AI parsing.
                                     </div>
-                                ) : (
-                                    <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '10px', color: '#64748b', fontStyle: 'italic', border: '1px solid #e2e8f0' }}>
-                                        No text has been extracted for this CV yet. Click "Extract CV Now" to run text parsing.
-                                    </div>
-                                )}
-                            </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

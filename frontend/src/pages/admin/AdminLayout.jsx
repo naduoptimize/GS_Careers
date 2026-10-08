@@ -108,9 +108,6 @@ function AdminLayout({ admin, children }) {
 
     if (admin.role === 'super_admin' || admin.role === 'admin') {
         navItems.push({ to: '/admin/admins', icon: <FiUserPlus />, label: 'Manage Admins', badge: null });
-    }
-
-    if (admin.role === 'super_admin') {
         navItems.push({ to: '/admin/cv-extractions', icon: <FiCpu />, label: 'CV Extractions', badge: null });
         navItems.push({ to: '/admin/settings', icon: <FiSettings />, label: 'Settings', badge: null });
     }

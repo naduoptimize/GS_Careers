@@ -1124,6 +1124,17 @@ function ManageVacancies({ admin }) {
                                                         <div className="vd-form-value">{viewDetail.min_experience || 'Not specified'}</div>
                                                     </div>
                                                 </div>
+                                                <div className="vd-form-field">
+                                                    <div className="vd-field-icon"><FiBriefcase /></div>
+                                                    <div className="vd-field-content">
+                                                        <span className="vd-form-label">Salary Range (Budget)</span>
+                                                        <div className="vd-form-value">
+                                                            {viewDetail.min_salary || viewDetail.max_salary ? (
+                                                                `LKR ${viewDetail.min_salary ? Number(viewDetail.min_salary).toLocaleString() : '0'} - ${viewDetail.max_salary ? Number(viewDetail.max_salary).toLocaleString() : 'Negotiable'}`
+                                                            ) : 'Not Specified'}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div className="vd-form-field col-span-2">
                                                     <div className="vd-field-icon"><FiCalendar /></div>
                                                     <div className="vd-field-content">

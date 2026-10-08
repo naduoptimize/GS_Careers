@@ -4,8 +4,8 @@
 // ============================================
 require_once __DIR__ . '/../config.php';
 
-// Authenticate super admin
-$auth = requireSuperAdmin();
+// Authenticate admin or super admin
+$auth = requireAdminOrSuperAdmin();
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -31,6 +31,19 @@ function getSettings()
     $settings = [];
     foreach ($results as $row) {
         $settings[$row['setting_key']] = $row['setting_value'];
+    }
+
+    // Default fallback values for Match Score Thresholds & Email Toggles
+    $matchScoreDefaults = [
+        'min_high_match_score' => '75',
+        'min_medium_match_score' => '50',
+        'enable_candidate_emails' => '1'
+    ];
+
+    foreach ($matchScoreDefaults as $key => $defaultVal) {
+        if (!isset($settings[$key]) || $settings[$key] === '') {
+            $settings[$key] = $defaultVal;
+        }
     }
 
     // Default fallback values for PDPA settings
