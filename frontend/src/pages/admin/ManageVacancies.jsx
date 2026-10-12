@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
-    FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity,
+    FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity, FiChevronDown, FiChevronUp, FiRotateCcw,
     FiUser, FiMail, FiPhone, FiHome, FiLayers, FiMoreVertical
 } from 'react-icons/fi';
 import './ManageVacancies.css';
@@ -304,6 +304,7 @@ function ManageVacancies({ admin }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [employmentTypeFilter, setEmploymentTypeFilter] = useState('');
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [viewDetail, setViewDetail] = useState(null);
     const [modalTab, setModalTab] = useState('details'); // 'details', 'history'
     const [currentPage, setCurrentPage] = useState(1);
@@ -609,106 +610,178 @@ function ManageVacancies({ admin }) {
                 </div>
             </div>
 
-            {/* CONTROL BAR */}
-            <div className="console-toolbar-p">
-                <div className="toolbar-search-row">
-                    <div className="search-orchestrator">
-                        <FiSearch className="s-icon" />
-                        <input
-                            id="vacancy_search"
-                            name="vacancy_search"
-                            type="text"
-                            placeholder="Search position, reference, designation or establishment..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                className="clear-search-btn"
-                                onClick={() => setSearchTerm('')}
-                                title="Clear search"
-                            >
-                                <FiX />
-                            </button>
-                        )}
-                    </div>
-                    {(searchTerm || companyFilter || statusFilter || employmentTypeFilter) && (
-                        <button 
-                            className="btn-reset-p" 
-                            onClick={() => { 
-                                setSearchTerm(''); 
-                                setCompanyFilter(''); 
-                                setStatusFilter(''); 
-                                setEmploymentTypeFilter(''); 
-                            }}
-                        >
-                            <FiX size={14} /> <span>Reset Filters</span>
-                        </button>
-                    )}
-                </div>
+            {/* MODERN COLLAPSIBLE FILTER SUITE */}
+            {(() => {
+                const activeVacFilterCount = [companyFilter, statusFilter, employmentTypeFilter].filter(Boolean).length;
+                const hasVacActiveFilters = Boolean(searchTerm || companyFilter || statusFilter || employmentTypeFilter);
+                const activeVacChips = [];
+                if (searchTerm) activeVacChips.push({ key: 'search', label: `Search: "${searchTerm}"`, clear: () => setSearchTerm('') });
+                if (companyFilter) {
+                    const comp = companies.find(c => String(c.id) === String(companyFilter))?.name || 'Establishment';
+                    activeVacChips.push({ key: 'company', label: `Entity: ${comp}`, clear: () => setCompanyFilter('') });
+                }
+                if (statusFilter) activeVacChips.push({ key: 'status', label: `Status: ${statusFilter}`, clear: () => setStatusFilter('') });
+                if (employmentTypeFilter) activeVacChips.push({ key: 'empType', label: `Type: ${employmentTypeFilter}`, clear: () => setEmploymentTypeFilter('') });
 
-                <div className="toolbar-divider" />
+                return (
+                    <div className="applicant-filter-card">
+                        <div className="filter-top-bar">
+                            <div className="filter-search-wrapper">
+                                <div className="search-input-box">
+                                    <FiSearch className="search-lead-icon" />
+                                    <input
+                                        id="vacancy_search"
+                                        name="vacancy_search"
+                                        type="text"
+                                        placeholder="Search position, reference, designation or establishment..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    {searchTerm && (
+                                        <button
+                                            type="button"
+                                            className="clear-search-trigger"
+                                            onClick={() => setSearchTerm('')}
+                                            title="Clear search"
+                                        >
+                                            <FiX size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
 
-                <div className="toolbar-filters-row">
-                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="filter-group">
-                            <label htmlFor="company_filter" className="filter-label">Establishment</label>
-                            <div className="select-orchestrator">
-                                <FiHome className="f-icon" />
-                                <select 
-                                    id="company_filter" 
-                                    name="company_id" 
-                                    value={companyFilter} 
-                                    onChange={(e) => setCompanyFilter(e.target.value)}
-                                    className="select-lg"
+                            <div className="filter-top-actions">
+                                <button
+                                    type="button"
+                                    className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${activeVacFilterCount > 0 ? 'has-active' : ''}`}
+                                    onClick={() => setShowFilterPanel(prev => !prev)}
+                                    title="Toggle filter options"
                                 >
-                                    <option value="">All GS Entities</option>
-                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                    <FiFilter className="btn-filter-icon" />
+                                    <span>Filters</span>
+                                    {activeVacFilterCount > 0 && (
+                                        <span className="filter-count-badge">{activeVacFilterCount}</span>
+                                    )}
+                                    {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
+                                </button>
+
+                                {hasVacActiveFilters && (
+                                    <button 
+                                        type="button" 
+                                        className="btn-clear-all-filters" 
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setCompanyFilter('');
+                                            setStatusFilter('');
+                                            setEmploymentTypeFilter('');
+                                        }}
+                                        title="Reset all filters"
+                                    >
+                                        <FiRotateCcw size={13} /> Reset
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    )}
 
-                    <div className="filter-group">
-                        <label htmlFor="status_filter" className="filter-label">Vacancy Status</label>
-                        <div className="select-orchestrator">
-                            <FiActivity className="f-icon" />
-                            <select 
-                                id="status_filter" 
-                                name="status_filter" 
-                                value={statusFilter} 
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="active">Active &amp; Live</option>
-                                <option value="pending">Pending Approval</option>
-                                <option value="draft">Draft Requisition</option>
-                                <option value="closed">Closed / Expired</option>
-                            </select>
-                        </div>
-                    </div>
+                        {activeVacChips.length > 0 && (
+                            <div className="active-filter-chips-row">
+                                <span className="chips-label">Active Filters:</span>
+                                <div className="chips-list">
+                                    {activeVacChips.map(chip => (
+                                        <button
+                                            key={chip.key}
+                                            type="button"
+                                            className="filter-chip"
+                                            onClick={chip.clear}
+                                            title={`Remove ${chip.label}`}
+                                        >
+                                            <span>{chip.label}</span>
+                                            <FiX size={12} className="chip-remove" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                    <div className="filter-group">
-                        <label htmlFor="employment_type_filter" className="filter-label">Employment Type</label>
-                        <div className="select-orchestrator">
-                            <FiLayers className="f-icon" />
-                            <select 
-                                id="employment_type_filter" 
-                                name="employment_type_filter" 
-                                value={employmentTypeFilter} 
-                                onChange={(e) => setEmploymentTypeFilter(e.target.value)}
-                            >
-                                <option value="">All Classifications</option>
-                                <option value="Full Time">Full-Time</option>
-                                <option value="Part Time">Part-Time</option>
-                                <option value="Contract">Contract</option>
-                                <option value="Internship">Internship</option>
-                            </select>
-                        </div>
+                        {showFilterPanel && (
+                            <div className="filter-dropdowns-expandable animated-fade-in">
+                                <div className="filter-panel-header">
+                                    <span className="panel-title-text">Filter & Refine Vacancy Listings</span>
+                                    <button 
+                                        type="button" 
+                                        className="panel-close-btn" 
+                                        onClick={() => setShowFilterPanel(false)}
+                                        title="Hide filters"
+                                    >
+                                        <FiX size={14} /> Close
+                                    </button>
+                                </div>
+
+                                <div className="filter-dropdowns-grid">
+                                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                        <div className={`filter-field-box ${companyFilter ? 'has-value' : ''}`}>
+                                            <label htmlFor="company_filter">
+                                                <FiHome className="field-icon" /> Establishment
+                                            </label>
+                                            <div className="custom-select-wrapper">
+                                                <select 
+                                                    id="company_filter" 
+                                                    name="company_id" 
+                                                    value={companyFilter} 
+                                                    onChange={(e) => setCompanyFilter(e.target.value)}
+                                                >
+                                                    <option value="">All GS Entities</option>
+                                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`filter-field-box ${statusFilter ? 'has-value' : ''}`}>
+                                        <label htmlFor="status_filter">
+                                            <FiActivity className="field-icon" /> Vacancy Status
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="status_filter" 
+                                                name="status_filter" 
+                                                value={statusFilter} 
+                                                onChange={(e) => setStatusFilter(e.target.value)}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                <option value="active">Active &amp; Live</option>
+                                                <option value="pending">Pending Approval</option>
+                                                <option value="draft">Draft Requisition</option>
+                                                <option value="closed">Closed / Expired</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className={`filter-field-box ${employmentTypeFilter ? 'has-value' : ''}`}>
+                                        <label htmlFor="employment_type_filter">
+                                            <FiLayers className="field-icon" /> Employment Type
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="employment_type_filter" 
+                                                name="employment_type_filter" 
+                                                value={employmentTypeFilter} 
+                                                onChange={(e) => setEmploymentTypeFilter(e.target.value)}
+                                            >
+                                                <option value="">All Classifications</option>
+                                                <option value="Full Time">Full-Time</option>
+                                                <option value="Part Time">Part-Time</option>
+                                                <option value="Contract">Contract</option>
+                                                <option value="Internship">Internship</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            </div>
+                );
+            })()}
 
             {/* DATA ORCHESTRATION TABLE */}
             <div className="orchestration-table-wrapper card-p">

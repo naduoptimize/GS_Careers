@@ -184,13 +184,6 @@ function LoginPage() {
                                 )}
                             </button>
                         </form>
-
-                        <div className="signup-bottom-text">
-                            <span>Don't have a tactical account?</span>
-                            <Link to="/admin/signup" className="register-link">
-                                Register Super Admin
-                            </Link>
-                        </div>
                     </div>
 
                     <div className="card-copyright-footer">

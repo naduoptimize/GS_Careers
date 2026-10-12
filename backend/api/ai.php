@@ -11,6 +11,10 @@ switch ($action) {
     case 'parse':
         handleParse();
         break;
+    case 'quota_status':
+    case 'test_key':
+        handleQuotaStatus();
+        break;
     default:
         jsonResponse(400, 'Invalid action');
 }
@@ -151,3 +155,120 @@ function handleParse()
         ]);
     }
 }
+
+function handleQuotaStatus()
+{
+    $db = getDB();
+    $inputData = json_decode(file_get_contents('php://input'), true) ?? [];
+
+    $stmt = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('gemini_api_key', 'gemini_model', 'ai_provider')");
+    $settings = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $apiKey = !empty($inputData['apiKey']) ? trim($inputData['apiKey']) : ($settings['gemini_api_key'] ?? '');
+    $model = $settings['gemini_model'] ?? 'gemini-2.5-flash';
+    $aiProvider = $settings['ai_provider'] ?? 'gemini';
+
+    if (empty($apiKey)) {
+        jsonResponse(200, 'Success', [
+            'status' => 'no_key',
+            'message' => 'No Gemini API Key configured in Settings.',
+            'provider' => $aiProvider,
+            'used_today' => 0,
+            'daily_limit' => 1500,
+            'remaining_today' => 1500,
+            'percentage' => 0,
+            'is_warning' => false,
+            'is_exhausted' => false
+        ]);
+    }
+
+    // Ping Gemini API
+    $url = "https://generativelanguage.googleapis.com/v1beta/models?key={$apiKey}";
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json']
+    ]);
+    $res = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    $status = 'healthy';
+    $message = 'Gemini API Key is Active & Healthy.';
+    $isExhausted = false;
+    $isWarning = false;
+
+    if ($httpCode === 200) {
+        $status = 'healthy';
+        $message = 'Gemini API Key is Active & Healthy.';
+    } else if ($httpCode === 429) {
+        $status = 'quota_exceeded';
+        $message = 'Rate Limit / Quota Exceeded (HTTP 429). Requests are currently blocked by Google.';
+        $isExhausted = true;
+    } else if ($httpCode === 403) {
+        $status = 'quota_exhausted';
+        $message = 'Forbidden / Resource Exhausted (HTTP 403). Check API billing or quota limits.';
+        $isExhausted = true;
+    } else if ($httpCode === 400) {
+        $status = 'invalid_key';
+        $message = 'Invalid API Key format or key has been revoked by Google.';
+        $isExhausted = true;
+    } else {
+        $status = 'error';
+        $message = "API Test Error (HTTP {$httpCode}): " . ($curlError ?: 'Unexpected response');
+    }
+
+    // Extraction Counts
+    $usedToday = 0;
+    try {
+        $stmtToday = $db->query("SELECT COUNT(*) FROM applications WHERE extraction_status = 'completed' AND DATE(extracted_at) = CURDATE()");
+        $usedToday = (int)$stmtToday->fetchColumn();
+    } catch (\Exception $e) {
+        $usedToday = 0;
+    }
+
+    $totalExtracted = 0;
+    try {
+        $stmtTotal = $db->query("SELECT COUNT(*) FROM applications WHERE extraction_status = 'completed'");
+        $totalExtracted = (int)$stmtTotal->fetchColumn();
+    } catch (\Exception $e) {
+        $totalExtracted = 0;
+    }
+
+    $dailyLimit = 1500;
+    $remainingToday = max(0, $dailyLimit - $usedToday);
+    $percentage = min(100, round(($usedToday / $dailyLimit) * 100, 1));
+
+    if ($percentage >= 85 || $remainingToday <= 200) {
+        $isWarning = true;
+    }
+
+    // Time until UTC midnight reset
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $midnight = new DateTime('tomorrow midnight', new DateTimeZone('UTC'));
+    $diff = $now->diff($midnight);
+    $resetIn = sprintf('%dh %dm', $diff->h, $diff->i);
+
+    $keyMasked = strlen($apiKey) > 12 
+        ? substr($apiKey, 0, 8) . '...' . substr($apiKey, -4) 
+        : '***';
+
+    jsonResponse(200, 'Success', [
+        'status' => $status,
+        'message' => $message,
+        'http_code' => $httpCode,
+        'provider' => $aiProvider,
+        'key_masked' => $keyMasked,
+        'used_today' => $usedToday,
+        'daily_limit' => $dailyLimit,
+        'remaining_today' => $remainingToday,
+        'percentage' => $percentage,
+        'total_extracted' => $totalExtracted,
+        'reset_in' => $resetIn,
+        'is_warning' => $isWarning,
+        'is_exhausted' => $isExhausted
+    ]);
+}
+

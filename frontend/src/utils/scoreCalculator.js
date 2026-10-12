@@ -171,8 +171,14 @@ export const parseNumericSalary = (val) => {
 };
 
 export const calculateSalaryMatchScore = (salaryExpectation, minSalary, maxSalary) => {
-    const jobMin = minSalary ? parseFloat(minSalary) : null;
-    const jobMax = maxSalary ? parseFloat(maxSalary) : null;
+    let jobMin = minSalary ? parseFloat(minSalary) : null;
+    let jobMax = maxSalary ? parseFloat(maxSalary) : null;
+
+    if (jobMin && jobMax && jobMin > jobMax) {
+        const temp = jobMin;
+        jobMin = jobMax;
+        jobMax = temp;
+    }
 
     if (!jobMin && !jobMax) {
         return { score: 100, status: 'no_budget_defined', message: 'No budget range set for job' };
@@ -202,10 +208,14 @@ export const calculateSalaryMatchScore = (salaryExpectation, minSalary, maxSalar
             return { score: penaltyScore, status: 'above_range', message: `${Math.round(excess * 100)}% above max budget` };
         }
     } else if (jobMin) {
-        if (candSal >= jobMin) {
-            return { score: 100, status: 'within_range', message: 'Meets minimum budget requirement' };
+        if (candSal <= jobMin * 1.25) {
+            return { score: 100, status: 'within_range', message: 'Within expected budget' };
+        } else if (candSal < jobMin) {
+            return { score: 100, status: 'below_range', message: 'Below expected budget' };
         } else {
-            return { score: 100, status: 'below_range', message: 'Below minimum budget requirement' };
+            const excess = (candSal - jobMin) / jobMin;
+            const penaltyScore = Math.max(10, Math.round(100 - (excess * 120)));
+            return { score: penaltyScore, status: 'above_range', message: `${Math.round(excess * 100)}% above minimum budget` };
         }
     }
 
@@ -233,7 +243,7 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
 
     let selectedVac = targetVacOverride;
     if (!selectedVac && Array.isArray(vacanciesList) && vacanciesList.length > 0) {
-        selectedVac = vacanciesList.find(v => v.id == app.vacancy_id);
+        selectedVac = vacanciesList.find(v => String(v.id) === String(app.vacancy_id));
     }
     if (!selectedVac) {
         selectedVac = {
@@ -243,14 +253,14 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
             required_skills: app.vacancy_required_skills || app.required_skills || '',
             min_experience: app.min_experience || '',
             min_relevant_experience: app.min_relevant_experience || '',
-            min_salary: app.min_salary || null,
-            max_salary: app.max_salary || null,
+            min_salary: app.min_salary || app.minSalary || app.v_min_salary || null,
+            max_salary: app.max_salary || app.maxSalary || app.v_max_salary || null,
             designation: app.designation || ''
         };
     }
 
-    const minSalary = selectedVac.min_salary || app.min_salary;
-    const maxSalary = selectedVac.max_salary || app.max_salary;
+    const minSalary = selectedVac.min_salary || app.min_salary || app.minSalary || null;
+    const maxSalary = selectedVac.max_salary || app.max_salary || app.maxSalary || null;
     const salMatchResult = calculateSalaryMatchScore(app.salary_expectation, minSalary, maxSalary);
 
     let details = {

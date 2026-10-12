@@ -152,6 +152,12 @@ function handleRegisterSuperadmin()
 
     $db = getDB();
 
+    // Disallow public registration if a super admin already exists
+    $count = (int)$db->query("SELECT COUNT(*) FROM admins WHERE role = 'super_admin'")->fetchColumn();
+    if ($count > 0) {
+        jsonResponse(403, 'Public Super Admin registration is disabled. Super Admins must be created by existing administrators.');
+    }
+
     // Check if username or email already exists
     $stmt = $db->prepare("SELECT id FROM admins WHERE username = ? OR email = ?");
     $stmt->execute([$username, $email]);

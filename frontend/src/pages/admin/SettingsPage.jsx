@@ -4,9 +4,10 @@ import {
     FiSettings, FiMail, FiCheck, FiActivity, FiServer, 
     FiLock, FiUser, FiEye, FiEyeOff, FiPlay, FiInfo, 
     FiCheckCircle, FiXCircle, FiAlertTriangle, FiChevronDown, FiChevronUp,
-    FiEdit, FiX, FiFileText, FiCpu, FiTarget
+    FiEdit, FiX, FiFileText, FiCpu, FiTarget, FiRefreshCw, FiShield,
+    FiSliders, FiZap, FiLayers, FiCopy, FiToggleLeft, FiToggleRight, FiClock
 } from 'react-icons/fi';
-import { getSettings, saveSettings, testSmtpSettings } from '../../services/api';
+import { getSettings, saveSettings, testSmtpSettings, checkGeminiQuota } from '../../services/api';
 
 function SettingsPage({ admin }) {
     const [activeTab, setActiveTab] = useState('score');
@@ -75,9 +76,58 @@ function SettingsPage({ admin }) {
     const [isEditing, setIsEditing] = useState(false);
     const [backupSettings, setBackupSettings] = useState(null);
 
+    // Role detection (Super Admin gets full access to all 5 tabs including AI & Email Templates)
+    const storedAdminData = (() => {
+        try {
+            return localStorage.getItem('gs_admin_data') ? JSON.parse(localStorage.getItem('gs_admin_data')) : null;
+        } catch (e) {
+            return null;
+        }
+    })();
+    const currentRole = admin?.role || storedAdminData?.role || '';
+    const isSuperAdmin = currentRole === 'super_admin';
+
+    // Gemini Quota Monitor State
+    const [quotaData, setQuotaData] = useState(null);
+    const [checkingQuota, setCheckingQuota] = useState(false);
+
     useEffect(() => {
         loadSettings();
     }, []);
+
+    useEffect(() => {
+        if (!isSuperAdmin && (activeTab === 'email' || activeTab === 'ai')) {
+            setActiveTab('score');
+        }
+    }, [isSuperAdmin, activeTab]);
+
+    useEffect(() => {
+        if (isSuperAdmin && activeTab === 'ai' && !quotaData) {
+            handleCheckQuota();
+        }
+    }, [activeTab, isSuperAdmin]);
+
+    const handleCheckQuota = async () => {
+        setCheckingQuota(true);
+        try {
+            const res = await checkGeminiQuota({ apiKey: settings.gemini_api_key });
+            if (res.data?.data) {
+                setQuotaData(res.data.data);
+                if (res.data.data.status === 'healthy') {
+                    toast.success('🟢 Gemini API Key is active & healthy!');
+                } else if (res.data.data.is_exhausted) {
+                    toast.error(`🔴 ${res.data.data.message}`);
+                } else {
+                    toast.warning(`⚠️ ${res.data.data.message}`);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to check Gemini quota:', err);
+            toast.error('Failed to verify Gemini API Key status');
+        } finally {
+            setCheckingQuota(false);
+        }
+    };
 
     const loadSettings = async () => {
         try {
@@ -118,6 +168,12 @@ function SettingsPage({ admin }) {
                 email_template_vacancy_rejected_subject: data.email_template_vacancy_rejected_subject || '',
                 email_template_vacancy_rejected_body: data.email_template_vacancy_rejected_body || '',
                 
+                ai_provider: data.ai_provider || 'ollama',
+                gemini_api_key: data.gemini_api_key || '',
+                gemini_model: data.gemini_model || 'gemini-2.5-flash',
+                ollama_server: data.ollama_server || 'http://172.16.7.21:11434',
+                ollama_model: data.ollama_model || 'qwen2.5:3b',
+                
                 default_email: data.default_email || '',
                 default_smtp_host: data.default_smtp_host || '',
                 default_smtp_port: data.default_smtp_port || '',
@@ -128,7 +184,6 @@ function SettingsPage({ admin }) {
             setSettings(loaded);
             setBackupSettings(loaded);
 
-            // Pre-populate test recipient
             if (admin?.email) {
                 setTestRecipient(admin.email);
             } else if (data.system_email) {
@@ -148,37 +203,8 @@ function SettingsPage({ admin }) {
         if (settings.ai_provider === provider) return;
         try {
             await saveSettings({
-                system_email: settings.system_email,
-                smtp_host: settings.smtp_host,
-                smtp_port: settings.smtp_port,
-                smtp_secure: settings.smtp_secure,
-                smtp_user: settings.smtp_user,
-                smtp_pass: settings.smtp_pass,
-                smtp_from_name: settings.smtp_from_name,
-                enable_candidate_emails: settings.enable_candidate_emails,
-                pdpa_title: settings.pdpa_title,
-                pdpa_description: settings.pdpa_description,
-                pdpa_purpose: settings.pdpa_purpose,
-                pdpa_retention: settings.pdpa_retention,
-                pdpa_security: settings.pdpa_security,
-                pdpa_rights: settings.pdpa_rights,
-                email_template_confirmation_subject: settings.email_template_confirmation_subject,
-                email_template_confirmation_body: settings.email_template_confirmation_body,
-                email_template_shortlist_subject: settings.email_template_shortlist_subject,
-                email_template_shortlist_body: settings.email_template_shortlist_body,
-                email_template_rejection_subject: settings.email_template_rejection_subject,
-                email_template_rejection_body: settings.email_template_rejection_body,
-                email_template_vacancy_pending_subject: settings.email_template_vacancy_pending_subject,
-                email_template_vacancy_pending_body: settings.email_template_vacancy_pending_body,
-                email_template_vacancy_approved_subject: settings.email_template_vacancy_approved_subject,
-                email_template_vacancy_approved_body: settings.email_template_vacancy_approved_body,
-                email_template_vacancy_rejected_subject: settings.email_template_vacancy_rejected_subject,
-                email_template_vacancy_rejected_body: settings.email_template_vacancy_rejected_body,
-                ai_provider: provider,
-                gemini_api_key: settings.gemini_api_key,
-                gemini_model: settings.gemini_model,
-                ollama_server: settings.ollama_server,
-                ollama_model: settings.ollama_model
+                ...settings,
+                ai_provider: provider
             });
             
             setSettings(prev => ({
@@ -215,7 +241,6 @@ function SettingsPage({ admin }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Custom validation to prevent hidden tab validation blocks
         if (!settings.system_email) {
             toast.warning('Sender Email Address is required');
             setActiveTab('mail');
@@ -266,7 +291,7 @@ function SettingsPage({ admin }) {
             });
             toast.success('System configurations updated successfully');
             setIsEditing(false);
-            loadSettings(); // Reload to refresh the password mask state
+            loadSettings();
         } catch (err) {
             console.error('Failed to save settings:', err);
             toast.error(err.response?.data?.message || 'Failed to save system settings');
@@ -315,91 +340,185 @@ function SettingsPage({ admin }) {
         }
     };
 
+    const insertTag = (fieldName, tag) => {
+        setSettings(prev => ({
+            ...prev,
+            [fieldName]: (prev[fieldName] || '') + ` ${tag} `
+        }));
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-                <div className="spinner-p"></div>
-                <p style={{ marginTop: '16px', color: 'var(--text-muted)' }}>Loading system configurations...</p>
+                <div className="spinner-p" style={{ width: '32px', height: '32px', borderWidth: '3px', borderTopColor: '#7A1228' }}></div>
+                <p style={{ marginTop: '14px', color: '#64748b', fontWeight: 600, fontSize: '0.9rem' }}>Loading configurations...</p>
             </div>
         );
     }
 
     return (
-        <div className="premium-settings-page" style={{ maxWidth: '1050px', margin: '0 auto', animation: 'fadeIn 0.3s ease-out' }}>
-            {/* MODERN SIMPLE PAGE HEADER */}
+        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0 8px 60px 8px', animation: 'fadeIn 0.25s ease-out' }}>
+            
+            {/* 1. EXECUTIVE HERO HEADER CARD BANNER */}
             <div style={{
-                display: 'flex',
-                justify: 'space-between',
-                alignItems: 'center',
-                marginBottom: '24px',
-                flexWrap: 'wrap',
-                gap: '16px',
-                background: '#fff',
-                padding: '24px 28px',
+                background: '#ffffff',
                 borderRadius: '20px',
                 border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                borderTop: '4px solid #7A1228',
+                boxShadow: '0 10px 30px -5px rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(122, 18, 40, 0.03)',
+                padding: '24px 28px',
+                marginBottom: '24px',
+                position: 'relative',
+                overflow: 'hidden'
             }}>
-                <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{
-                            background: 'rgba(122, 18, 40, 0.08)',
-                            color: '#7A1228',
-                            fontSize: '0.72rem',
-                            fontWeight: 800,
-                            padding: '3px 10px',
-                            borderRadius: '20px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                        }}>
-                            System Configurations
-                        </span>
-                    </div>
-                    <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0, tracking: '-0.02em' }}>
-                        Portal Settings
-                    </h1>
-                    <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '4px 0 0 0' }}>
-                        Configure match score thresholds, SMTP mail servers, email templates, and AI resume parser options.
-                    </p>
-                </div>
+                {/* Background Decorative Ambient Glow */}
+                <div style={{
+                    position: 'absolute',
+                    top: '-40px',
+                    right: '-40px',
+                    width: '180px',
+                    height: '180px',
+                    background: 'radial-gradient(circle, rgba(122, 18, 40, 0.06) 0%, rgba(255, 255, 255, 0) 70%)',
+                    pointerEvents: 'none'
+                }} />
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    {!isEditing && (
-                        <button
-                            type="button"
-                            onClick={handleStartEdit}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '10px 20px',
-                                borderRadius: '12px',
-                                fontWeight: 700,
-                                fontSize: '0.9rem',
-                                border: 'none',
-                                background: '#7A1228',
-                                color: '#fff',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 4px 12px rgba(122, 18, 40, 0.2)'
-                            }}
-                        >
-                            <FiEdit /> Edit Settings
-                        </button>
-                    )}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justify: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '20px'
+                }}>
+                    {/* Left Side: Icon + Titles */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flex: '1 1 450px' }}>
+                        {/* Glowing Brand Icon Badge */}
+                        <div style={{
+                            width: '54px',
+                            height: '54px',
+                            borderRadius: '16px',
+                            background: 'linear-gradient(135deg, #7A1228 0%, #5c0b1e 100%)',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justify: 'center',
+                            fontSize: '1.45rem',
+                            boxShadow: '0 8px 20px rgba(122, 18, 40, 0.28)',
+                            flexShrink: 0
+                        }}>
+                            <FiSliders />
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                <span style={{
+                                    background: 'rgba(122, 18, 40, 0.08)',
+                                    color: '#7A1228',
+                                    padding: '3px 10px',
+                                    borderRadius: '20px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.04em',
+                                    textTransform: 'uppercase',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}>
+                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }}></span>
+                                    SYSTEM CONFIGURATIONS • V2.4
+                                </span>
+                            </div>
+
+                            <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 4px 0', letterSpacing: '-0.025em' }}>
+                                Portal Settings &amp; Preferences
+                            </h1>
+                            
+                            <p style={{ fontSize: '0.86rem', color: '#64748b', margin: 0, lineHeight: '1.45' }}>
+                                Manage candidate match thresholds, SMTP mail servers, notification templates, and AI resume parsing engines.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Right Side: Action Buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                        {!isEditing ? (
+                            <button
+                                type="button"
+                                onClick={handleStartEdit}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '11px 24px',
+                                    borderRadius: '12px',
+                                    fontWeight: 700,
+                                    fontSize: '0.88rem',
+                                    border: 'none',
+                                    background: 'linear-gradient(135deg, #7A1228 0%, #5c0b1e 100%)',
+                                    color: '#ffffff',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: '0 4px 16px rgba(122, 18, 40, 0.28)',
+                                    letterSpacing: '0.01em'
+                                }}
+                            >
+                                <FiEdit style={{ fontSize: '0.95rem' }} /> Edit Settings
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleCancelEdit}
+                                    style={{
+                                        padding: '11px 20px',
+                                        borderRadius: '12px',
+                                        fontWeight: 600,
+                                        fontSize: '0.88rem',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#ffffff',
+                                        color: '#475569',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={saving}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '11px 26px',
+                                        borderRadius: '12px',
+                                        fontWeight: 800,
+                                        fontSize: '0.88rem',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #7A1228 0%, #5c0b1e 100%)',
+                                        color: '#ffffff',
+                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        boxShadow: '0 4px 16px rgba(122, 18, 40, 0.28)'
+                                    }}
+                                >
+                                    <FiCheck /> {saving ? 'Saving...' : 'Save Settings'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* SINGLE-ROW SEGMENTED PILL TAB NAVIGATION */}
+            {/* 2. FLOATING SEGMENTED CONTROL TABS */}
             <div style={{
                 background: '#f1f5f9',
-                padding: '5px',
-                borderRadius: '16px',
+                padding: '4px',
+                borderRadius: '14px',
                 display: 'flex',
                 gap: '4px',
-                marginBottom: '24px',
+                marginBottom: '28px',
                 overflowX: 'auto',
-                boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)'
+                border: '1px solid #e2e8f0'
             }}>
                 <button
                     type="button"
@@ -407,11 +526,11 @@ function SettingsPage({ admin }) {
                     style={{
                         flex: 1,
                         padding: '10px 16px',
-                        borderRadius: '12px',
-                        fontWeight: activeTab === 'score' ? 800 : 600,
-                        fontSize: '0.88rem',
+                        borderRadius: '10px',
+                        fontWeight: activeTab === 'score' ? 700 : 600,
+                        fontSize: '0.86rem',
                         border: 'none',
-                        background: activeTab === 'score' ? '#fff' : 'transparent',
+                        background: activeTab === 'score' ? '#ffffff' : 'transparent',
                         color: activeTab === 'score' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
@@ -432,11 +551,11 @@ function SettingsPage({ admin }) {
                     style={{
                         flex: 1,
                         padding: '10px 16px',
-                        borderRadius: '12px',
-                        fontWeight: activeTab === 'mail' ? 800 : 600,
-                        fontSize: '0.88rem',
+                        borderRadius: '10px',
+                        fontWeight: activeTab === 'mail' ? 700 : 600,
+                        fontSize: '0.86rem',
                         border: 'none',
-                        background: activeTab === 'mail' ? '#fff' : 'transparent',
+                        background: activeTab === 'mail' ? '#ffffff' : 'transparent',
                         color: activeTab === 'mail' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
@@ -451,42 +570,44 @@ function SettingsPage({ admin }) {
                     <FiMail style={{ fontSize: '1rem', color: activeTab === 'mail' ? '#7A1228' : '#94a3b8' }} />
                     Mail &amp; SMTP
                 </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('email')}
-                    style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '12px',
-                        fontWeight: activeTab === 'email' ? 800 : 600,
-                        fontSize: '0.88rem',
-                        border: 'none',
-                        background: activeTab === 'email' ? '#fff' : 'transparent',
-                        color: activeTab === 'email' ? '#7A1228' : '#64748b',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap',
-                        boxShadow: activeTab === 'email' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                    }}
-                >
-                    <FiFileText style={{ fontSize: '1rem', color: activeTab === 'email' ? '#7A1228' : '#94a3b8' }} />
-                    Email Templates
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('email')}
+                        style={{
+                            flex: 1,
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            fontWeight: activeTab === 'email' ? 700 : 600,
+                            fontSize: '0.86rem',
+                            border: 'none',
+                            background: activeTab === 'email' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'email' ? '#7A1228' : '#64748b',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: activeTab === 'email' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                        }}
+                    >
+                        <FiFileText style={{ fontSize: '1rem', color: activeTab === 'email' ? '#7A1228' : '#94a3b8' }} />
+                        Email Templates
+                    </button>
+                )}
                 <button
                     type="button"
                     onClick={() => setActiveTab('pdpa')}
                     style={{
                         flex: 1,
                         padding: '10px 16px',
-                        borderRadius: '12px',
-                        fontWeight: activeTab === 'pdpa' ? 800 : 600,
-                        fontSize: '0.88rem',
+                        borderRadius: '10px',
+                        fontWeight: activeTab === 'pdpa' ? 700 : 600,
+                        fontSize: '0.86rem',
                         border: 'none',
-                        background: activeTab === 'pdpa' ? '#fff' : 'transparent',
+                        background: activeTab === 'pdpa' ? '#ffffff' : 'transparent',
                         color: activeTab === 'pdpa' ? '#7A1228' : '#64748b',
                         cursor: 'pointer',
                         transition: 'all 0.2s',
@@ -498,1335 +619,713 @@ function SettingsPage({ admin }) {
                         boxShadow: activeTab === 'pdpa' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                     }}
                 >
-                    <FiInfo style={{ fontSize: '1rem', color: activeTab === 'pdpa' ? '#7A1228' : '#94a3b8' }} />
+                    <FiShield style={{ fontSize: '1rem', color: activeTab === 'pdpa' ? '#7A1228' : '#94a3b8' }} />
                     PDPA Consent
                 </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('ai')}
-                    style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '12px',
-                        fontWeight: activeTab === 'ai' ? 800 : 600,
-                        fontSize: '0.88rem',
-                        border: 'none',
-                        background: activeTab === 'ai' ? '#fff' : 'transparent',
-                        color: activeTab === 'ai' ? '#7A1228' : '#64748b',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap',
-                        boxShadow: activeTab === 'ai' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                    }}
-                >
-                    <FiCpu style={{ fontSize: '1rem', color: activeTab === 'ai' ? '#7A1228' : '#94a3b8' }} />
-                    AI Resume Parser
-                </button>
+                {isSuperAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('ai')}
+                        style={{
+                            flex: 1,
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            fontWeight: activeTab === 'ai' ? 700 : 600,
+                            fontSize: '0.86rem',
+                            border: 'none',
+                            background: activeTab === 'ai' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'ai' ? '#7A1228' : '#64748b',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: activeTab === 'ai' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                        }}
+                    >
+                        <FiCpu style={{ fontSize: '1rem', color: activeTab === 'ai' ? '#7A1228' : '#94a3b8' }} />
+                        AI Resume Parser
+                    </button>
+                )}
             </div>
 
-            {activeTab === 'mail' && (
-                /* Active Mail Status Card */
-                <div className="stat-glass-card gold settings-sender-card" style={{
-                    marginBottom: '24px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    background: '#fffbeb',
-                    border: '1px solid #fef3c7',
-                    borderRadius: '16px',
-                    padding: '24px 20px',
-                    gap: '12px'
-                }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        background: '#fef3c7',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.4rem',
-                        color: '#d97706',
-                        flexShrink: 0
-                    }}>
-                        <FiMail style={{ display: 'block', margin: '0 auto' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                        <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active System Sender Address</span>
-                        <span style={{ display: 'block', fontSize: '1.3rem', fontWeight: 800, color: '#78350f', marginTop: '4px', wordBreak: 'break-all' }}>
-                            {settings.system_email || settings.smtp_user || settings.default_email}
-                        </span>
-                    </div>
-                </div>
-            )}
-
             <form onSubmit={handleSubmit}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                    {/* ========================================================= */}
+                    {/* TAB 1: MATCH SCORE THRESHOLDS                             */}
+                    {/* ========================================================= */}
                     {activeTab === 'score' && (
-                        <div className="card-p" style={{ background: '#fff', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-                            <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9', background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: '#7A1228', fontWeight: 800 }}>
-                                        <FiTarget style={{ color: '#7A1228', fontSize: '1.35rem' }} /> CV Match Score &amp; Extraction Thresholds
-                                    </h3>
-                                    <p style={{ fontSize: '0.88rem', color: '#64748b', marginTop: '6px', marginBottom: 0, lineHeight: '1.5' }}>
-                                        Configure score percentage boundaries for High, Medium, and Low match badges, as well as automatic vs. manual extraction limits.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                {!isEditing ? (
-                                    /* READ-ONLY 3 CARDS VIEW */
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
-                                        {/* 1. High Match Read-only Card */}
-                                        <div style={{
-                                            background: '#f0fdf4',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #bbf7d0',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(22, 163, 74, 0.04)',
-                                            transition: 'all 0.2s ease'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#15803d' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>🟢</span> High Match Badge
-                                                </div>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #bbf7d0',
-                                                    borderRadius: '14px',
-                                                    padding: '6px 16px',
-                                                    fontSize: '1.2rem',
-                                                    fontWeight: 900,
-                                                    color: '#15803d',
-                                                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.08)'
-                                                }}>
-                                                    ≥ {settings.min_high_match_score || 75}%
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#15803d', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_high_match_score || 75}% – 100%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#166534', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Candidates scoring {settings.min_high_match_score || 75}% or higher receive top-priority Green High Match badge.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* 2. Medium Match Read-only Card */}
-                                        <div style={{
-                                            background: '#fffbeb',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #fde68a',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.04)',
-                                            transition: 'all 0.2s ease'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#b45309' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>🟡</span> Medium Match (Auto Extract)
-                                                </div>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #fde68a',
-                                                    borderRadius: '14px',
-                                                    padding: '6px 16px',
-                                                    fontSize: '1.2rem',
-                                                    fontWeight: 900,
-                                                    color: '#b45309',
-                                                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
-                                                }}>
-                                                    ≥ {settings.min_medium_match_score || 50}%
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_medium_match_score || 50}% – {(parseInt(settings.min_high_match_score || 75) - 1)}%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#92400e', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Resumes scoring in this range are automatically extracted by system.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* 3. Low Match Read-only Card */}
-                                        <div style={{
-                                            background: '#fff1f2',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #fecdd3',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(220, 38, 38, 0.04)',
-                                            transition: 'all 0.2s ease'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '0.98rem', color: '#b91c1c' }}>
-                                                    <span style={{ fontSize: '0.9rem' }}>🔴</span> Low Match (Manual Extract)
-                                                </div>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #fecdd3',
-                                                    borderRadius: '14px',
-                                                    padding: '6px 16px',
-                                                    fontSize: '1.2rem',
-                                                    fontWeight: 900,
-                                                    color: '#b91c1c',
-                                                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.08)'
-                                                }}>
-                                                    &lt; {settings.min_medium_match_score || 50}%
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b91c1c', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>&lt; {settings.min_medium_match_score || 50}%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#991b1b', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Scores below {settings.min_medium_match_score || 50}% skip auto-extraction. Admins can manually extract them on demand.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* EDITABLE 3 CARDS VIEW WITH SLIDERS AND NUMBER INPUTS */
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
-                                        {/* 1. High Match Edit Card */}
-                                        <div style={{
-                                            background: '#f0fdf4',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #bbf7d0',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(22, 163, 74, 0.04)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <label htmlFor="min_high_match_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                    <span>🟢</span> High Match Minimum (%)
-                                                </label>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #86efac',
-                                                    borderRadius: '14px',
-                                                    padding: '4px 12px',
-                                                    fontSize: '1.15rem',
-                                                    fontWeight: 900,
-                                                    color: '#15803d',
-                                                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.08)'
-                                                }}>
-                                                    ≥ {settings.min_high_match_score || 75}%
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                <input
-                                                    type="range"
-                                                    min="50"
-                                                    max="95"
-                                                    value={settings.min_high_match_score || 75}
-                                                    onChange={(e) => {
-                                                        const val = Math.max(parseInt(e.target.value), parseInt(settings.min_medium_match_score || 50) + 1);
-                                                        setSettings({ ...settings, min_high_match_score: val.toString() });
-                                                    }}
-                                                    style={{ flex: 1, accentColor: '#16a34a', cursor: 'pointer', height: '6px' }}
-                                                />
-                                                <input
-                                                    id="min_high_match_score"
-                                                    name="min_high_match_score"
-                                                    type="number"
-                                                    min="1"
-                                                    max="100"
-                                                    value={settings.min_high_match_score}
-                                                    onChange={handleChange}
-                                                    style={{
-                                                        width: '72px',
-                                                        padding: '6px 10px',
-                                                        borderRadius: '12px',
-                                                        border: '2px solid #16a34a',
-                                                        background: '#ffffff',
-                                                        fontSize: '1rem',
-                                                        fontWeight: '800',
-                                                        textAlign: 'center',
-                                                        color: '#15803d',
-                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#15803d', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_high_match_score || 75}% – 100%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#166534', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Candidates scoring {settings.min_high_match_score || 75}% or higher receive top-priority Green High Match badge.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* 2. Medium Match Edit Card */}
-                                        <div style={{
-                                            background: '#fffbeb',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #fde68a',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(217, 119, 6, 0.04)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <label htmlFor="min_medium_match_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                    <span>🟡</span> Medium Match Minimum (%)
-                                                </label>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #fcd34d',
-                                                    borderRadius: '14px',
-                                                    padding: '4px 12px',
-                                                    fontSize: '1.15rem',
-                                                    fontWeight: 900,
-                                                    color: '#b45309',
-                                                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.08)'
-                                                }}>
-                                                    ≥ {settings.min_medium_match_score || 50}%
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                <input
-                                                    type="range"
-                                                    min="10"
-                                                    max="90"
-                                                    value={settings.min_medium_match_score || 50}
-                                                    onChange={(e) => {
-                                                        const val = Math.min(parseInt(e.target.value), parseInt(settings.min_high_match_score || 75) - 1);
-                                                        setSettings({ ...settings, min_medium_match_score: val.toString() });
-                                                    }}
-                                                    style={{ flex: 1, accentColor: '#d97706', cursor: 'pointer', height: '6px' }}
-                                                />
-                                                <input
-                                                    id="min_medium_match_score"
-                                                    name="min_medium_match_score"
-                                                    type="number"
-                                                    min="1"
-                                                    max="100"
-                                                    value={settings.min_medium_match_score}
-                                                    onChange={handleChange}
-                                                    style={{
-                                                        width: '72px',
-                                                        padding: '6px 10px',
-                                                        borderRadius: '12px',
-                                                        border: '2px solid #d97706',
-                                                        background: '#ffffff',
-                                                        fontSize: '1rem',
-                                                        fontWeight: '800',
-                                                        textAlign: 'center',
-                                                        color: '#b45309',
-                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>{settings.min_medium_match_score || 50}% – {(parseInt(settings.min_high_match_score || 75) - 1)}%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#92400e', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Resumes scoring in this range are automatically extracted by system.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* 3. Low Match Edit Card */}
-                                        <div style={{
-                                            background: '#fff1f2',
-                                            padding: '24px',
-                                            borderRadius: '20px',
-                                            border: '1.5px solid #fecdd3',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '16px',
-                                            boxShadow: '0 4px 16px rgba(220, 38, 38, 0.04)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <label htmlFor="low_manual_extract_score" style={{ fontWeight: 800, fontSize: '0.98rem', color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                                    <span>🔴</span> Low Match &amp; Manual Limit
-                                                </label>
-                                                <div style={{
-                                                    background: '#ffffff',
-                                                    border: '1.5px solid #fca5a5',
-                                                    borderRadius: '14px',
-                                                    padding: '4px 12px',
-                                                    fontSize: '1.15rem',
-                                                    fontWeight: 900,
-                                                    color: '#b91c1c',
-                                                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.08)'
-                                                }}>
-                                                    &lt; {settings.min_medium_match_score || 50}%
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                <input
-                                                    type="range"
-                                                    min="10"
-                                                    max="90"
-                                                    value={settings.min_medium_match_score || 50}
-                                                    onChange={(e) => {
-                                                        const val = Math.min(parseInt(e.target.value), parseInt(settings.min_high_match_score || 75) - 1);
-                                                        setSettings({ ...settings, min_medium_match_score: val.toString() });
-                                                    }}
-                                                    style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer', height: '6px' }}
-                                                />
-                                                <input
-                                                    id="low_manual_extract_score"
-                                                    type="number"
-                                                    min="1"
-                                                    max="100"
-                                                    value={settings.min_medium_match_score}
-                                                    onChange={(e) => {
-                                                        setSettings({ ...settings, min_medium_match_score: e.target.value });
-                                                    }}
-                                                    style={{
-                                                        width: '72px',
-                                                        padding: '6px 10px',
-                                                        borderRadius: '12px',
-                                                        border: '2px solid #dc2626',
-                                                        background: '#ffffff',
-                                                        fontSize: '1rem',
-                                                        fontWeight: '800',
-                                                        textAlign: 'center',
-                                                        color: '#b91c1c',
-                                                        boxShadow: '0 2px 6px rgba(0,0,0,0.04)'
-                                                    }}
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#b91c1c', marginBottom: '6px' }}>
-                                                    Active Range: <span style={{ fontWeight: 900 }}>&lt; {settings.min_medium_match_score || 50}%</span>
-                                                </div>
-                                                <p style={{ fontSize: '0.83rem', color: '#991b1b', margin: 0, lineHeight: '1.5', opacity: 0.9 }}>
-                                                    Scores below {settings.min_medium_match_score || 50}% skip auto-extraction. Admins can manually extract them on demand.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* SCORING MODEL GUIDE & FORMULA EXPLANATION CARD */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* MAIN THRESHOLD CARDS ROW */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                                
+                                {/* High Match Card */}
                                 <div style={{
-                                    marginTop: '12px',
-                                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                                    border: '1.5px solid #cbd5e1',
-                                    borderRadius: '20px',
-                                    padding: '24px',
-                                    boxShadow: '0 4px 16px rgba(0,0,0,0.03)'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(122, 18, 40, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7A1228', fontSize: '1.2rem', fontWeight: 800 }}>
-                                            📊
-                                        </div>
-                                        <div>
-                                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a' }}>
-                                                AI Smart Candidate Match Scoring Model (100% Total)
-                                            </h4>
-                                            <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
-                                                Evaluates candidate CVs against ALL job creation details (Job Title, Designation, Relevant Exp, Salary Range, Description &amp; Skills)
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* 4 Category Match Factor Cards Grid (100% Total) */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '16px' }}>
-                                        {/* Factor 1: JD & Skills */}
-                                        <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '14px', padding: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0369a1' }}>🎯 Job Description &amp; Skills</span>
-                                                <span style={{ background: '#0284c7', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>40% Weight</span>
-                                            </div>
-                                            <p style={{ fontSize: '0.78rem', color: '#0c4a6e', margin: 0, lineHeight: '1.4' }}>
-                                                Evaluates Job Description keyphrases, mandatory &amp; preferred skills, and overall title/designation alignment.
-                                            </p>
-                                        </div>
-
-                                        {/* Factor 2: Relevant Experience */}
-                                        <div style={{ background: '#fdf4ff', border: '1.5px solid #f5d0fe', borderRadius: '14px', padding: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#7e22ce' }}>💼 Relevant Experience</span>
-                                                <span style={{ background: '#a855f7', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>30% Weight</span>
-                                            </div>
-                                            <p style={{ fontSize: '0.78rem', color: '#581c87', margin: 0, lineHeight: '1.4' }}>
-                                                Compares candidate's relevant years of experience against the required job position experience.
-                                            </p>
-                                        </div>
-
-                                        {/* Factor 3: Qualifications */}
-                                        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '14px', padding: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#15803d' }}>🎓 Field Qualifications</span>
-                                                <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>20% Weight</span>
-                                            </div>
-                                            <p style={{ fontSize: '0.78rem', color: '#14532d', margin: 0, lineHeight: '1.4' }}>
-                                                Matches candidate highest education level &amp; field-relevant qualifications against job criteria.
-                                            </p>
-                                        </div>
-
-                                        {/* Factor 4: Expected Salary */}
-                                        <div style={{ background: '#fefce8', border: '1.5px solid #fef08a', borderRadius: '14px', padding: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#a16207' }}>💰 Expected Salary</span>
-                                                <span style={{ background: '#ca8a04', color: '#fff', fontSize: '0.72rem', fontWeight: 900, padding: '2px 8px', borderRadius: '10px' }}>10% Weight</span>
-                                            </div>
-                                            <p style={{ fontSize: '0.78rem', color: '#713f12', margin: 0, lineHeight: '1.4' }}>
-                                                Compares candidate expected salary against the job min/max salary budget range (100% if within budget).
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Job Creation Parameters Evaluated & Advanced Rules */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '16px' }}>
-                                        {/* Evaluated Job Details List */}
-                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '14px' }}>
-                                            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#334155', display: 'block', marginBottom: '8px' }}>
-                                                📋 Evaluated Pre-Extraction Categories
-                                            </span>
-                                            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.78rem', color: '#475569', lineHeight: '1.5' }}>
-                                                <li><strong>Job Description &amp; Skills (40%):</strong> Keyphrase extraction &amp; skills match.</li>
-                                                <li><strong>Relevant Experience (30%):</strong> Relevant industry &amp; job role years.</li>
-                                                <li><strong>Relevant Field Qualifications (20%):</strong> Educational degree/diploma fit.</li>
-                                                <li><strong>Salary Expectation (10%):</strong> Budget range compatibility.</li>
-                                            </ul>
-                                        </div>
-
-                                        {/* Pre-Extraction Rules */}
-                                        <div style={{ background: '#fdf2f8', border: '1px solid #fbcfe8', borderRadius: '14px', padding: '14px' }}>
-                                            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#9d174d', display: 'block', marginBottom: '8px' }}>
-                                                ⚡ Automatic Calculation Pre-Extraction
-                                            </span>
-                                            <p style={{ margin: 0, fontSize: '0.78rem', color: '#831843', lineHeight: '1.5' }}>
-                                                Calculated <strong>prior to full CV extraction</strong> using candidate application notes, resume text, and job posting parameters. If overall match is <strong>≥ 50%</strong>, full extraction is enabled automatically.
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Formula Summary Box */}
-                                    <div style={{ background: '#0f172a', borderRadius: '12px', padding: '14px 18px', color: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                                        <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                                            🧮 <span style={{ color: '#93c5fd' }}>Unified Overall Formula:</span> Score = (JD &amp; Skills × 0.40) + (Experience × 0.30) + (Qualification × 0.20) + (Salary × 0.10)
-                                        </div>
-                                        <div style={{ fontSize: '0.78rem', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '8px', color: '#cbd5e1' }}>
-                                            100% Pre-Extraction Evaluation
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {activeTab === 'mail' && (
-                        <>
-                            {/* CARD 0: CANDIDATE AUTOMATED EMAIL DISPATCH TOGGLE */}
-                            <div className="card-p" style={{
-                                background: '#ffffff',
-                                borderRadius: '24px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.03)',
-                                overflow: 'hidden',
-                                marginBottom: '24px'
-                            }}>
-                                {/* Header */}
-                                <div style={{
-                                    padding: '24px 32px',
-                                    borderBottom: '1px solid #f1f5f9',
+                                    background: '#ffffff',
+                                    padding: '22px',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e2e8f0',
+                                    borderTop: '3.5px solid #16a34a',
+                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
                                     display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    flexWrap: 'wrap',
-                                    gap: '20px',
-                                    background: 'linear-gradient(180deg, #ffffff 0%, #fafafa 100%)'
+                                    flexDirection: 'column',
+                                    gap: '14px'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                        <div style={{
-                                            width: '48px',
-                                            height: '48px',
-                                            borderRadius: '16px',
-                                            background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
-                                                ? 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-                                                : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                                            border: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
-                                                ? '1px solid #a7f3d0'
-                                                : '1px solid #fecaca',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '1.35rem',
-                                            color: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#059669' : '#dc2626',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                                            flexShrink: 0
-                                        }}>
-                                            <FiMail />
-                                        </div>
-
-                                        <div>
-                                            <h3 style={{ fontSize: '1.2rem', margin: 0, color: '#0f172a', fontWeight: 800, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                Candidate Automated Email Dispatch
-                                            </h3>
-                                            <p style={{ fontSize: '0.86rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.4' }}>
-                                                Global master switch for candidate notifications (Application Receipts, Shortlist, Interview Invites &amp; Rejections)
-                                            </p>
-                                        </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
+                                            HIGH MATCH
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#15803d' }}>
+                                            ≥ {settings.min_high_match_score}%
+                                        </span>
                                     </div>
 
-                                    {/* Action / Toggle Switch Container */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: '#f8fafc', padding: '8px 16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>DISPATCH STATUS</span>
-                                            <span style={{
-                                                fontSize: '0.86rem',
-                                                fontWeight: 900,
-                                                color: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#059669' : '#dc2626',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}>
-                                                <span style={{
-                                                    width: '8px',
-                                                    height: '8px',
-                                                    borderRadius: '50%',
-                                                    background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '#10b981' : '#ef4444',
-                                                    boxShadow: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '0 0 0 3px rgba(16,185,129,0.2)' : '0 0 0 3px rgba(239,68,68,0.2)'
-                                                }}></span>
-                                                {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? 'ENABLED (YES)' : 'DISABLED (NO)'}
-                                            </span>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            disabled={saving}
-                                            onClick={async () => {
-                                                const nextVal = (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? '0' : '1';
-                                                try {
-                                                    setSaving(true);
-                                                    await saveSettings({
-                                                        ...settings,
-                                                        enable_candidate_emails: nextVal
-                                                    });
-                                                    setSettings(prev => ({ ...prev, enable_candidate_emails: nextVal }));
-                                                    toast.success(`Candidate automated emails are now ${nextVal === '1' ? 'ENABLED (YES)' : 'DISABLED (NO)'}`);
-                                                } catch (err) {
-                                                    toast.error('Failed to update candidate email setting');
-                                                } finally {
-                                                    setSaving(false);
-                                                }
-                                            }}
-                                            style={{
-                                                background: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
-                                                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
-                                                    : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                padding: '9px 20px',
-                                                borderRadius: '12px',
-                                                fontWeight: 800,
-                                                fontSize: '0.82rem',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                boxShadow: (settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false)
-                                                    ? '0 4px 14px rgba(16, 185, 129, 0.25)'
-                                                    : '0 4px 14px rgba(239, 68, 68, 0.25)',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                        >
-                                            {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? (
-                                                <><span>Turn Off</span> <FiXCircle size={15} /></>
-                                            ) : (
-                                                <><span>Turn On</span> <FiCheckCircle size={15} /></>
-                                            )}
-                                        </button>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Top Recommended</h4>
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
+                                            Candidates meeting or exceeding this threshold receive a green verified match badge.
+                                        </p>
                                     </div>
-                                </div>
 
-                                {/* Dynamic Status Detail Box */}
-                                <div style={{ padding: '24px 32px' }}>
-                                    {(settings.enable_candidate_emails !== '0' && settings.enable_candidate_emails !== false) ? (
-                                        <div style={{
-                                            background: '#f0fdf4',
-                                            border: '1.5px solid #bbf7d0',
-                                            borderRadius: '16px',
-                                            padding: '20px 24px',
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: '16px'
-                                        }}>
-                                            <FiCheckCircle size={22} style={{ color: '#16a34a', flexShrink: 0, marginTop: '2px' }} />
-                                            <div>
-                                                <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#15803d' }}>
-                                                    Automated Candidate Emails Active
-                                                </h5>
-                                                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#166534', lineHeight: '1.55' }}>
-                                                    Applicants will receive real-time email notifications for:
-                                                </p>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                                                        📩 Application Submission Receipts
-                                                    </span>
-                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                                                        📅 Interview Invitations &amp; Schedules
-                                                    </span>
-                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                                                        ✉️ RSVP Receipt Confirmations
-                                                    </span>
-                                                    <span style={{ background: '#ffffff', color: '#15803d', border: '1px solid #86efac', padding: '4px 10px', borderRadius: '8px', fontSize: '0.76rem', fontWeight: 700 }}>
-                                                        📋 Application Status Updates
-                                                    </span>
-                                                </div>
+                                    {isEditing && (
+                                        <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>Min Score Limit</label>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#15803d' }}>{settings.min_high_match_score}%</span>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{
-                                            background: '#fef2f2',
-                                            border: '1.5px solid #fecaca',
-                                            borderRadius: '16px',
-                                            padding: '20px 24px',
-                                            display: 'flex',
-                                            alignItems: 'flex-start',
-                                            gap: '16px'
-                                        }}>
-                                            <FiAlertTriangle size={22} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
-                                            <div>
-                                                <h5 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#991b1b' }}>
-                                                    Automated Candidate Emails Paused (Mails Disabled)
-                                                </h5>
-                                                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#991b1b', lineHeight: '1.55' }}>
-                                                    All outbound emails to applicants are currently suspended. Candidates will <strong>NOT</strong> receive application receipts, interview invites, or status change notifications until re-enabled.
-                                                </p>
-                                            </div>
+                                            <input
+                                                type="range"
+                                                min="55"
+                                                max="95"
+                                                value={settings.min_high_match_score}
+                                                onChange={(e) => setSettings(prev => ({ ...prev, min_high_match_score: e.target.value }))}
+                                                style={{ width: '100%', accentColor: '#16a34a', cursor: 'pointer' }}
+                                            />
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            {/* CARD 1: SENDER IDENTITY */}
-                    <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                        <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                            <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
-                                <FiMail /> Sender Identity Settings
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                Configure default sender identity details visible to applicants in all notifications.
-                            </p>
-                        </div>
-                        
-                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            {!isEditing ? (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
-                                    <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sender Email Address</span>
-                                        <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <FiMail style={{ color: 'var(--crimson)' }} /> {settings.system_email || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{settings.default_email} (Default)</span>}
+                                {/* Medium Match Card */}
+                                <div style={{
+                                    background: '#ffffff',
+                                    padding: '22px',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e2e8f0',
+                                    borderTop: '3.5px solid #d97706',
+                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '14px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
+                                            MEDIUM MATCH
+                                        </span>
+                                        <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#b45309' }}>
+                                            {settings.min_medium_match_score}% – {parseInt(settings.min_high_match_score, 10) - 1}%
                                         </span>
                                     </div>
 
-                                    <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sender Display Name</span>
-                                        <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <FiUser style={{ color: 'var(--crimson)' }} /> {settings.smtp_from_name || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{settings.default_smtp_from_name || 'George Steuart Careers'} (Default)</span>}
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Potential Review</h4>
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
+                                            Candidates meeting primary criteria but lacking optional skills receive an amber review badge.
+                                        </p>
+                                    </div>
+
+                                    {isEditing && (
+                                        <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309' }}>Min Score Limit</label>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#b45309' }}>{settings.min_medium_match_score}%</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="25"
+                                                max={parseInt(settings.min_high_match_score, 10) - 5}
+                                                value={settings.min_medium_match_score}
+                                                onChange={(e) => setSettings(prev => ({ ...prev, min_medium_match_score: e.target.value }))}
+                                                style={{ width: '100%', accentColor: '#d97706', cursor: 'pointer' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Low Match Card */}
+                                <div style={{
+                                    background: '#ffffff',
+                                    padding: '22px',
+                                    borderRadius: '16px',
+                                    border: '1px solid #e2e8f0',
+                                    borderTop: '3.5px solid #e11d48',
+                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '14px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ background: '#ffe4e6', color: '#be123c', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
+                                            LOW MATCH
+                                        </span>
+                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#be123c' }}>
+                                            &lt; {settings.min_medium_match_score}%
                                         </span>
                                     </div>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
-                                    <div className="form-group-p">
-                                        <label htmlFor="system_email" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                            Sender Email Address <span style={{ color: 'var(--crimson)' }}>*</span>
-                                        </label>
-                                        <div className="input-with-icon" style={{ position: 'relative' }}>
-                                            <FiMail className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                            <input
-                                                id="system_email"
-                                                name="system_email"
-                                                type="email"
-                                                value={settings.system_email}
-                                                onChange={handleChange}
-                                                placeholder={settings.default_email || "e.g. careers@georgesteuart.com"}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px 12px 48px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s'
-                                                }}
-                                                
-                                            />
-                                        </div>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.4' }}>
-                                            💡 Target inbox displayed as the sender in incoming emails. <strong>Note:</strong> Changing this address alone is not enough; you must also configure the SMTP Username &amp; App Password in the Custom SMTP section below.
+
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Unqualified</h4>
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
+                                            Applicants failing minimum experience or qualification limits are flagged with a low match badge.
                                         </p>
                                     </div>
 
-                                    <div className="form-group-p">
-                                        <label htmlFor="smtp_from_name" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                            Sender Display Name
-                                        </label>
-                                        <div className="input-with-icon" style={{ position: 'relative' }}>
-                                            <FiUser className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                            <input
-                                                id="smtp_from_name"
-                                                name="smtp_from_name"
-                                                type="text"
-                                                value={settings.smtp_from_name}
-                                                onChange={handleChange}
-                                                placeholder={settings.default_smtp_from_name || "e.g. George Steuart Careers"}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px 12px 48px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s'
-                                                }}
-                                            />
-                                        </div>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: '1.4' }}>
-                                            💡 The human-readable name shown in the recipient's inbox.
-                                        </p>
+                                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>
+                                        Auto-calculated from Medium threshold.
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* CARD 2: SMTP SERVERS */}
-                    <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                        <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                            <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
-                                <FiServer /> Custom SMTP Server Relay Settings
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                Configure an external SMTP server (e.g. custom corporate relay or personal/business Google Workspace) to deliver mail securely.
-                            </p>
-                        </div>
-                        
-                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {/* Alert explaining Fallbacks */}
-                            <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                <FiInfo style={{ color: 'var(--crimson)', fontSize: '1.25rem', flexShrink: 0, marginTop: '2px' }} />
-                                <div style={{ fontSize: '0.8rem', color: '#475569', lineHeight: '1.5' }}>
-                                    <strong>Default Fallback Server Active:</strong> Leave these fields blank to use the pre-configured system-wide SMTP relay credentials on the server backend (<code>{settings.default_smtp_host}</code> on port <code>{settings.default_smtp_port}</code>).
+                            </div>
+
+                            {/* VISUAL THRESHOLD GAUGE BAR */}
+                            <div style={{ background: '#ffffff', padding: '18px 22px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <h5 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
+                                        Match Score Distribution Map
+                                    </h5>
+                                </div>
+                                <div style={{ height: '10px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex' }}>
+                                    <div style={{ width: `${settings.min_medium_match_score}%`, background: '#f43f5e', transition: 'all 0.3s' }} title={`Low Match: 0% - ${parseInt(settings.min_medium_match_score) - 1}%`}></div>
+                                    <div style={{ width: `${parseInt(settings.min_high_match_score) - parseInt(settings.min_medium_match_score)}%`, background: '#f59e0b', transition: 'all 0.3s' }} title={`Medium Match: ${settings.min_medium_match_score}% - ${parseInt(settings.min_high_match_score) - 1}%`}></div>
+                                    <div style={{ width: `${100 - parseInt(settings.min_high_match_score)}%`, background: '#22c55e', transition: 'all 0.3s' }} title={`High Match: ${settings.min_high_match_score}% - 100%`}></div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginTop: '6px' }}>
+                                    <span>0%</span>
+                                    <span>{settings.min_medium_match_score}%</span>
+                                    <span>{settings.min_high_match_score}%</span>
+                                    <span>100%</span>
                                 </div>
                             </div>
 
-                            {!isEditing ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px' }}>
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Server Host</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiServer style={{ color: 'var(--crimson)' }} /> {settings.smtp_host || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{settings.default_smtp_host} (Default)</span>}
-                                            </span>
-                                        </div>
+                            {/* ALGORITHM WEIGHTING CARD */}
+                            <div style={{
+                                background: '#ffffff',
+                                padding: '24px',
+                                borderRadius: '16px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                                    <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <FiSliders style={{ color: '#7A1228' }} /> Candidate Score Calculation Weights
+                                    </h4>
+                                    <span style={{ background: 'rgba(122, 18, 40, 0.08)', color: '#7A1228', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(122, 18, 40, 0.15)' }}>
+                                        TOTAL ALLOCATION: 100%
+                                    </span>
+                                </div>
+                                <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 18px 0', lineHeight: '1.45' }}>
+                                    Composite candidate match scores (0 – 100%) are evaluated dynamically by AI across the following 5 weighted recruitment dimensions:
+                                </p>
 
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Port</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiServer style={{ color: 'var(--crimson)' }} /> {settings.smtp_port || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{settings.default_smtp_port} (Default)</span>}
-                                            </span>
-                                        </div>
+                                {/* Dynamic Composite Visual Bar */}
+                                <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex', marginBottom: '20px' }}>
+                                    <div style={{ width: '35%', background: '#7A1228' }} title="Skills Overlap: 35%"></div>
+                                    <div style={{ width: '30%', background: '#0f172a' }} title="Relevant Experience: 30%"></div>
+                                    <div style={{ width: '20%', background: '#4f46e5' }} title="Qualifications: 20%"></div>
+                                    <div style={{ width: '10%', background: '#d97706' }} title="Job Description Alignment: 10%"></div>
+                                    <div style={{ width: '5%', background: '#16a34a' }} title="Salary Budget Alignment: 5%"></div>
+                                </div>
 
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Security Protocol</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiServer style={{ color: 'var(--crimson)' }} /> <span style={{ textTransform: 'uppercase' }}>{settings.smtp_secure || settings.default_smtp_secure || 'TLS'}</span>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
+                                    
+                                    {/* Metric 1: Skills Overlap */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                🎯 Skills Match
+                                            </span>
+                                            <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                35%
                                             </span>
                                         </div>
+                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: '35%', background: '#7A1228' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Overlap of candidate skills against mandatory &amp; optional vacancy criteria.
+                                        </span>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Username / Authenticated Email</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiMail style={{ color: 'var(--crimson)' }} /> {settings.smtp_user || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{settings.default_smtp_user} (Default)</span>}
+                                    {/* Metric 2: Experience */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                💼 Experience
+                                            </span>
+                                            <span style={{ background: '#0f172a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                30%
                                             </span>
                                         </div>
+                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: '30%', background: '#0f172a' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Relevant domain work history years vs minimum position requirements.
+                                        </span>
+                                    </div>
 
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>SMTP Password / App Password</span>
-                                            <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    <FiLock style={{ color: 'var(--crimson)', flexShrink: 0 }} /> 
-                                                    {showPassword ? (settings.smtp_pass || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Not set</span>) : (settings.smtp_pass ? '••••••••' : <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>•••••••• (Default)</span>)}
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    title={showPassword ? "Hide Password" : "Show Password"}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1.1rem', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 }}
-                                                >
-                                                    {showPassword ? <FiEyeOff /> : <FiEye />}
-                                                </button>
+                                    {/* Metric 3: Qualifications */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                🎓 Qualification
+                                            </span>
+                                            <span style={{ background: '#4f46e5', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                20%
                                             </span>
                                         </div>
+                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: '20%', background: '#4f46e5' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Degree level (Bachelors/Masters/PhD) &amp; relevant field specialization.
+                                        </span>
+                                    </div>
+
+                                    {/* Metric 4: Job Description Alignment */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                📄 JD Alignment
+                                            </span>
+                                            <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                10%
+                                            </span>
+                                        </div>
+                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: '10%', background: '#d97706' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Alignment of CV responsibilities with core role duties &amp; projects.
+                                        </span>
+                                    </div>
+
+                                    {/* Metric 5: Salary Budget */}
+                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                💵 Salary Budget
+                                            </span>
+                                            <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                5%
+                                            </span>
+                                        </div>
+                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: '5%', background: '#16a34a' }}></div>
+                                        </div>
+                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                            Candidate salary expectations vs allocated job vacancy budget range.
+                                        </span>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            {/* OVERALL SCORE CALCULATION FORMULA & ENGINE CARD */}
+                            <div style={{
+                                background: '#ffffff',
+                                padding: '24px',
+                                borderRadius: '16px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
+                            }}>
+                                <h4 style={{ margin: '0 0 6px 0', fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FiZap style={{ color: '#7A1228' }} /> Overall Score Formula &amp; Generation Pipeline
+                                </h4>
+                                <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
+                                    How final candidate match scores (12% – 100%) are synthesized, weighted, and calculated by the system:
+                                </p>
+
+                                {/* MATHEMATICAL FORMULA BANNER */}
+                                <div style={{
+                                    background: '#0f172a',
+                                    color: '#f8fafc',
+                                    borderRadius: '14px',
+                                    padding: '16px 20px',
+                                    marginBottom: '16px',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.84rem',
+                                    lineHeight: '1.6',
+                                    borderLeft: '4px solid #7A1228',
+                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)'
+                                }}>
+                                    <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.04em' }}>
+                                        🧮 SYSTEM OVERALL SCORE FORMULA
+                                    </div>
+                                    <div style={{ color: '#38bdf8', fontWeight: 700 }}>
+                                        Overall Score = <span style={{ color: '#f43f5e' }}>(Skills &amp; JD Alignment × 40%)</span> + <span style={{ color: '#fbbf24' }}>(Relevant Experience × 30%)</span> + <span style={{ color: '#818cf8' }}>(Qualifications × 20%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × 10%)</span>
                                     </div>
                                 </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="smtp_host" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                SMTP Server Host
-                                            </label>
-                                            <div className="input-with-icon" style={{ position: 'relative' }}>
-                                                <FiServer className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                                <input
-                                                    id="smtp_host"
-                                                    name="smtp_host"
-                                                    type="text"
-                                                    value={settings.smtp_host}
-                                                    onChange={handleChange}
-                                                    placeholder={settings.default_smtp_host}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px 12px 48px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: '#f8fafc',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                e.g., <code>smtp.gmail.com</code> or mail server domain.
-                                            </p>
-                                        </div>
 
-                                        <div className="form-group-p">
-                                            <label htmlFor="smtp_port" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                SMTP Port
-                                            </label>
-                                            <div className="input-with-icon" style={{ position: 'relative' }}>
-                                                <FiServer className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                                <input
-                                                    id="smtp_port"
-                                                    name="smtp_port"
-                                                    type="number"
-                                                    value={settings.smtp_port}
-                                                    onChange={handleChange}
-                                                    placeholder={settings.default_smtp_port}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px 12px 48px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: '#f8fafc',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                e.g., <code>587</code> (for TLS) or <code>465</code> (for SSL).
-                                            </p>
+                                {/* DUAL EVALUATION PIPELINES */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                    
+                                    {/* Pipeline 1: Cloud Gemini AI */}
+                                    <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                            <span style={{ background: 'rgba(122, 18, 40, 0.1)', color: '#7A1228', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                                PRIMARY ENGINE
+                                            </span>
+                                            <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Cloud Gemini AI Generation</strong>
                                         </div>
-
-                                        <div className="form-group-p">
-                                            <label htmlFor="smtp_secure" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                SMTP Security Protocol
-                                            </label>
-                                            <div style={{ position: 'relative' }}>
-                                                <select
-                                                    id="smtp_secure"
-                                                    name="smtp_secure"
-                                                    value={settings.smtp_secure}
-                                                    onChange={handleChange}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: '#f8fafc',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s',
-                                                        appearance: 'none',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <option value="tls">TLS (STARTTLS - standard port 587)</option>
-                                                    <option value="ssl">SSL (SMTPS - standard port 465)</option>
-                                                    <option value="none">None (Plaintext - port 25 or 80 - insecure)</option>
-                                                </select>
-                                                <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#94a3b8' }}>
-                                                    ▼
-                                                </div>
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                Default fallback security is <code>{settings.default_smtp_secure}</code>.
-                                            </p>
-                                        </div>
+                                        <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
+                                            Performs deep semantic LLM analysis across full CV text, comparing candidate domain background against vacancy duties, identifying penalizable domain mismatches, and returning a normalized 0-100% composite score.
+                                        </p>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="smtp_user" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                SMTP Username / Authenticated Email
-                                            </label>
-                                            <div className="input-with-icon" style={{ position: 'relative' }}>
-                                                <FiMail className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                                <input
-                                                    id="smtp_user"
-                                                    name="smtp_user"
-                                                    type="text"
-                                                    value={settings.smtp_user}
-                                                    onChange={handleChange}
-                                                    placeholder={settings.default_smtp_user}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px 12px 48px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: '#f8fafc',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                Credential username used for logging into the SMTP host.
-                                            </p>
+                                    {/* Pipeline 2: Rule-Based Fallback */}
+                                    <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                            <span style={{ background: '#e2e8f0', color: '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
+                                                FALLBACK ENGINE
+                                            </span>
+                                            <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Algorithmic Rule Calculation</strong>
                                         </div>
-
-                                        <div className="form-group-p">
-                                            <label htmlFor="smtp_pass" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                SMTP Password / App Password
-                                            </label>
-                                            <div className="input-with-icon" style={{ position: 'relative' }}>
-                                                <FiLock className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                                <input
-                                                    id="smtp_pass"
-                                                    name="smtp_pass"
-                                                    type={showPassword ? 'text' : 'password'}
-                                                    value={settings.smtp_pass}
-                                                    onChange={handleChange}
-                                                    placeholder="••••••••"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 48px 12px 48px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: '#f8fafc',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        right: '16px',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        color: '#94a3b8',
-                                                        fontSize: '1.1rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        padding: 0
-                                                    }}
-                                                >
-                                                    {showPassword ? <FiEyeOff /> : <FiEye />}
-                                                </button>
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                Secure app password or password. Click the eye icon to view or hide the password.
-                                            </p>
-                                        </div>
+                                        <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
+                                            Calculates ratio of extracted mandatory skills, applies a 75% heavy weight on relevant work history, evaluates qualification field alignment factor (0.25 - 1.0), and computes salary expectation fit.
+                                        </p>
                                     </div>
-                                    <div style={{ padding: '16px', background: '#fffbeb', border: '1.5px solid #fef3c7', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '10px' }}>
-                                        <FiAlertTriangle style={{ color: '#d97706', fontSize: '1.25rem', flexShrink: 0, marginTop: '2px' }} />
-                                        <div style={{ fontSize: '0.8rem', color: '#78350f', lineHeight: '1.6' }}>
-                                            <strong style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem' }}>⚠️ SMTP Authentication Guidelines:</strong>
-                                            Just changing the email text field is not enough. You must generate/configure the credentials for the mail server:
-                                            <ul style={{ margin: '6px 0 0 16px', padding: 0 }}>
-                                                <li><strong>Gmail / Google Workspace:</strong> Enable 2-Step Verification on the Google account, go to <a href="https://myaccount.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#b45309', textDecoration: 'underline', fontWeight: 600 }}>Google Account Security &rarr; App Passwords</a>, generate a 16-character App Password, and use it in the SMTP Password field above.</li>
-                                                <li><strong>Office 365 / Microsoft Exchange:</strong> Ensure SMTP AUTH is enabled for this mailbox in the Microsoft 365 Admin Center, and use the correct password (or an App Password if Multi-Factor Authentication is enabled).</li>
-                                            </ul>
-                                        </div>
+
+                                </div>
+
+                                {/* DOMAIN MISMATCH & CLAMPING RULES */}
+                                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '0.76rem', color: '#64748b' }}>
+                                    <div>
+                                        <strong>⚠️ Domain Mismatch Guard:</strong> Candidates applying outside their primary domain (e.g., HR applying for IT) automatically receive a domain conflict penalty.
+                                    </div>
+                                    <div>
+                                        <strong>🔒 Clamping Limits:</strong> All composite scores are normalized between a minimum floor of <strong>12%</strong> and a maximum of <strong>100%</strong>.
                                     </div>
                                 </div>
-                            )}
+                            </div>
+
                         </div>
-                    </div>
-                        </>
                     )}
 
-                    {activeTab === 'pdpa' && (
-                        <>
-                            {/* CARD 3: PDPA CONSENT SETTINGS */}
-                    <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                        <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                            <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
-                                <FiInfo /> PDPA Consent & Guidelines Settings
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                Customize the compliance guidelines and data protection terms displayed to candidates when they submit their applications.
-                            </p>
-                        </div>
-                        
-                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                            {!isEditing ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Consent Heading / Title</span>
-                                        <span style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, marginTop: '8px', display: 'block' }}>
-                                            {settings.pdpa_title}
+                    {/* ========================================================= */}
+                    {/* TAB 2: MAIL & SMTP                                       */}
+                    {/* ========================================================= */}
+                    {activeTab === 'mail' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* ACTIVE SENDER CARD */}
+                            <div style={{
+                                background: '#ffffff',
+                                borderRadius: '16px',
+                                border: '1px solid #e2e8f0',
+                                padding: '20px 24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: '16px'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                    <div style={{
+                                        width: '42px', height: '42px', borderRadius: '12px',
+                                        background: '#fffbeb', color: '#d97706',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '1.25rem', border: '1px solid #fde68a'
+                                    }}>
+                                        <FiMail />
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>
+                                            Active System Sender Address
                                         </span>
-                                    </div>
-
-                                    <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Consent Description Paragraph</span>
-                                        <span style={{ fontSize: '0.9rem', color: '#475569', marginTop: '8px', display: 'block', lineHeight: '1.5' }}>
-                                            {settings.pdpa_description}
-                                        </span>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Purpose Statement</span>
-                                            <span style={{ fontSize: '0.85rem', color: '#475569', marginTop: '8px', display: 'block', lineHeight: '1.4' }}>
-                                                <strong>Purpose:</strong> {settings.pdpa_purpose}
-                                            </span>
-                                        </div>
-
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Retention Policy</span>
-                                            <span style={{ fontSize: '0.85rem', color: '#475569', marginTop: '8px', display: 'block', lineHeight: '1.4' }}>
-                                                <strong>Retention:</strong> {settings.pdpa_retention}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: '20px' }}>
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Security Standards</span>
-                                            <span style={{ fontSize: '0.85rem', color: '#475569', marginTop: '8px', display: 'block', lineHeight: '1.4' }}>
-                                                <strong>Security:</strong> {settings.pdpa_security}
-                                            </span>
-                                        </div>
-
-                                        <div style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1.5px solid #f1f5f9' }}>
-                                            <span style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Rights Statement</span>
-                                            <span style={{ fontSize: '0.85rem', color: '#475569', marginTop: '8px', display: 'block', lineHeight: '1.4' }}>
-                                                <strong>Your Rights:</strong> {settings.pdpa_rights}
-                                            </span>
-                                        </div>
+                                        <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 0 0' }}>
+                                            {settings.system_email || settings.smtp_user || settings.default_email}
+                                        </h3>
                                     </div>
                                 </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div className="form-group-p">
-                                        <label htmlFor="pdpa_title" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                            Consent Heading / Title <span style={{ color: 'var(--crimson)' }}>*</span>
+
+                                <span style={{ background: '#dcfce7', color: '#166534', fontSize: '0.75rem', fontWeight: 800, padding: '4px 12px', borderRadius: '20px', border: '1px solid #bbf7d0' }}>
+                                    ✓ SMTP Active
+                                </span>
+                            </div>
+
+                            {/* SMTP CONFIGURATION FORM CARD */}
+                            <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                <h3 style={{ fontSize: '1.05rem', margin: '0 0 4px 0', color: '#0f172a', fontWeight: 800 }}>
+                                    SMTP Mail Server Credentials
+                                </h3>
+                                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 20px 0' }}>
+                                    Outbound mail server configuration for automated candidate invitations.
+                                </p>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                                    
+                                    <div>
+                                        <label htmlFor="system_email" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Sender Email Address <span style={{ color: '#dc2626' }}>*</span>
                                         </label>
                                         <input
-                                            id="pdpa_title"
-                                            name="pdpa_title"
-                                            type="text"
-                                            value={settings.pdpa_title}
+                                            id="system_email"
+                                            name="system_email"
+                                            type="email"
+                                            value={settings.system_email}
                                             onChange={handleChange}
-                                            
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 16px',
-                                                borderRadius: '12px',
-                                                border: '1.5px solid #e2e8f0',
-                                                background: '#f8fafc',
-                                                fontSize: '0.95rem',
-                                                transition: 'all 0.3s'
-                                            }}
+                                            disabled={!isEditing}
+                                            placeholder="careers@company.com"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
                                         />
                                     </div>
 
-                                    <div className="form-group-p">
-                                        <label htmlFor="pdpa_description" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                            Consent Description Paragraph <span style={{ color: 'var(--crimson)' }}>*</span>
+                                    <div>
+                                        <label htmlFor="smtp_from_name" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Sender Display Name
                                         </label>
-                                        <textarea
-                                            id="pdpa_description"
-                                            name="pdpa_description"
-                                            rows="3"
-                                            value={settings.pdpa_description}
+                                        <input
+                                            id="smtp_from_name"
+                                            name="smtp_from_name"
+                                            type="text"
+                                            value={settings.smtp_from_name}
                                             onChange={handleChange}
-                                            
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 16px',
-                                                borderRadius: '12px',
-                                                border: '1.5px solid #e2e8f0',
-                                                background: '#f8fafc',
-                                                fontSize: '0.95rem',
-                                                transition: 'all 0.3s',
-                                                resize: 'vertical',
-                                                fontFamily: 'inherit'
-                                            }}
+                                            disabled={!isEditing}
+                                            placeholder="GS Careers HR Team"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
                                         />
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="pdpa_purpose" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Purpose Statement <span style={{ color: 'var(--crimson)' }}>*</span>
-                                            </label>
-                                            <textarea
-                                                id="pdpa_purpose"
-                                                name="pdpa_purpose"
-                                                rows="2"
-                                                value={settings.pdpa_purpose}
-                                                onChange={handleChange}
-                                                
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s',
-                                                    resize: 'vertical',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
+                                    <div>
+                                        <label htmlFor="smtp_host" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            SMTP Host Server
+                                        </label>
+                                        <input
+                                            id="smtp_host"
+                                            name="smtp_host"
+                                            type="text"
+                                            value={settings.smtp_host}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            placeholder="smtp.office365.com"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
 
-                                        <div className="form-group-p">
-                                            <label htmlFor="pdpa_retention" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Retention Policy <span style={{ color: 'var(--crimson)' }}>*</span>
-                                            </label>
-                                            <textarea
-                                                id="pdpa_retention"
-                                                name="pdpa_retention"
-                                                rows="2"
-                                                value={settings.pdpa_retention}
+                                    <div>
+                                        <label htmlFor="smtp_port" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            SMTP Port
+                                        </label>
+                                        <input
+                                            id="smtp_port"
+                                            name="smtp_port"
+                                            type="text"
+                                            value={settings.smtp_port}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            placeholder="587"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="smtp_secure" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Security Encryption
+                                        </label>
+                                        <select
+                                            id="smtp_secure"
+                                            name="smtp_secure"
+                                            value={settings.smtp_secure}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="tls">TLS (STARTTLS - Recommended)</option>
+                                            <option value="ssl">SSL (Implicit SSL)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="smtp_user" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            SMTP Account Username
+                                        </label>
+                                        <input
+                                            id="smtp_user"
+                                            name="smtp_user"
+                                            type="text"
+                                            value={settings.smtp_user}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            placeholder="user@domain.com"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="smtp_pass" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            SMTP Account Password
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                id="smtp_pass"
+                                                name="smtp_pass"
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={settings.smtp_pass}
                                                 onChange={handleChange}
-                                                
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s',
-                                                    resize: 'vertical',
-                                                    fontFamily: 'inherit'
-                                                }}
+                                                disabled={!isEditing}
+                                                placeholder="••••••••"
+                                                style={{ width: '100%', padding: '10px 42px 10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                disabled={!isEditing}
+                                                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
+                                            >
+                                                {showPassword ? <FiEyeOff /> : <FiEye />}
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="pdpa_security" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Security Standards <span style={{ color: 'var(--crimson)' }}>*</span>
-                                            </label>
-                                            <textarea
-                                                id="pdpa_security"
-                                                name="pdpa_security"
-                                                rows="2"
-                                                value={settings.pdpa_security}
-                                                onChange={handleChange}
-                                                
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s',
-                                                    resize: 'vertical',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '14px 18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <div>
+                                            <strong style={{ display: 'block', fontSize: '0.86rem', color: '#0f172a' }}>Automated Candidate Emails</strong>
+                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Send confirmation &amp; invite emails</span>
                                         </div>
-
-                                        <div className="form-group-p">
-                                            <label htmlFor="pdpa_rights" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Your Rights Statement <span style={{ color: 'var(--crimson)' }}>*</span>
-                                            </label>
-                                            <textarea
-                                                id="pdpa_rights"
-                                                name="pdpa_rights"
-                                                rows="2"
-                                                value={settings.pdpa_rights}
-                                                onChange={handleChange}
-                                                
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: '#f8fafc',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s',
-                                                    resize: 'vertical',
-                                                    fontFamily: 'inherit'
-                                                }}
-                                            />
-                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            id="enable_candidate_emails"
+                                            name="enable_candidate_emails"
+                                            checked={settings.enable_candidate_emails == '1'}
+                                            onChange={(e) => setSettings(prev => ({ ...prev, enable_candidate_emails: e.target.checked ? '1' : '0' }))}
+                                            disabled={!isEditing}
+                                            style={{ width: '18px', height: '18px', accentColor: '#7A1228', cursor: isEditing ? 'pointer' : 'default' }}
+                                        />
                                     </div>
+
                                 </div>
-                            )}
+                            </div>
+
+                            {/* DIAGNOSTICS TEST DRAWER */}
+                            <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                <h3 style={{ fontSize: '1.05rem', margin: '0 0 4px 0', color: '#0f172a', fontWeight: 800 }}>
+                                    Live SMTP Diagnostic Tester
+                                </h3>
+                                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 16px 0' }}>
+                                    Send a live test email to verify server connection and credentials.
+                                </p>
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'flex-end' }}>
+                                    <div style={{ flex: 1, minWidth: '260px' }}>
+                                        <label htmlFor="test_recipient" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Recipient Email Address
+                                        </label>
+                                        <input
+                                            id="test_recipient"
+                                            name="test_recipient"
+                                            type="email"
+                                            value={testRecipient}
+                                            onChange={(e) => setTestRecipient(e.target.value)}
+                                            placeholder="test@example.com"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleTestSmtp}
+                                        disabled={testing}
+                                        style={{
+                                            padding: '10px 20px',
+                                            borderRadius: '10px',
+                                            fontWeight: 700,
+                                            fontSize: '0.88rem',
+                                            border: 'none',
+                                            background: '#7A1228',
+                                            color: '#ffffff',
+                                            cursor: testing ? 'not-allowed' : 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            height: '42px',
+                                            boxShadow: '0 2px 8px rgba(122, 18, 40, 0.2)'
+                                        }}
+                                    >
+                                        {testing ? 'Testing...' : <><FiPlay /> Run Diagnostic Test</>}
+                                    </button>
+                                </div>
+
+                                {testResult && (
+                                    <div style={{
+                                        border: `1px solid ${testResult.success ? '#bbf7d0' : '#fecaca'}`,
+                                        background: testResult.success ? '#f0fdf4' : '#fef2f2',
+                                        borderRadius: '12px',
+                                        padding: '16px',
+                                        marginTop: '16px'
+                                    }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            {testResult.success ? (
+                                                <FiCheckCircle style={{ color: '#16a34a', fontSize: '1.3rem', flexShrink: 0 }} />
+                                            ) : (
+                                                <FiAlertTriangle style={{ color: '#dc2626', fontSize: '1.3rem', flexShrink: 0 }} />
+                                            )}
+                                            <div style={{ flex: 1 }}>
+                                                <strong style={{ fontSize: '0.88rem', color: testResult.success ? '#15803d' : '#991b1b' }}>
+                                                    {testResult.success ? 'SMTP Connection Successful!' : 'SMTP Connection Failed'}
+                                                </strong>
+                                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: testResult.success ? '#166534' : '#7f1d1d' }}>
+                                                    {testResult.message}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: `1px solid ${testResult.success ? '#dcfce7' : '#fee2e2'}` }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowDebug(!showDebug)}
+                                                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: testResult.success ? '#166534' : '#7f1d1d', fontSize: '0.78rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                {showDebug ? <><FiChevronUp /> Hide Diagnostic Logs</> : <><FiChevronDown /> Show Diagnostic Logs</>}
+                                            </button>
+
+                                            {showDebug && (
+                                                <pre style={{ marginTop: '10px', padding: '12px', background: '#0f172a', color: '#38bdf8', borderRadius: '10px', fontSize: '0.75rem', fontFamily: 'monospace', overflowX: 'auto', maxHeight: '240px', overflowY: 'auto' }}>
+                                                    {testResult.debug}
+                                                </pre>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
-                    </div>
-                        </>
                     )}
 
-                    {activeTab === 'email' && (
-                        <>
-                            {/* EMAIL SUB-TABS SELECTOR */}
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', background: '#f1f5f9', padding: '6px', borderRadius: '14px', width: 'fit-content', border: '1px solid #e2e8f0' }}>
+                    {/* ========================================================= */}
+                    {/* TAB 3: EMAIL TEMPLATES                                    */}
+                    {/* ========================================================= */}
+                    {isSuperAdmin && activeTab === 'email' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* SUB TAB SELECTOR */}
+                            <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', width: 'fit-content', border: '1px solid #e2e8f0' }}>
                                 <button
                                     type="button"
                                     onClick={() => setActiveEmailSubTab('candidate')}
                                     style={{
-                                        padding: '10px 24px',
-                                        borderRadius: '10px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 800,
+                                        padding: '7px 16px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: activeEmailSubTab === 'candidate' ? 700 : 600,
                                         border: 'none',
-                                        background: activeEmailSubTab === 'candidate' ? '#fff' : 'transparent',
-                                        color: activeEmailSubTab === 'candidate' ? 'var(--crimson)' : '#64748b',
-                                        boxShadow: activeEmailSubTab === 'candidate' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                                        background: activeEmailSubTab === 'candidate' ? '#ffffff' : 'transparent',
+                                        color: activeEmailSubTab === 'candidate' ? '#7A1228' : '#64748b',
                                         cursor: 'pointer',
-                                        transition: 'all 0.25s ease'
+                                        boxShadow: activeEmailSubTab === 'candidate' ? '0 2px 6px rgba(0,0,0,0.04)' : 'none'
                                     }}
                                 >
                                     Candidate Notifications
@@ -1835,994 +1334,582 @@ function SettingsPage({ admin }) {
                                     type="button"
                                     onClick={() => setActiveEmailSubTab('vacancy')}
                                     style={{
-                                        padding: '10px 24px',
-                                        borderRadius: '10px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 800,
+                                        padding: '7px 16px',
+                                        borderRadius: '8px',
+                                        fontSize: '0.82rem',
+                                        fontWeight: activeEmailSubTab === 'vacancy' ? 700 : 600,
                                         border: 'none',
-                                        background: activeEmailSubTab === 'vacancy' ? '#fff' : 'transparent',
-                                        color: activeEmailSubTab === 'vacancy' ? 'var(--crimson)' : '#64748b',
-                                        boxShadow: activeEmailSubTab === 'vacancy' ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+                                        background: activeEmailSubTab === 'vacancy' ? '#ffffff' : 'transparent',
+                                        color: activeEmailSubTab === 'vacancy' ? '#7A1228' : '#64748b',
                                         cursor: 'pointer',
-                                        transition: 'all 0.25s ease'
+                                        boxShadow: activeEmailSubTab === 'vacancy' ? '0 2px 6px rgba(0,0,0,0.04)' : 'none'
                                     }}
                                 >
-                                    Vacancy Workflow Requisitions
+                                    Vacancy Requisition Workflow Alerts
                                 </button>
                             </div>
 
+                            {/* CANDIDATE NOTIFICATIONS */}
                             {activeEmailSubTab === 'candidate' && (
-                                <>
-                                    {/* INFO ALERT ABOUT PLACEHOLDERS */}
-                            <div style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '24px' }}>
-                                <FiInfo style={{ color: 'var(--crimson)', fontSize: '1.25rem', flexShrink: 0, marginTop: '2px' }} />
-                                <div style={{ fontSize: '0.85rem', color: '#475569', lineHeight: '1.5' }}>
-                                    <strong>Template Variables / Placeholders:</strong> You can use placeholders inside the subject or body of these templates. The system will automatically replace them when sending:
-                                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                                        <li><code>{`{name}`}</code> - Candidate's first name</li>
-                                        <li><code>{`{job_title}`}</code> - Vacancy position title</li>
-                                        <li><code>{`{company}`}</code> - Company name (e.g., George Steuart Health)</li>
-                                        <li><code>{`{ref_no}`}</code> - Job reference number</li>
-                                        <li><code>{`{interview_type}`}</code> - Interview mode (Online, In-Person - Shortlist template only)</li>
-                                        <li><code>{`{interview_date}`}</code> - Scheduled date (Shortlist template only)</li>
-                                        <li><code>{`{interview_time}`}</code> - Scheduled time (Shortlist template only)</li>
-                                        <li><code>{`{interview_location}`}</code> - Location address or meeting link (Shortlist template only)</li>
-                                    </ul>
-                                </div>
-                            </div>
-
-                            {/* CARD: CONFIRMATION EMAIL */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Application Received Acknowledgment Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent automatically to candidates immediately after they successfully submit their job application.
-                                    </p>
-                                </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_confirmation_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_confirmation_body }}></div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_confirmation_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    
+                                    {/* Application Confirmation */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                                            Application Confirmation Template
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Subject Line</label>
                                                 <input
-                                                    id="email_template_confirmation_subject"
                                                     name="email_template_confirmation_subject"
                                                     type="text"
                                                     value={settings.email_template_confirmation_subject}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
                                                 />
                                             </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_confirmation_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155' }}>Email Body</label>
+                                                    {isEditing && (
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            {['{candidate_name}', '{job_title}', '{company_name}'].map(tag => (
+                                                                <button key={tag} type="button" onClick={() => insertTag('email_template_confirmation_body', tag)} style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer' }}>
+                                                                    + {tag}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <textarea
-                                                    id="email_template_confirmation_body"
                                                     name="email_template_confirmation_body"
-                                                    rows="15"
+                                                    rows="5"
                                                     value={settings.email_template_confirmation_body}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
                                                 />
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
 
-                            {/* CARD: SHORTLIST EMAIL */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Interview Invitation (Shortlist) Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent to candidates when they are moved to the "Shortlisted" status and scheduled for an interview.
-                                    </p>
-                                </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_shortlist_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_shortlist_body }}></div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_shortlist_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                    {/* Shortlist Template */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#15803d' }}>
+                                            Shortlisted / Interview Invitation Template
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Subject Line</label>
                                                 <input
-                                                    id="email_template_shortlist_subject"
                                                     name="email_template_shortlist_subject"
                                                     type="text"
                                                     value={settings.email_template_shortlist_subject}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
                                                 />
                                             </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_shortlist_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155' }}>Email Body</label>
+                                                    {isEditing && (
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            {['{candidate_name}', '{job_title}', '{interview_date}', '{interview_time}'].map(tag => (
+                                                                <button key={tag} type="button" onClick={() => insertTag('email_template_shortlist_body', tag)} style={{ fontSize: '0.68rem', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer' }}>
+                                                                    + {tag}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <textarea
-                                                    id="email_template_shortlist_body"
                                                     name="email_template_shortlist_body"
-                                                    rows="15"
+                                                    rows="6"
                                                     value={settings.email_template_shortlist_body}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
                                                 />
                                             </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
 
-                            {/* CARD: REJECTION EMAIL */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Rejection Email Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent to candidates when their application status is changed to "Rejected".
-                                    </p>
-                                </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_rejection_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_rejection_body }}></div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_rejection_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                    {/* Rejection Template */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#b91c1c' }}>
+                                            Rejection Template
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>Subject Line</label>
                                                 <input
-                                                    id="email_template_rejection_subject"
                                                     name="email_template_rejection_subject"
                                                     type="text"
                                                     value={settings.email_template_rejection_subject}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
                                                 />
                                             </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_rejection_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
+                                            <div>
                                                 <textarea
-                                                    id="email_template_rejection_body"
                                                     name="email_template_rejection_body"
-                                                    rows="15"
+                                                    rows="5"
                                                     value={settings.email_template_rejection_body}
                                                     onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
+                                                    disabled={!isEditing}
+                                                    style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
                                                 />
                                             </div>
                                         </div>
-                                    )}
+                                    </div>
+
                                 </div>
-                            </div>
-                                </>
                             )}
 
+                            {/* VACANCY WORKFLOW ALERTS */}
                             {activeEmailSubTab === 'vacancy' && (
-                                <>
-                                    {/* SECTION DIVIDER */}
-                                    <div style={{ margin: '0 0 24px 0', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px' }}>
-                                        <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    Vacancy Requisition Workflow Email Alerts
-                                </h4>
-                                <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0 }}>
-                                    Configure notifications triggered internally when jobs are submitted, approved, or rejected in the approval pipeline.
-                                </p>
-                            </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    
+                                    {/* Vacancy Pending Approval */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#d97706' }}>
+                                            Vacancy Requisition Pending Approval Alert
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <input
+                                                name="email_template_vacancy_pending_subject"
+                                                type="text"
+                                                value={settings.email_template_vacancy_pending_subject}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
+                                            />
+                                            <textarea
+                                                name="email_template_vacancy_pending_body"
+                                                rows="5"
+                                                value={settings.email_template_vacancy_pending_body}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
+                                            />
+                                        </div>
+                                    </div>
 
-                            {/* CARD: VACANCY PENDING APPROVAL */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Vacancy Requisition Pending Approval Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent to Sub Admin 1 and Global Admins notifying them that a job requisition is awaiting review and action.
-                                    </p>
-                                </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_vacancy_pending_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_vacancy_pending_body }}></div>
-                                            </div>
+                                    {/* Vacancy Approved */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#16a34a' }}>
+                                            Vacancy Requisition Approved &amp; Published Alert
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <input
+                                                name="email_template_vacancy_approved_subject"
+                                                type="text"
+                                                value={settings.email_template_vacancy_approved_subject}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
+                                            />
+                                            <textarea
+                                                name="email_template_vacancy_approved_body"
+                                                rows="5"
+                                                value={settings.email_template_vacancy_approved_body}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
+                                            />
                                         </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_pending_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <input
-                                                    id="email_template_vacancy_pending_subject"
-                                                    name="email_template_vacancy_pending_subject"
-                                                    type="text"
-                                                    value={settings.email_template_vacancy_pending_subject}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
-                                                />
-                                            </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_pending_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <textarea
-                                                    id="email_template_vacancy_pending_body"
-                                                    name="email_template_vacancy_pending_body"
-                                                    rows="15"
-                                                    value={settings.email_template_vacancy_pending_body}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
 
-                            {/* CARD: VACANCY APPROVED */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Vacancy Approved & Published Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent to creators and reviewers when a job requisition is approved and published on the careers portal.
-                                    </p>
-                                </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_vacancy_approved_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_vacancy_approved_body }}></div>
-                                            </div>
+                                    {/* Vacancy Rejected */}
+                                    <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 800, color: '#dc2626' }}>
+                                            Vacancy Requisition Returned for Revision Alert
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <input
+                                                name="email_template_vacancy_rejected_subject"
+                                                type="text"
+                                                value={settings.email_template_vacancy_rejected_subject}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.88rem' }}
+                                            />
+                                            <textarea
+                                                name="email_template_vacancy_rejected_body"
+                                                rows="5"
+                                                value={settings.email_template_vacancy_rejected_body}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.84rem', fontFamily: 'monospace' }}
+                                            />
                                         </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_approved_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <input
-                                                    id="email_template_vacancy_approved_subject"
-                                                    name="email_template_vacancy_approved_subject"
-                                                    type="text"
-                                                    value={settings.email_template_vacancy_approved_subject}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
-                                                />
-                                            </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_approved_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <textarea
-                                                    id="email_template_vacancy_approved_body"
-                                                    name="email_template_vacancy_approved_body"
-                                                    rows="15"
-                                                    value={settings.email_template_vacancy_approved_body}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
 
-                            {/* CARD: VACANCY REJECTED */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiMail /> Vacancy Returned for Revision Template
-                                    </h3>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Sent to requisition creators and reviewers when a job requisition is rejected with reviewer comments.
-                                    </p>
                                 </div>
-                                <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    {!isEditing ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Subject</span>
-                                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>{settings.email_template_vacancy_rejected_subject}</span>
-                                            </div>
-                                            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                                                <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Email Body Message</span>
-                                                <div style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }} dangerouslySetInnerHTML={{ __html: settings.email_template_vacancy_rejected_body }}></div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_rejected_subject" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Subject Line <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <input
-                                                    id="email_template_vacancy_rejected_subject"
-                                                    name="email_template_vacancy_rejected_subject"
-                                                    type="text"
-                                                    value={settings.email_template_vacancy_rejected_subject}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.9rem' }}
-                                                />
-                                            </div>
-                                            <div className="form-group-p">
-                                                <label htmlFor="email_template_vacancy_rejected_body" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                    Email Body Message <span style={{ color: 'var(--crimson)' }}>*</span>
-                                                </label>
-                                                <textarea
-                                                    id="email_template_vacancy_rejected_body"
-                                                    name="email_template_vacancy_rejected_body"
-                                                    rows="15"
-                                                    value={settings.email_template_vacancy_rejected_body}
-                                                    onChange={handleChange}
-                                                    
-                                                    style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: '#f8fafc', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'Consolas, Monaco, "Courier New", Courier, monospace', lineHeight: '1.4' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </>
-            )}
+                            )}
 
-                    {activeTab === 'mail' && (
-                        <>
-                            {/* CARD 4: CONNECTION TEST DIAGNOSTICS */}
-                    <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-                        <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                            <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
-                                <FiActivity /> SMTP Connection Diagnostics
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                Send a live test email directly using the configurations above to check port connection, security certificates, and login credentials.
-                            </p>
                         </div>
-                        
-                        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div className="smtp-test-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-end' }}>
-                                <div style={{ flex: 1, minWidth: '280px' }}>
-                                    <label htmlFor="test_recipient" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                        Test Recipient Email Address
-                                    </label>
-                                    <div className="input-with-icon" style={{ position: 'relative' }}>
-                                        <FiMail className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
+                    )}
+
+                    {/* ========================================================= */}
+                    {/* TAB 4: PDPA DATA CONSENT                                  */}
+                    {/* ========================================================= */}
+                    {activeTab === 'pdpa' && (
+                        <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
+                            <h3 style={{ fontSize: '1.05rem', margin: '0 0 4px 0', color: '#0f172a', fontWeight: 800 }}>
+                                Personal Data Protection Act (PDPA) Consent Policies
+                            </h3>
+                            <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 20px 0' }}>
+                                Candidate data privacy statements and consent policy texts.
+                            </p>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                                
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Policy Title</label>
+                                    <input
+                                        name="pdpa_title"
+                                        type="text"
+                                        value={settings.pdpa_title}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Overview Description</label>
+                                    <input
+                                        name="pdpa_description"
+                                        type="text"
+                                        value={settings.pdpa_description}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Purpose of Collection</label>
+                                    <textarea
+                                        name="pdpa_purpose"
+                                        rows="4"
+                                        value={settings.pdpa_purpose}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.85rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Data Retention Policy</label>
+                                    <textarea
+                                        name="pdpa_retention"
+                                        rows="4"
+                                        value={settings.pdpa_retention}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.85rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Data Security Protocols</label>
+                                    <textarea
+                                        name="pdpa_security"
+                                        rows="4"
+                                        value={settings.pdpa_security}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.85rem' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Candidate Statutory Rights</label>
+                                    <textarea
+                                        name="pdpa_rights"
+                                        rows="4"
+                                        value={settings.pdpa_rights}
+                                        onChange={handleChange}
+                                        disabled={!isEditing}
+                                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.85rem' }}
+                                    />
+                                </div>
+
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ========================================================= */}
+                    {/* TAB 5: AI RESUME PARSER                                   */}
+                    {/* ========================================================= */}
+                    {isSuperAdmin && activeTab === 'ai' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            
+                            {/* QUICK AI ENGINE SWITCHER */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: '#ffffff',
+                                padding: '16px 20px',
+                                borderRadius: '16px',
+                                border: '1px solid #e2e8f0'
+                            }}>
+                                <div>
+                                    <strong style={{ display: 'block', fontSize: '0.9rem', color: '#0f172a' }}>Active AI Resume Parser Engine</strong>
+                                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                        Current engine: <strong>{settings.ai_provider === 'gemini' ? 'Google Gemini Cloud API' : 'Local Ollama Server'}</strong>
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleQuickAiSwitch('gemini')}
+                                        style={{
+                                            padding: '6px 14px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 700,
+                                            border: 'none',
+                                            background: settings.ai_provider === 'gemini' ? '#ffffff' : 'transparent',
+                                            color: settings.ai_provider === 'gemini' ? '#7A1228' : '#64748b',
+                                            boxShadow: settings.ai_provider === 'gemini' ? '0 2px 6px rgba(0,0,0,0.04)' : 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        ☁️ Gemini (Cloud)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleQuickAiSwitch('ollama')}
+                                        style={{
+                                            padding: '6px 14px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 700,
+                                            border: 'none',
+                                            background: settings.ai_provider === 'ollama' ? '#ffffff' : 'transparent',
+                                            color: settings.ai_provider === 'ollama' ? '#7A1228' : '#64748b',
+                                            boxShadow: settings.ai_provider === 'ollama' ? '0 2px 6px rgba(0,0,0,0.04)' : 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        💻 Ollama (Local)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* DUAL ENGINE CONFIG CARDS */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+                                
+                                {/* 1. GOOGLE GEMINI CONFIG CARD */}
+                                <div style={{
+                                    background: '#ffffff',
+                                    borderRadius: '16px',
+                                    border: settings.ai_provider === 'gemini' ? '2px solid #7A1228' : '1px solid #e2e8f0',
+                                    padding: '24px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Google Gemini Cloud Settings</h4>
+                                        {settings.ai_provider === 'gemini' && (
+                                            <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px' }}>LIVE ROUTING</span>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="gemini_api_key" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Google Gemini API Key
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                id="gemini_api_key"
+                                                name="gemini_api_key"
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={settings.gemini_api_key}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                placeholder="••••••••"
+                                                style={{ width: '100%', padding: '10px 42px 10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                disabled={!isEditing}
+                                                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
+                                            >
+                                                {showPassword ? <FiEyeOff /> : <FiEye />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="gemini_model" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Gemini Model Version
+                                        </label>
+                                        <select
+                                            id="gemini_model"
+                                            name="gemini_model"
+                                            value={settings.gemini_model}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended - Fast &amp; Accurate)</option>
+                                            <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Fast &amp; light)</option>
+                                            <option value="gemini-2.5-pro">gemini-2.5-pro (High quality reasoning)</option>
+                                            <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                                        </select>
+                                    </div>
+
+                                    {/* GEMINI QUOTA & TOKEN HEALTH MONITOR CARD */}
+                                    <div style={{
+                                        marginTop: '6px',
+                                        padding: '16px',
+                                        background: quotaData?.is_exhausted ? '#fef2f2' : (quotaData?.is_warning ? '#fffbeb' : '#f0fdf4'),
+                                        borderRadius: '14px',
+                                        border: `1px solid ${quotaData?.is_exhausted ? '#fecaca' : (quotaData?.is_warning ? '#fde68a' : '#bbf7d0')}`
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <FiActivity style={{ color: quotaData?.is_exhausted ? '#dc2626' : (quotaData?.is_warning ? '#d97706' : '#16a34a') }} />
+                                                <strong style={{ fontSize: '0.85rem', color: '#0f172a' }}>Gemini Quota &amp; API Monitor</strong>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={handleCheckQuota}
+                                                disabled={checkingQuota}
+                                                style={{
+                                                    padding: '5px 12px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 700,
+                                                    border: '1px solid #cbd5e1',
+                                                    background: '#ffffff',
+                                                    color: '#334155',
+                                                    cursor: checkingQuota ? 'not-allowed' : 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <FiRefreshCw style={{ animation: checkingQuota ? 'spin 1s linear infinite' : 'none' }} />
+                                                {checkingQuota ? 'Testing...' : 'Check Quota'}
+                                            </button>
+                                        </div>
+
+                                        {quotaData ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                                                        <span>Daily Extractions Quota (Free Tier):</span>
+                                                        <span style={{ color: quotaData.is_exhausted ? '#dc2626' : (quotaData.is_warning ? '#d97706' : '#16a34a') }}>
+                                                            {quotaData.used_today} / {quotaData.daily_limit} Requests ({quotaData.percentage}%)
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            height: '100%',
+                                                            width: `${Math.max(4, quotaData.percentage)}%`,
+                                                            background: quotaData.is_exhausted ? '#dc2626' : (quotaData.is_warning ? '#d97706' : '#16a34a'),
+                                                            borderRadius: '20px'
+                                                        }}></div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                                    <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Key Health</span>
+                                                        <span style={{ display: 'block', marginTop: '2px', fontSize: '0.75rem', fontWeight: 800, color: quotaData.status === 'healthy' ? '#16a34a' : '#dc2626' }}>
+                                                            {quotaData.status === 'healthy' ? '🟢 Active' : '🔴 429 Limit'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Remaining</span>
+                                                        <span style={{ display: 'block', marginTop: '2px', fontSize: '0.78rem', fontWeight: 800, color: '#1e293b' }}>
+                                                            {quotaData.remaining_today} reqs
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Daily Reset</span>
+                                                        <span style={{ display: 'block', marginTop: '2px', fontSize: '0.78rem', fontWeight: 800, color: '#78350f' }}>
+                                                            in {quotaData.reset_in}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+                                                Click "Check Quota" to test key health and daily request limits.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                </div>
+
+                                {/* 2. LOCAL OLLAMA CONFIG CARD */}
+                                <div style={{
+                                    background: '#ffffff',
+                                    borderRadius: '16px',
+                                    border: settings.ai_provider === 'ollama' ? '2px solid #7A1228' : '1px solid #e2e8f0',
+                                    padding: '24px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Local Ollama Server Settings</h4>
+                                        {settings.ai_provider === 'ollama' && (
+                                            <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: '10px' }}>LIVE ROUTING</span>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="ollama_server" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Ollama Server Base URL
+                                        </label>
                                         <input
-                                            id="test_recipient"
-                                            name="test_recipient"
-                                            type="email"
-                                            value={testRecipient}
-                                            onChange={(e) => setTestRecipient(e.target.value)}
-                                            placeholder="test@example.com"
-                                            style={{
-                                                width: '100%',
-                                                padding: '12px 16px 12px 48px',
-                                                borderRadius: '12px',
-                                                border: '1.5px solid #e2e8f0',
-                                                background: '#f8fafc',
-                                                fontSize: '0.95rem',
-                                                transition: 'all 0.3s'
-                                            }}
+                                            id="ollama_server"
+                                            name="ollama_server"
+                                            type="text"
+                                            value={settings.ollama_server}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            placeholder="http://172.16.7.21:11434"
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
                                         />
                                     </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleTestSmtp}
-                                    disabled={testing}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '12px 24px',
-                                        borderRadius: '12px',
-                                        fontWeight: 700,
-                                        fontSize: '0.95rem',
-                                        border: '1.5px solid var(--crimson)',
-                                        cursor: testing ? 'not-allowed' : 'pointer',
-                                        background: 'transparent',
-                                        color: 'var(--crimson)',
-                                        transition: 'all 0.2s',
-                                        height: '48px'
-                                    }}
-                                >
-                                    {testing ? (
-                                        <>
-                                            <div className="spinner-p" style={{ width: '18px', height: '18px', borderWidth: '2px', borderTopColor: 'var(--crimson)', display: 'inline-block', verticalAlign: 'middle', marginRight: '6px' }}></div>
-                                            Testing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiPlay /> Run Diagnostics Test
-                                        </>
-                                    )}
-                                </button>
-                            </div>
 
-                            {/* DIAGNOSTIC RESULTS STATUS BOX */}
-                            {testResult && (
-                                <div style={{ 
-                                    border: `1px solid ${testResult.success ? '#bbf7d0' : '#fecaca'}`, 
-                                    background: testResult.success ? '#f0fdf4' : '#fef2f2',
-                                    borderRadius: '12px',
-                                    padding: '20px',
-                                    marginTop: '8px',
-                                    animation: 'fadeIn 0.3s ease-out'
-                                }}>
-                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                        {testResult.success ? (
-                                            <FiCheckCircle style={{ color: '#16a34a', fontSize: '1.5rem', flexShrink: 0 }} />
-                                        ) : (
-                                            <FiAlertTriangle style={{ color: '#dc2626', fontSize: '1.5rem', flexShrink: 0 }} />
-                                        )}
-                                        <div style={{ flex: 1 }}>
-                                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: testResult.success ? '#15803d' : '#991b1b' }}>
-                                                {testResult.success ? 'Diagnostics Passed successfully!' : 'SMTP Connection Diagnostics Failed'}
-                                            </h4>
-                                            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: testResult.success ? '#166534' : '#7f1d1d' }}>
-                                                {testResult.message}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* COLLAPSIBLE LOGS DRAWER */}
-                                    <div style={{ marginTop: '16px', borderTop: `1px solid ${testResult.success ? '#dcfce7' : '#fee2e2'}`, paddingTop: '16px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowDebug(!showDebug)}
-                                            style={{
-                                                background: 'none',
-                                                border: 'none',
-                                                padding: 0,
-                                                cursor: 'pointer',
-                                                color: testResult.success ? '#166534' : '#7f1d1d',
-                                                fontSize: '0.8rem',
-                                                fontWeight: 700,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}
-                                        >
-                                            {showDebug ? (
-                                                <><FiChevronUp /> Hide SMTP Diagnostic Logs</>
-                                            ) : (
-                                                <><FiChevronDown /> Show SMTP Diagnostic Logs</>
-                                            )}
-                                        </button>
-
-                                        {showDebug && (
-                                            <pre style={{ 
-                                                marginTop: '12px', 
-                                                padding: '12px', 
-                                                background: '#0f172a', 
-                                                color: '#38bdf8', 
-                                                borderRadius: '8px', 
-                                                fontSize: '0.75rem', 
-                                                fontFamily: 'Courier New, monospace', 
-                                                overflowX: 'auto',
-                                                whiteSpace: 'pre-wrap',
-                                                maxHeight: '300px',
-                                                overflowY: 'auto',
-                                                lineHeight: '1.4'
-                                            }}>
-                                                {testResult.debug}
-                                            </pre>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                        </>
-                    )}
-
-                    {activeTab === 'ai' && (
-                        <>
-                            {/* TOP QUICK SWITCHER TOGGLE BAR */}
-                            {!isEditing && (
-                                <div style={{ 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'space-between',
-                                    background: '#fff', 
-                                    padding: '16px 24px', 
-                                    borderRadius: '16px', 
-                                    border: '1px solid var(--border-light)', 
-                                    boxShadow: '0 4px 20px rgba(0,0,0,0.01)', 
-                                    marginBottom: '20px' 
-                                }}>
                                     <div>
-                                        <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 800 }}>Quick AI Engine Switcher</h4>
-                                        <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>Instantly switch the system provider</p>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '5px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleQuickAiSwitch('gemini')}
-                                            title="Switch all system AI operations to Google Gemini Cloud API"
-                                            style={{
-                                                padding: '8px 16px',
-                                                borderRadius: '10px',
-                                                fontSize: '0.85rem',
-                                                fontWeight: 800,
-                                                border: 'none',
-                                                background: settings.ai_provider === 'gemini' ? '#ffffff' : 'transparent',
-                                                color: settings.ai_provider === 'gemini' ? 'var(--crimson)' : '#64748b',
-                                                boxShadow: settings.ai_provider === 'gemini' ? '0 4px 10px rgba(0,0,0,0.06)' : 'none',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.25s ease',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}
-                                        >
-                                            ☁️ Cloud AI (Gemini)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleQuickAiSwitch('ollama')}
-                                            title="Switch all system AI operations to Local Ollama Server"
-                                            style={{
-                                                padding: '8px 16px',
-                                                borderRadius: '10px',
-                                                fontSize: '0.85rem',
-                                                fontWeight: 800,
-                                                border: 'none',
-                                                background: settings.ai_provider === 'ollama' ? '#ffffff' : 'transparent',
-                                                color: settings.ai_provider === 'ollama' ? 'var(--crimson)' : '#64748b',
-                                                boxShadow: settings.ai_provider === 'ollama' ? '0 4px 10px rgba(0,0,0,0.06)' : 'none',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.25s ease',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}
-                                        >
-                                            💻 Local AI (Ollama)
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ACTIVE CONFIGURATION SUMMARY CARD */}
-                            <div className="stat-glass-card gold settings-sender-card" style={{ 
-                                marginBottom: '24px', 
-                                display: 'flex', 
-                                flexDirection: 'row', 
-                                alignItems: 'center', 
-                                flexWrap: 'wrap',
-                                gap: '20px', 
-                                background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', 
-                                border: '1.5px solid #fde68a', 
-                                borderRadius: '20px', 
-                                padding: '24px',
-                                boxShadow: '0 10px 25px rgba(217, 119, 6, 0.04)'
-                            }}>
-                                <div style={{ 
-                                    width: '56px', 
-                                    height: '56px', 
-                                    borderRadius: '16px', 
-                                    background: '#fef3c7', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    fontSize: '1.8rem', 
-                                    color: '#d97706', 
-                                    flexShrink: 0,
-                                    border: '1px solid #fde68a'
-                                }}>
-                                    <FiCpu />
-                                </div>
-                                <div style={{ flex: 1, minWidth: '250px' }}>
-                                    <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.75px' }}>Active AI Engine Summary</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                                        <span style={{ fontSize: '1.4rem', fontWeight: 900, color: '#78350f' }}>
-                                            {settings.ai_provider === 'gemini' ? 'Google Gemini API' : 'Local Ollama Server'}
-                                        </span>
-                                        <span style={{ 
-                                            background: '#dcfce7', 
-                                            color: '#166534', 
-                                            fontSize: '0.75rem', 
-                                            fontWeight: 800, 
-                                            padding: '4px 10px', 
-                                            borderRadius: '20px', 
-                                            border: '1px solid #bbf7d0',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            ✓ ONLINE & ACTIVE
-                                        </span>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', borderLeft: '1px solid rgba(217,119,6,0.15)', paddingLeft: '24px' }}>
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Target Model</span>
-                                        <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 700, color: '#78350f', marginTop: '2px', fontFamily: 'monospace' }}>
-                                            {settings.ai_provider === 'gemini' ? (settings.gemini_model || 'gemini-2.5-flash') : (settings.ollama_model || 'qwen2.5:3b')}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.7rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                            {settings.ai_provider === 'gemini' ? 'API Credentials' : 'Server Endpoint'}
-                                        </span>
-                                        <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 700, color: '#78350f', marginTop: '2px', fontFamily: 'monospace' }}>
-                                            {settings.ai_provider === 'gemini' ? 'Masked (********)' : (settings.ollama_server || 'http://172.16.7.21:11434')}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* CARD: ACTIVE AI PROVIDER SELECTION */}
-                            <div className="card-p" style={{ background: '#fff', borderRadius: '20px', border: '1px solid var(--border-light)', boxShadow: '0 10px 30px rgba(0,0,0,0.02)', overflow: 'hidden', marginBottom: '24px' }}>
-                                <div className="orchestration-header" style={{ padding: '24px 32px', borderBottom: '1px solid #f1f5f9' }}>
-                                    <h3 style={{ fontSize: '1.25rem', margin: 0, display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--crimson)' }}>
-                                        <FiCpu /> AI Engine Selector
-                                    </h3>
-                                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', marginBottom: 0 }}>
-                                        Choose which AI parser engine the entire career portal should use to read CV files and match candidates.
-                                    </p>
-                                </div>
-                                
-                                <div style={{ padding: '32px' }}>
-                                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                                        <label style={{
-                                            flex: 1,
-                                            minWidth: '250px',
-                                            padding: '24px',
-                                            borderRadius: '16px',
-                                            border: settings.ai_provider === 'ollama' ? '2.5px solid var(--gold-accent)' : '1.5px solid #e2e8f0',
-                                            background: settings.ai_provider === 'ollama' ? 'rgba(200, 169, 81, 0.04)' : '#ffffff',
-                                            cursor: isEditing ? 'pointer' : 'default',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '16px',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.01)'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="ai_provider"
-                                                value="ollama"
-                                                checked={settings.ai_provider === 'ollama'}
-                                                onChange={handleChange}
-                                                disabled={!isEditing}
-                                                style={{ accentColor: 'var(--gold-accent)', width: '20px', height: '20px' }}
-                                            />
-                                            <div>
-                                                <strong style={{ display: 'block', fontSize: '1rem', color: '#1e293b' }}>Local Ollama Server</strong>
-                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'block' }}>Process documents locally & offline using open-source LLMs</span>
-                                            </div>
-                                            {settings.ai_provider === 'ollama' && (
-                                                <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.7rem', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid #bbf7d0' }}>ACTIVE</span>
-                                            )}
+                                        <label htmlFor="ollama_model" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                            Ollama Model Name
                                         </label>
-
-                                        <label style={{
-                                            flex: 1,
-                                            minWidth: '250px',
-                                            padding: '24px',
-                                            borderRadius: '16px',
-                                            border: settings.ai_provider === 'gemini' ? '2.5px solid var(--gold-accent)' : '1.5px solid #e2e8f0',
-                                            background: settings.ai_provider === 'gemini' ? 'rgba(200, 169, 81, 0.04)' : '#ffffff',
-                                            cursor: isEditing ? 'pointer' : 'default',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '16px',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.01)'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="ai_provider"
-                                                value="gemini"
-                                                checked={settings.ai_provider === 'gemini'}
-                                                onChange={handleChange}
-                                                disabled={!isEditing}
-                                                style={{ accentColor: 'var(--gold-accent)', width: '20px', height: '20px' }}
-                                            />
-                                            <div>
-                                                <strong style={{ display: 'block', fontSize: '1rem', color: '#1e293b' }}>Google Gemini Cloud API</strong>
-                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'block' }}>Leverage high-speed, state-of-the-art Google Gemini models</span>
-                                            </div>
-                                            {settings.ai_provider === 'gemini' && (
-                                                <span style={{ marginLeft: 'auto', background: '#dcfce7', color: '#166534', fontSize: '0.7rem', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid #bbf7d0' }}>ACTIVE</span>
-                                            )}
-                                        </label>
+                                        <select
+                                            id="ollama_model"
+                                            name="ollama_model"
+                                            value={settings.ollama_model}
+                                            onChange={handleChange}
+                                            disabled={!isEditing}
+                                            style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="qwen2.5:3b">qwen2.5:3b (Recommended - Fast &amp; Offline)</option>
+                                            <option value="qwen2.5:7b">qwen2.5:7b (High Accuracy - Slower)</option>
+                                        </select>
                                     </div>
                                 </div>
+
                             </div>
 
-                            {/* DUAL CONFIGURATION PANELS */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 450px), 1fr))', gap: '24px', marginBottom: '24px' }}>
-                                
-                                {/* CARD: GEMINI CONFIG (Left) */}
-                                <div className="card-p" style={{ 
-                                    background: '#fff', 
-                                    borderRadius: '20px', 
-                                    border: '1px solid var(--border-light)', 
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)', 
-                                    opacity: settings.ai_provider === 'gemini' ? 1 : 0.65,
-                                    transition: 'all 0.3s ease',
-                                    borderTop: settings.ai_provider === 'gemini' ? '4px solid var(--gold-accent)' : '1px solid var(--border-light)'
-                                }}>
-                                    <div className="orchestration-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <h4 style={{ fontSize: '1.1rem', margin: 0, color: '#1e293b' }}>Google Gemini Settings</h4>
-                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Configure cloud LLM access</span>
-                                        </div>
-                                        {settings.ai_provider === 'gemini' && (
-                                            <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', fontWeight: 900, padding: '3px 8px', borderRadius: '12px' }}>ROUTING LIVE</span>
-                                        )}
-                                    </div>
-                                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="gemini_api_key" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Google Gemini API Key
-                                            </label>
-                                            <div className="input-with-icon" style={{ position: 'relative' }}>
-                                                <FiLock className="i" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '1.1rem' }} />
-                                                <input
-                                                    id="gemini_api_key"
-                                                    name="gemini_api_key"
-                                                    type={showPassword ? 'text' : 'password'}
-                                                    value={settings.gemini_api_key}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                    placeholder="••••••••"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 48px 12px 48px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s'
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowPassword(!showPassword)}
-                                                    disabled={!isEditing}
-                                                    style={{
-                                                        position: 'absolute',
-                                                        right: '16px',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: isEditing ? 'pointer' : 'default',
-                                                        color: '#94a3b8',
-                                                        fontSize: '1.1rem',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        padding: 0
-                                                    }}
-                                                >
-                                                    {showPassword ? <FiEyeOff /> : <FiEye />}
-                                                </button>
-                                            </div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px' }}>
-                                                Masked as <code>••••••••</code> when saved. Uses constant fallback if empty.
-                                            </p>
-                                        </div>
-
-                                        <div className="form-group-p">
-                                            <label htmlFor="gemini_model" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Gemini Model Version
-                                            </label>
-                                            <div style={{ position: 'relative' }}>
-                                                <select
-                                                    id="gemini_model"
-                                                    name="gemini_model"
-                                                    value={settings.gemini_model}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s',
-                                                        cursor: isEditing ? 'pointer' : 'default'
-                                                    }}
-                                                >
-                                                    <option value="gemini-2.5-flash">gemini-2.5-flash (Recommended)</option>
-                                                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (Fast & light)</option>
-                                                    <option value="gemini-2.5-pro">gemini-2.5-pro (High quality)</option>
-                                                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* CARD: OLLAMA CONFIG (Right) */}
-                                <div className="card-p" style={{ 
-                                    background: '#fff', 
-                                    borderRadius: '20px', 
-                                    border: '1px solid var(--border-light)', 
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.02)', 
-                                    opacity: settings.ai_provider === 'ollama' ? 1 : 0.65,
-                                    transition: 'all 0.3s ease',
-                                    borderTop: settings.ai_provider === 'ollama' ? '4px solid var(--gold-accent)' : '1px solid var(--border-light)'
-                                }}>
-                                    <div className="orchestration-header" style={{ padding: '20px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <h4 style={{ fontSize: '1.1rem', margin: 0, color: '#1e293b' }}>Local Ollama Settings</h4>
-                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Configure offline local LLM</span>
-                                        </div>
-                                        {settings.ai_provider === 'ollama' && (
-                                            <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '0.65rem', fontWeight: 900, padding: '3px 8px', borderRadius: '12px' }}>ROUTING LIVE</span>
-                                        )}
-                                    </div>
-                                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        <div className="form-group-p">
-                                            <label htmlFor="ollama_server" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Ollama Server URL
-                                            </label>
-                                            <input
-                                                id="ollama_server"
-                                                name="ollama_server"
-                                                type="text"
-                                                value={settings.ollama_server}
-                                                onChange={handleChange}
-                                                disabled={!isEditing}
-                                                placeholder="e.g. http://172.16.7.21:11434"
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '12px 16px',
-                                                    borderRadius: '12px',
-                                                    border: '1.5px solid #e2e8f0',
-                                                    background: isEditing ? '#f8fafc' : '#f1f5f9',
-                                                    fontSize: '0.95rem',
-                                                    transition: 'all 0.3s'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div className="form-group-p">
-                                            <label htmlFor="ollama_model" style={{ display: 'block', marginBottom: '8px', fontWeight: 700, fontSize: '0.85rem', color: '#475569' }}>
-                                                Ollama Model Name
-                                            </label>
-                                            <div style={{ position: 'relative' }}>
-                                                <select
-                                                    id="ollama_model"
-                                                    name="ollama_model"
-                                                    value={settings.ollama_model}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '12px 16px',
-                                                        borderRadius: '12px',
-                                                        border: '1.5px solid #e2e8f0',
-                                                        background: isEditing ? '#f8fafc' : '#f1f5f9',
-                                                        fontSize: '0.95rem',
-                                                        transition: 'all 0.3s',
-                                                        cursor: isEditing ? 'pointer' : 'default'
-                                                    }}
-                                                >
-                                                    <option value="qwen2.5:3b">qwen2.5:3b (Recommended - Faster)</option>
-                                                    <option value="qwen2.5:7b">qwen2.5:7b (High Accuracy - Slower)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-                    {isEditing && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '14px', paddingTop: '20px', marginTop: '24px', borderTop: '1px solid #e2e8f0' }}>
-                            <button
-                                type="button"
-                                onClick={handleCancelEdit}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '12px 24px',
-                                    borderRadius: '12px',
-                                    fontWeight: 700,
-                                    fontSize: '0.95rem',
-                                    border: '1.5px solid #cbd5e1',
-                                    background: '#fff',
-                                    color: '#64748b',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <FiX /> Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '12px 28px',
-                                    borderRadius: '12px',
-                                    fontWeight: 800,
-                                    fontSize: '0.95rem',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #7A1228, #991b1b)',
-                                    color: '#fff',
-                                    cursor: saving ? 'not-allowed' : 'pointer',
-                                    boxShadow: '0 4px 14px rgba(122, 18, 40, 0.25)',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <FiCheck /> {saving ? 'Saving...' : 'Save All Settings'}
-                            </button>
                         </div>
                     )}
 

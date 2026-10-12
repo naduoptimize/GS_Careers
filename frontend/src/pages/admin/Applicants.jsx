@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getApplications, exportApplications, getAllVacancies, getCompanies, updateApplicationStatus, sendInterviewInvitation, getSuggestions, API_BASE, deleteApplication, bulkDeleteApplications, getCompanyLocations, extractCvAdmin } from '../../services/api';
+import { getApplications, exportApplications, getAllVacancies, getCompanies, updateApplicationStatus, sendInterviewInvitation, getSuggestions, API_BASE, deleteApplication, bulkDeleteApplications, getCompanyLocations, extractCvAdmin, getSettings } from '../../services/api';
 import { OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIONS, QUALIFICATION_OPTIONS, formatDate, formatDateTime } from '../../utils/constants';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
@@ -9,8 +9,8 @@ import { renderAsync } from 'docx-preview';
 import axios from 'axios';
 import {
     FiDownload, FiFilter, FiSearch, FiMail, FiPhone, FiFileText,
-    FiChevronRight, FiChevronLeft, FiArrowRight, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiCheckCircle,
-    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash, FiRotateCcw, FiAlertTriangle, FiDollarSign
+    FiChevronRight, FiChevronLeft, FiArrowRight, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiCheckCircle, FiChevronDown, FiChevronUp,
+    FiAward, FiTarget, FiAlertCircle, FiXCircle, FiInfo, FiTag, FiBarChart2, FiCpu, FiHash, FiVideo, FiMapPin, FiTrash2, FiUserCheck, FiSlash, FiRotateCcw, FiAlertTriangle, FiDollarSign, FiSliders
 } from 'react-icons/fi';
 import './Applicants.css';
 import PaginationFooter from '../../components/PaginationFooter';
@@ -1007,6 +1007,7 @@ function Applicants({ admin }) {
     });
 
     const [showJobDetails, setShowJobDetails] = useState(false);
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
     const selVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id)) || {};
 
@@ -1073,16 +1074,25 @@ function Applicants({ admin }) {
         }
     };
 
+    const [minHighScore, setMinHighScore] = useState(75);
+    const [minMediumScore, setMinMediumScore] = useState(50);
+
     const loadMeta = async () => {
         try {
-            const [vacRes, compRes, locRes] = await Promise.all([
+            const [vacRes, compRes, locRes, setRes] = await Promise.all([
                 getAllVacancies(),
                 getCompanies(),
-                getCompanyLocations()
+                getCompanyLocations(),
+                getSettings().catch(() => null)
             ]);
             setVacancies(vacRes.data.data || []);
             setCompanies(compRes.data.data || []);
             setLocations(locRes.data.data || []);
+            if (setRes && setRes.data?.data) {
+                const sData = setRes.data.data;
+                if (sData.min_high_match_score) setMinHighScore(parseInt(sData.min_high_match_score) || 75);
+                if (sData.min_medium_match_score) setMinMediumScore(parseInt(sData.min_medium_match_score) || 50);
+            }
         } catch (err) {
             console.error(err);
         }
@@ -1350,10 +1360,52 @@ function Applicants({ admin }) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedApps = filteredApps.slice(startIndex, startIndex + itemsPerPage);
 
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [filters]);
+    // Calculate active filter count and chips
+    const activeFilterCount = [
+        filters.search,
+        filters.vacancy_id,
+        filters.company_id,
+        filters.overall_experience,
+        filters.qualification,
+        filters.salary_match,
+        filters.status,
+        filters.interview_date
+    ].filter(Boolean).length;
+
+    const activeChips = [];
+    if (filters.search) {
+        activeChips.push({ key: 'search', label: `Search: "${filters.search}"`, clear: () => setFilters(prev => ({ ...prev, search: '' })) });
+    }
+    if (filters.vacancy_id) {
+        const vacName = vacancies.find(v => String(v.id) === String(filters.vacancy_id))?.title || 'Position';
+        activeChips.push({ key: 'vacancy_id', label: `Role: ${vacName}`, clear: () => setFilters(prev => ({ ...prev, vacancy_id: '', sortBy: 'highExperience' })) });
+    }
+    if (filters.company_id) {
+        const compName = companies.find(c => String(c.id) === String(filters.company_id))?.name || 'Entity';
+        activeChips.push({ key: 'company_id', label: `Entity: ${compName}`, clear: () => setFilters(prev => ({ ...prev, company_id: '' })) });
+    }
+    if (filters.overall_experience) {
+        activeChips.push({ key: 'overall_experience', label: `Exp: ${filters.overall_experience}`, clear: () => setFilters(prev => ({ ...prev, overall_experience: '' })) });
+    }
+    if (filters.qualification) {
+        activeChips.push({ key: 'qualification', label: `Qual: ${filters.qualification}`, clear: () => setFilters(prev => ({ ...prev, qualification: '' })) });
+    }
+    if (filters.salary_match) {
+        const salaryLabels = {
+            within: 'Within Budget',
+            above: 'Above Budget',
+            below: 'Below Budget',
+            specified: 'Expectation Mentioned',
+            unspecified: 'Expectation Not Mentioned'
+        };
+        activeChips.push({ key: 'salary_match', label: `Salary: ${salaryLabels[filters.salary_match] || filters.salary_match}`, clear: () => setFilters(prev => ({ ...prev, salary_match: '' })) });
+    }
+    if (filters.status) {
+        activeChips.push({ key: 'status', label: `Status: ${filters.status.replace('_', ' ')}`, clear: () => setFilters(prev => ({ ...prev, status: '', interview_date: '' })) });
+    }
+    if (filters.interview_date) {
+        activeChips.push({ key: 'interview_date', label: `Date: ${filters.interview_date}`, clear: () => setFilters(prev => ({ ...prev, interview_date: '' })) });
+    }
 
     return (
         <div className="manage-vacancies-console">
@@ -1372,211 +1424,282 @@ function Applicants({ admin }) {
                 </button>
             </div>
 
-            {/* CONTROL BAR */}
-            <div className="console-toolbar-p">
-                {/* Row 1: Search + Reset */}
-                <div className="toolbar-search-row">
-                    <div className="search-orchestrator">
-                        <FiSearch className="s-icon" />
-                        <input
-                            id="applicant_search"
-                            name="applicant_search"
-                            type="text"
-                            placeholder="Search by applicant name, email, or contact number..."
-                            value={filters.search}
-                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        />
-                        {filters.search && (
+            {/* MODERN ULTRA-PREMIUM FILTER & SEARCH SUITE WITH COLLAPSIBLE PANEL */}
+            <div className="applicant-filter-card">
+                {/* Main Top Control Row: Search + Filter Toggle Button + Actions */}
+                <div className="filter-top-bar">
+                    {/* Search Bar Input */}
+                    <div className="filter-search-wrapper">
+                        <div className="search-input-box">
+                            <FiSearch className="search-lead-icon" />
+                            <input
+                                id="applicant_search"
+                                name="applicant_search"
+                                type="text"
+                                placeholder="Search by applicant name, email, contact number, or keyword..."
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                            />
+                            {filters.search && (
+                                <button
+                                    type="button"
+                                    className="clear-search-trigger"
+                                    onClick={() => setFilters({ ...filters, search: '' })}
+                                    title="Clear search"
+                                >
+                                    <FiX size={14} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Action Controls */}
+                    <div className="filter-top-actions">
+                        {/* Filter Toggle Button */}
+                        <button
+                            type="button"
+                            className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${activeFilterCount > 0 ? 'has-active' : ''}`}
+                            onClick={() => setShowFilterPanel(prev => !prev)}
+                            title="Toggle filter options"
+                        >
+                            <FiFilter className="btn-filter-icon" />
+                            <span>Filters</span>
+                            {activeFilterCount > 0 && (
+                                <span className="filter-count-badge">{activeFilterCount}</span>
+                            )}
+                            {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
+                        </button>
+
+                        {filters.vacancy_id && (
                             <button
                                 type="button"
-                                className="clear-search-btn"
-                                onClick={() => setFilters({ ...filters, search: '' })}
-                                title="Clear search"
+                                className="btn-match-reqs"
+                                onClick={applyAutoMatch}
+                                title="Auto-filter candidates matching this role's requirements"
                             >
-                                <FiX />
+                                <FiCheckCircle size={14} /> Match Reqs
+                            </button>
+                        )}
+
+                        {hasActiveFilters && (
+                            <button 
+                                type="button" 
+                                className="btn-clear-all-filters" 
+                                onClick={clearFilters}
+                                title="Reset all filters"
+                            >
+                                <FiRotateCcw size={13} /> Reset
                             </button>
                         )}
                     </div>
-                    {hasActiveFilters && (
-                        <button className="btn-reset-console" onClick={clearFilters}>
-                            <FiX size={14} /> Reset Filters
-                        </button>
-                    )}
-                    {filters.vacancy_id && (
-                        <button
-                            className="btn-match-console animated-fade-in"
-                            onClick={applyAutoMatch}
-                            title="Auto-filter candidates matching this role's requirements"
-                        >
-                            <FiCheckCircle size={14} /> Match Reqs
-                        </button>
-                    )}
                 </div>
 
-                {/* Divider */}
-                <div className="toolbar-divider" />
-
-                {/* Row 2: Filter dropdowns with labels */}
-                <div className="toolbar-filters-row">
-                    <div className="filter-group">
-                        <label htmlFor="vacancy_filter" className="filter-label">Position</label>
-                        <div className="select-orchestrator select-lg">
-                            <FiBriefcase className="f-icon" />
-                            <select
-                                id="vacancy_filter"
-                                name="vacancy_id"
-                                value={filters.vacancy_id}
-                                onChange={(e) => {
-                                    const newVacId = e.target.value;
-                                    setFilters(prev => ({
-                                        ...prev,
-                                        vacancy_id: newVacId,
-                                        sortBy: newVacId ? 'matchScore' : 'highExperience'
-                                    }));
-                                }}
-                            >
-                                <option value="">All Active Roles</option>
-                                {vacancies.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="filter-group">
-                            <label htmlFor="company_filter" className="filter-label">Establishment</label>
-                            <div className="select-orchestrator select-lg">
-                                <FiHome className="f-icon" />
-                                <select
-                                    id="company_filter"
-                                    name="company_id"
-                                    value={filters.company_id}
-                                    onChange={(e) => setFilters({ ...filters, company_id: e.target.value })}
+                {/* Active Filters Chips Bar (Always visible if chips exist) */}
+                {activeChips.length > 0 && (
+                    <div className="active-filter-chips-row">
+                        <span className="chips-label">Active Filters:</span>
+                        <div className="chips-list">
+                            {activeChips.map(chip => (
+                                <button
+                                    key={chip.key}
+                                    type="button"
+                                    className="filter-chip"
+                                    onClick={chip.clear}
+                                    title={`Remove ${chip.label}`}
                                 >
-                                    <option value="">All Entities</option>
-                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                    <span>{chip.label}</span>
+                                    <FiX size={12} className="chip-remove" />
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Expandable Filter Dropdowns Grid */}
+                {showFilterPanel && (
+                    <div className="filter-dropdowns-expandable animated-fade-in">
+                        <div className="filter-panel-header">
+                            <span className="panel-title-text">Filter & Refine Candidate Pipeline</span>
+                            <button 
+                                type="button" 
+                                className="panel-close-btn" 
+                                onClick={() => setShowFilterPanel(false)}
+                                title="Hide filters"
+                            >
+                                <FiX size={14} /> Close
+                            </button>
+                        </div>
+
+                        <div className="filter-dropdowns-grid">
+                            <div className={`filter-field-box ${filters.vacancy_id ? 'has-value' : ''}`}>
+                                <label htmlFor="vacancy_filter">
+                                    <FiBriefcase className="field-icon" /> Position
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="vacancy_filter"
+                                        name="vacancy_id"
+                                        value={filters.vacancy_id}
+                                        onChange={(e) => {
+                                            const newVacId = e.target.value;
+                                            setFilters(prev => ({
+                                                ...prev,
+                                                vacancy_id: newVacId,
+                                                sortBy: newVacId ? 'matchScore' : 'highExperience'
+                                            }));
+                                        }}
+                                    >
+                                        <option value="">All Active Roles</option>
+                                        {vacancies.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                <div className={`filter-field-box ${filters.company_id ? 'has-value' : ''}`}>
+                                    <label htmlFor="company_filter">
+                                        <FiHome className="field-icon" /> Establishment
+                                    </label>
+                                    <div className="custom-select-wrapper">
+                                        <select
+                                            id="company_filter"
+                                            name="company_id"
+                                            value={filters.company_id}
+                                            onChange={(e) => setFilters({ ...filters, company_id: e.target.value })}
+                                        >
+                                            <option value="">All Entities</option>
+                                            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className={`filter-field-box ${filters.overall_experience ? 'has-value' : ''}`}>
+                                <label htmlFor="experience_filter">
+                                    <FiCheckCircle className="field-icon" /> Min. Experience
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="experience_filter"
+                                        name="overall_experience"
+                                        value={filters.overall_experience}
+                                        onChange={(e) => setFilters({ ...filters, overall_experience: e.target.value })}
+                                    >
+                                        <option value="">All Experience</option>
+                                        <option value="0 years">0 years (Freshers)</option>
+                                        <option value="0-1 years">0–1 years</option>
+                                        <option value="1-2 years">1–2 years</option>
+                                        <option value="3-4 years">3–4 years</option>
+                                        <option value="5-7 years">5–7 years</option>
+                                        <option value="8-10 years">8–10 years</option>
+                                        <option value="10+ years">10+ years</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={`filter-field-box ${filters.qualification ? 'has-value' : ''}`}>
+                                <label htmlFor="qualification_filter">
+                                    <FiFileText className="field-icon" /> Credential
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="qualification_filter"
+                                        name="qualification"
+                                        value={filters.qualification}
+                                        onChange={(e) => setFilters({ ...filters, qualification: e.target.value })}
+                                    >
+                                        <option value="">Any Qual.</option>
+                                        {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={`filter-field-box ${filters.salary_match ? 'has-value' : ''}`}>
+                                <label htmlFor="salary_filter">
+                                    <FiTarget className="field-icon" /> Salary Match
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="salary_filter"
+                                        name="salary_match"
+                                        value={filters.salary_match}
+                                        onChange={(e) => setFilters({ ...filters, salary_match: e.target.value })}
+                                    >
+                                        <option value="">All Salaries</option>
+                                        <option value="within">🎯 Within Job Budget</option>
+                                        <option value="above">📈 Above Job Budget</option>
+                                        <option value="below">📉 Below Job Budget</option>
+                                        <option value="specified">💵 Expectation Mentioned</option>
+                                        <option value="unspecified">❓ Expectation Not Mentioned</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className={`filter-field-box ${filters.status ? 'has-value' : ''}`}>
+                                <label htmlFor="status_filter">
+                                    <FiFilter className="field-icon" /> Status
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="status_filter"
+                                        name="status"
+                                        value={filters.status}
+                                        onChange={(e) => setFilters({
+                                            ...filters,
+                                            status: e.target.value,
+                                            interview_date: e.target.value === 'shortlisted' ? filters.interview_date : ''
+                                        })}
+                                    >
+                                        <option value="">All Statuses</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="under_review">Under Review</option>
+                                        <option value="shortlisted">Shortlisted</option>
+                                        <option value="rejected">Rejected</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {filters.status === 'shortlisted' && (
+                                <div className={`filter-field-box ${filters.interview_date ? 'has-value' : ''}`}>
+                                    <label htmlFor="interview_date_filter">
+                                        <FiCalendar className="field-icon" /> Interview Date
+                                    </label>
+                                    <div className="custom-select-wrapper">
+                                        <input
+                                            id="interview_date_filter"
+                                            name="interview_date"
+                                            type="date"
+                                            value={filters.interview_date}
+                                            onChange={(e) => setFilters({ ...filters, interview_date: e.target.value })}
+                                            className="custom-date-input"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="filter-field-box sort-field-box">
+                                <label htmlFor="sort_by">
+                                    <FiBarChart2 className="field-icon" /> Sort Order
+                                </label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        id="sort_by"
+                                        name="sortBy"
+                                        value={filters.sortBy}
+                                        onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                                        className="sort-select-highlight"
+                                    >
+                                        <option value="matchScore">Best Match Score</option>
+                                        <option value="highExperience">High Experience</option>
+                                        <option value="lowExperience">Low Experience</option>
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                    )}
-
-                    <div className="filter-group">
-                        <label htmlFor="experience_filter" className="filter-label">Min. Experience</label>
-                        <div className="select-orchestrator">
-                            <FiCheckCircle className="f-icon" />
-                            <select
-                                id="experience_filter"
-                                name="overall_experience"
-                                value={filters.overall_experience}
-                                onChange={(e) => setFilters({ ...filters, overall_experience: e.target.value })}
-                            >
-                                <option value="">All Experience</option>
-                                <option value="0 years">0 years (Freshers)</option>
-                                <option value="0-1 years">0–1 years</option>
-                                <option value="1-2 years">1–2 years</option>
-                                <option value="3-4 years">3–4 years</option>
-                                <option value="5-7 years">5–7 years</option>
-                                <option value="8-10 years">8–10 years</option>
-                                <option value="10+ years">10+ years</option>
-                            </select>
-                        </div>
                     </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="qualification_filter" className="filter-label">Credential</label>
-                        <div className="select-orchestrator">
-                            <FiFileText className="f-icon" />
-                            <select
-                                id="qualification_filter"
-                                name="qualification"
-                                value={filters.qualification}
-                                onChange={(e) => setFilters({ ...filters, qualification: e.target.value })}
-                            >
-                                <option value="">Any Qual.</option>
-                                {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="salary_filter" className="filter-label">Salary Range Match</label>
-                        <div className="select-orchestrator">
-                            <FiTarget className="f-icon" />
-                            <select
-                                id="salary_filter"
-                                name="salary_match"
-                                value={filters.salary_match}
-                                onChange={(e) => setFilters({ ...filters, salary_match: e.target.value })}
-                            >
-                                <option value="">All Salaries</option>
-                                <option value="within">🎯 Within Job Budget</option>
-                                <option value="above">📈 Above Job Budget</option>
-                                <option value="below">📉 Below Job Budget</option>
-                                <option value="specified">💵 Expectation Mentioned</option>
-                                <option value="unspecified">❓ Expectation Not Mentioned</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="filter-group">
-                        <label htmlFor="status_filter" className="filter-label">Status</label>
-                        <div className="select-orchestrator">
-                            <FiFilter className="f-icon" />
-                            <select
-                                id="status_filter"
-                                name="status"
-                                value={filters.status}
-                                onChange={(e) => setFilters({
-                                    ...filters,
-                                    status: e.target.value,
-                                    interview_date: e.target.value === 'shortlisted' ? filters.interview_date : ''
-                                })}
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="pending">Pending</option>
-                                <option value="under_review">Under Review</option>
-                                <option value="shortlisted">Shortlisted</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {filters.status === 'shortlisted' && (
-                        <div className="filter-group">
-                            <label htmlFor="interview_date_filter" className="filter-label">Date</label>
-                            <div className="select-orchestrator">
-                                <FiCalendar className="f-icon" />
-                                <input
-                                    id="interview_date_filter"
-                                    name="interview_date"
-                                    type="date"
-                                    value={filters.interview_date}
-                                    onChange={(e) => setFilters({ ...filters, interview_date: e.target.value })}
-                                    className="date-orchestrator-input"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="filter-group filter-field-sort">
-                        <label htmlFor="sort_by" className="filter-label sort-label">Sort</label>
-                        <div className="select-orchestrator">
-                            <FiBarChart2 className="f-icon" />
-                            <select
-                                id="sort_by"
-                                name="sortBy"
-                                value={filters.sortBy}
-                                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                                className="sort-select-crimson"
-                            >
-                                <option value="matchScore">Best Match Score</option>
-                                <option value="highExperience">High Experience</option>
-                                <option value="lowExperience">Low Experience</option>
-                                <option value="newest">Newest First</option>
-                                <option value="oldest">Oldest First</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
 
             {/* ===== Job Position Info Panel — auto-displays on vacancy select ===== */}
@@ -2182,7 +2305,7 @@ function Applicants({ admin }) {
                                         </td>
                                         <td data-label="CV Match" style={{ whiteSpace: 'nowrap' }}>
                                             {(() => {
-                                                const scoreData = calculateCandidateMatchScore(app);
+                                                const scoreData = calculateCandidateMatchScore(app, vacancies);
                                                 const matchScore = scoreData.score || 0;
                                                 const factors = scoreData.details?.factors || {};
 
@@ -2195,10 +2318,10 @@ function Applicants({ admin }) {
 
                                                 let matchClass = 'high';
                                                 let matchLabel = 'High Match';
-                                                if (matchScore < 50) {
+                                                if (matchScore < minMediumScore) {
                                                     matchClass = 'low';
-                                                    matchLabel = 'Low (<50%)';
-                                                } else if (matchScore < 75) {
+                                                    matchLabel = `Low (<${minMediumScore}%)`;
+                                                } else if (matchScore < minHighScore) {
                                                     matchClass = 'medium';
                                                     matchLabel = 'Medium';
                                                 }

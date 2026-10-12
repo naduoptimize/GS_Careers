@@ -4,7 +4,7 @@ import {
     FiPlus, FiEdit2, FiTrash2, FiX, FiShield, FiUserCheck,
     FiMail, FiUser, FiHome, FiCheckCircle, FiAlertCircle,
     FiActivity, FiTrendingUp, FiTarget, FiSearch, FiFilter, FiKey, FiChevronLeft, FiChevronRight,
-    FiCopy, FiCheck
+    FiCopy, FiCheck, FiChevronDown, FiChevronUp, FiRotateCcw
 } from 'react-icons/fi';
 import './ManageAdmins.css';
 import PaginationFooter from '../../components/PaginationFooter';
@@ -40,6 +40,7 @@ function ManageAdmins({ admin }) {
     const [roleFilter, setRoleFilter] = useState('');
     const [companyFilter, setCompanyFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
@@ -97,6 +98,19 @@ function ManageAdmins({ admin }) {
             return;
         }
 
+        if (editingId) {
+            const currentEditing = admins.find(a => a.id === editingId);
+            const totalSuperAdmins = admins.filter(a => a.role === 'super_admin').length;
+            if (currentEditing?.role === 'super_admin' && form.role !== 'super_admin' && totalSuperAdmins <= 1) {
+                toast.error('Cannot change the role of the last remaining Super Admin');
+                return;
+            }
+            if (currentEditing?.role === 'super_admin' && parseInt(form.is_active) === 0 && totalSuperAdmins <= 1) {
+                toast.error('Cannot deactivate the last remaining Super Admin');
+                return;
+            }
+        }
+
         try {
             if (editingId) {
                 const data = { ...form, id: editingId };
@@ -117,11 +131,39 @@ function ManageAdmins({ admin }) {
         }
     };
 
+    const handleDeleteClick = (target) => {
+        const totalSuperAdmins = admins.filter(a => a.role === 'super_admin').length;
+        if (target.role === 'super_admin' && totalSuperAdmins <= 1) {
+            toast.error('Cannot delete the last remaining Super Admin account in the system');
+            return;
+        }
+        setConfirmDelete(target);
+    };
+
     const handleDelete = async (id) => {
-        try {
-            await deleteAdmin({ id });
-            toast.success('Admin deleted');
+        const targetAdmin = admins.find(a => a.id === id);
+        const totalSuperAdmins = admins.filter(a => a.role === 'super_admin').length;
+        if (targetAdmin?.role === 'super_admin' && totalSuperAdmins <= 1) {
+            toast.error('Cannot delete the last remaining Super Admin account in the system');
             setConfirmDelete(null);
+            return;
+        }
+
+        try {
+            const res = await deleteAdmin({ id });
+            toast.success(targetAdmin?.role === 'super_admin' ? 'Super Admin deleted successfully' : 'Admin deleted successfully');
+            setConfirmDelete(null);
+
+            // If the user deleted their own account
+            if (id === admin.id || res.data?.data?.is_self) {
+                localStorage.removeItem('gs_admin_token');
+                localStorage.removeItem('gs_admin_data');
+                setTimeout(() => {
+                    window.location.href = '/admin/login';
+                }, 1200);
+                return;
+            }
+
             loadData();
         } catch (err) {
             toast.error(err.response?.data?.message || 'Delete failed');
@@ -231,102 +273,180 @@ function ManageAdmins({ admin }) {
                 </div>
             </div>
 
-            {/* PROFESSIONAL CONSOLE TOOLBAR */}
-            <div className="console-toolbar-p">
-                <div className="toolbar-search-row">
-                    <div className="search-orchestrator">
-                        <FiSearch className="s-icon" />
-                        <input 
-                            id="admin_search"
-                            name="admin_search"
-                            type="text" 
-                            placeholder="Search by name, email, or @handle..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                className="clear-search-btn"
-                                onClick={() => setSearchTerm('')}
-                                title="Clear search"
-                            >
-                                <FiX />
-                            </button>
-                        )}
-                    </div>
-                    {(searchTerm || roleFilter || companyFilter || statusFilter) && (
-                        <button className="btn-reset-p" onClick={() => { setSearchTerm(''); setRoleFilter(''); setCompanyFilter(''); setStatusFilter(''); }}>
-                            <FiX size={14} /> <span>Reset Registry</span>
-                        </button>
-                    )}
-                </div>
+            {/* MODERN COLLAPSIBLE FILTER SUITE */}
+            {(() => {
+                const activeAdminFilterCount = [roleFilter, companyFilter, statusFilter].filter(Boolean).length;
+                const hasAdminActiveFilters = Boolean(searchTerm || roleFilter || companyFilter || statusFilter);
+                const activeAdminChips = [];
+                if (searchTerm) activeAdminChips.push({ key: 'search', label: `Search: "${searchTerm}"`, clear: () => setSearchTerm('') });
+                if (roleFilter) activeAdminChips.push({ key: 'role', label: `Role: ${roleFilter}`, clear: () => setRoleFilter('') });
+                if (companyFilter) {
+                    const comp = companies.find(c => String(c.id) === String(companyFilter))?.name || 'Establishment';
+                    activeAdminChips.push({ key: 'company', label: `Entity: ${comp}`, clear: () => setCompanyFilter('') });
+                }
+                if (statusFilter) activeAdminChips.push({ key: 'status', label: `Status: ${statusFilter}`, clear: () => setStatusFilter('') });
 
-                <div className="toolbar-divider" />
+                return (
+                    <div className="applicant-filter-card">
+                        <div className="filter-top-bar">
+                            <div className="filter-search-wrapper">
+                                <div className="search-input-box">
+                                    <FiSearch className="search-lead-icon" />
+                                    <input
+                                        id="admin_search"
+                                        name="admin_search"
+                                        type="text"
+                                        placeholder="Search by name, email, or @handle..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    {searchTerm && (
+                                        <button
+                                            type="button"
+                                            className="clear-search-trigger"
+                                            onClick={() => setSearchTerm('')}
+                                            title="Clear search"
+                                        >
+                                            <FiX size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
 
-                <div className="toolbar-filters-row">
-                    <div className="filter-group">
-                        <label className="filter-label">Authority Role</label>
-                        <div className="select-orchestrator">
-                            <FiFilter className="f-icon" />
-                            <select 
-                                id="role_filter" 
-                                name="role_filter" 
-                                value={roleFilter} 
-                                onChange={(e) => setRoleFilter(e.target.value)}
-                                className="select-lg"
-                            >
-                                <option value="">All Authority Roles</option>
-                                {admin.role === 'super_admin' && (
-                                    <>
-                                        <option value="super_admin">Super Admins Only</option>
-                                        <option value="admin">GS Admins Only</option>
-                                    </>
-                                )}
-                                <option value="sub_admin1">Sub Admins 1 Only</option>
-                                <option value="sub_admin2">Sub Admins 2 Only</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="filter-group">
-                            <label className="filter-label">Establishment</label>
-                            <div className="select-orchestrator">
-                                <FiHome className="f-icon" />
-                                <select 
-                                    id="admin_company_filter" 
-                                    name="company_filter" 
-                                    value={companyFilter} 
-                                    onChange={(e) => setCompanyFilter(e.target.value)}
-                                    className="select-lg"
+                            <div className="filter-top-actions">
+                                <button
+                                    type="button"
+                                    className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${activeAdminFilterCount > 0 ? 'has-active' : ''}`}
+                                    onClick={() => setShowFilterPanel(prev => !prev)}
+                                    title="Toggle filter options"
                                 >
-                                    <option value="">All GS Entities</option>
-                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                    <FiFilter className="btn-filter-icon" />
+                                    <span>Filters</span>
+                                    {activeAdminFilterCount > 0 && (
+                                        <span className="filter-count-badge">{activeAdminFilterCount}</span>
+                                    )}
+                                    {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
+                                </button>
+
+                                {hasAdminActiveFilters && (
+                                    <button 
+                                        type="button" 
+                                        className="btn-clear-all-filters" 
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setRoleFilter('');
+                                            setCompanyFilter('');
+                                            setStatusFilter('');
+                                        }}
+                                        title="Reset all filters"
+                                    >
+                                        <FiRotateCcw size={13} /> Reset
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    )}
 
-                    <div className="filter-group">
-                        <label className="filter-label">Account Status</label>
-                        <div className="select-orchestrator">
-                            <FiCheckCircle className="f-icon" />
-                            <select 
-                                id="admin_status_filter" 
-                                name="status_filter" 
-                                value={statusFilter} 
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="select-lg"
-                            >
-                                <option value="">All Statuses</option>
-                                <option value="active">Active Only</option>
-                                <option value="inactive">Inactive Only</option>
-                            </select>
-                        </div>
+                        {activeAdminChips.length > 0 && (
+                            <div className="active-filter-chips-row">
+                                <span className="chips-label">Active Filters:</span>
+                                <div className="chips-list">
+                                    {activeAdminChips.map(chip => (
+                                        <button
+                                            key={chip.key}
+                                            type="button"
+                                            className="filter-chip"
+                                            onClick={chip.clear}
+                                            title={`Remove ${chip.label}`}
+                                        >
+                                            <span>{chip.label}</span>
+                                            <FiX size={12} className="chip-remove" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showFilterPanel && (
+                            <div className="filter-dropdowns-expandable animated-fade-in">
+                                <div className="filter-panel-header">
+                                    <span className="panel-title-text">Filter Administrative Registry</span>
+                                    <button 
+                                        type="button" 
+                                        className="panel-close-btn" 
+                                        onClick={() => setShowFilterPanel(false)}
+                                        title="Hide filters"
+                                    >
+                                        <FiX size={14} /> Close
+                                    </button>
+                                </div>
+
+                                <div className="filter-dropdowns-grid">
+                                    <div className={`filter-field-box ${roleFilter ? 'has-value' : ''}`}>
+                                        <label htmlFor="role_filter">
+                                            <FiFilter className="field-icon" /> Authority Role
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="role_filter" 
+                                                name="role_filter" 
+                                                value={roleFilter} 
+                                                onChange={(e) => setRoleFilter(e.target.value)}
+                                            >
+                                                <option value="">All Authority Roles</option>
+                                                {admin.role === 'super_admin' && (
+                                                    <>
+                                                        <option value="super_admin">Super Admins Only</option>
+                                                        <option value="admin">GS Admins Only</option>
+                                                    </>
+                                                )}
+                                                <option value="sub_admin1">Sub Admins 1 Only</option>
+                                                <option value="sub_admin2">Sub Admins 2 Only</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                        <div className={`filter-field-box ${companyFilter ? 'has-value' : ''}`}>
+                                            <label htmlFor="admin_company_filter">
+                                                <FiHome className="field-icon" /> Establishment
+                                            </label>
+                                            <div className="custom-select-wrapper">
+                                                <select 
+                                                    id="admin_company_filter" 
+                                                    name="company_filter" 
+                                                    value={companyFilter} 
+                                                    onChange={(e) => setCompanyFilter(e.target.value)}
+                                                >
+                                                    <option value="">All GS Entities</option>
+                                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`filter-field-box ${statusFilter ? 'has-value' : ''}`}>
+                                        <label htmlFor="admin_status_filter">
+                                            <FiCheckCircle className="field-icon" /> Account Status
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="admin_status_filter" 
+                                                name="status_filter" 
+                                                value={statusFilter} 
+                                                onChange={(e) => setStatusFilter(e.target.value)}
+                                            >
+                                                <option value="">All Statuses</option>
+                                                <option value="active">Active Only</option>
+                                                <option value="inactive">Inactive Only</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            </div>
+                );
+            })()}
 
             {/* Admins Table */}
             <div className="results-card-p orchestration-container">
@@ -413,8 +533,8 @@ function ManageAdmins({ admin }) {
                                     </td>
                                     <td data-label="Operations">
                                         <div className="orchestration-actions" style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                                            {/* super_admin rows are always locked; admin rows are locked for non-super_admin viewers */}
-                                            {(a.role === 'super_admin' || (a.role === 'admin' && admin.role !== 'super_admin')) ? (
+                                            {/* super_admin rows are locked only for non-super_admin viewers */}
+                                            {(admin.role !== 'super_admin' && (a.role === 'super_admin' || a.role === 'admin')) ? (
                                                 <div className="protected-label" style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--crimson)', display: 'flex', alignItems: 'center', gap: '6px' }}><FiShield /> CORE AUTHORITY</div>
                                             ) : (
                                                 <>
@@ -424,7 +544,12 @@ function ManageAdmins({ admin }) {
                                                     <button className="o-btn reset" onClick={() => setConfirmReset(a)} title="Reset Password" style={{ color: 'var(--gold-accent)' }}>
                                                         <FiKey />
                                                     </button>
-                                                    <button className="o-btn delete" onClick={() => setConfirmDelete(a)} title="Decommission Profile">
+                                                    <button
+                                                        type="button"
+                                                        className="o-btn delete"
+                                                        onClick={() => handleDeleteClick(a)}
+                                                        title={a.role === 'super_admin' ? "Decommission Super Admin Profile" : "Decommission Profile"}
+                                                    >
                                                         <FiTrash2 />
                                                     </button>
                                                 </>
@@ -508,6 +633,7 @@ function ManageAdmins({ admin }) {
                                             name="role" 
                                             value={form.role} 
                                             onChange={(e) => setForm({ ...form, role: e.target.value })}
+                                            disabled={Boolean(editingId && admins.find(a => a.id === editingId)?.role === 'super_admin' && admins.filter(a => a.role === 'super_admin').length <= 1)}
                                         >
                                             {admin.role === 'super_admin' && (
                                                 <>
@@ -518,6 +644,9 @@ function ManageAdmins({ admin }) {
                                             <option value="sub_admin1">Sub Admin 1</option>
                                             <option value="sub_admin2">Sub Admin 2</option>
                                         </select>
+                                        {Boolean(editingId && admins.find(a => a.id === editingId)?.role === 'super_admin' && admins.filter(a => a.role === 'super_admin').length <= 1) && (
+                                            <small style={{ color: 'var(--crimson)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>Role locked: This is the last remaining Super Admin.</small>
+                                        )}
                                     </div>
 
                                     {(form.role === 'sub_admin1' || form.role === 'sub_admin2') && (
@@ -544,10 +673,14 @@ function ManageAdmins({ admin }) {
                                                 name="is_active" 
                                                 value={form.is_active} 
                                                 onChange={(e) => setForm({ ...form, is_active: parseInt(e.target.value) })}
+                                                disabled={Boolean(admins.find(a => a.id === editingId)?.role === 'super_admin' && admins.filter(a => a.role === 'super_admin').length <= 1)}
                                             >
                                                 <option value={1}>Active</option>
                                                 <option value={0}>Inactive</option>
                                             </select>
+                                            {Boolean(admins.find(a => a.id === editingId)?.role === 'super_admin' && admins.filter(a => a.role === 'super_admin').length <= 1) && (
+                                                <small style={{ color: 'var(--crimson)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>Status locked: Cannot deactivate the last remaining Super Admin.</small>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -566,8 +699,14 @@ function ManageAdmins({ admin }) {
                 <div className="modal-overlay-p" onClick={() => setConfirmDelete(null)}>
                     <div className="delete-modal-p" onClick={(e) => e.stopPropagation()}>
                         <div className="alert-vibe"><FiAlertCircle /></div>
-                        <h3>Revoke Access?</h3>
-                        <p>You are about to delete <strong>{confirmDelete.full_name}</strong>. This person will immediately lose all administrative access.</p>
+                        <h3>{confirmDelete.role === 'super_admin' ? 'Delete Super Administrator?' : 'Revoke Access?'}</h3>
+                        <p>
+                            {confirmDelete.role === 'super_admin' ? (
+                                <>You are about to delete Super Administrator <strong>{confirmDelete.full_name}</strong>. This account will immediately lose all system-wide access.</>
+                            ) : (
+                                <>You are about to delete <strong>{confirmDelete.full_name}</strong>. This person will immediately lose all administrative access.</>
+                            )}
+                        </p>
                         <div className="delete-actions-p">
                             <button className="btn-cancel-p" onClick={() => setConfirmDelete(null)}>No, Keep</button>
                             <button className="btn btn-danger" onClick={() => handleDelete(confirmDelete.id)}>Yes, Revoke Access</button>

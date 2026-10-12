@@ -43,4 +43,4 @@ backend/.env.production.local
 # Uploaded files
 backend/uploads/*
 !backend/uploads/.gitkeep
-
+scratch/test_new_key.php

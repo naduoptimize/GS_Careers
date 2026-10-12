@@ -143,6 +143,15 @@ function updateAdmin()
     
     $isActive = isset($input['is_active']) ? (int)$input['is_active'] : (int)$currentAdmin['is_active'];
 
+    // Protect the last remaining super administrator from being demoted or deactivated
+    if ($currentAdmin['role'] === 'super_admin' && ($role !== 'super_admin' || $isActive === 0)) {
+        $countStmt = $db->query("SELECT COUNT(*) FROM admins WHERE role = 'super_admin'");
+        $superAdminCount = (int)$countStmt->fetchColumn();
+        if ($superAdminCount <= 1) {
+            jsonResponse(400, 'Cannot change role or deactivate the last remaining super administrator');
+        }
+    }
+
     if (($role === 'sub_admin1' || $role === 'sub_admin2') && empty($companyId)) {
         jsonResponse(400, 'Company is required for ' . ($role === 'sub_admin1' ? 'Sub Admin 1' : 'Sub Admin 2'));
     }
@@ -209,15 +218,10 @@ function deleteAdmin()
     if ($id <= 0)
         jsonResponse(400, 'Invalid admin ID');
 
-    // Prevent deleting self
-    if ($id === (int)$auth['admin_id']) {
-        jsonResponse(400, 'Cannot delete your own account');
-    }
-
     $db = getDB();
     
     // Fetch target admin role
-    $stmt = $db->prepare("SELECT role FROM admins WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, role, full_name FROM admins WHERE id = ?");
     $stmt->execute([$id]);
     $target = $stmt->fetch();
     if (!$target) {
@@ -229,15 +233,34 @@ function deleteAdmin()
         jsonResponse(403, 'Unauthorized to delete this admin level');
     }
 
-    // super_admin cannot be deleted here
-    $stmt = $db->prepare("DELETE FROM admins WHERE id = ? AND role != 'super_admin'");
+    // If target is super_admin, caller must be super_admin and there must be more than one super_admin
+    if ($target['role'] === 'super_admin') {
+        if ($auth['role'] !== 'super_admin') {
+            jsonResponse(403, 'Only super administrators can delete a super administrator account');
+        }
+
+        $countStmt = $db->query("SELECT COUNT(*) FROM admins WHERE role = 'super_admin'");
+        $superAdminCount = (int)$countStmt->fetchColumn();
+        if ($superAdminCount <= 1) {
+            jsonResponse(400, 'Cannot delete the last super administrator account');
+        }
+    }
+
+    // Prevent non-superadmin from deleting self
+    if ($auth['role'] !== 'super_admin' && $id === (int)$auth['admin_id']) {
+        jsonResponse(400, 'Cannot delete your own account');
+    }
+
+    $stmt = $db->prepare("DELETE FROM admins WHERE id = ?");
     $stmt->execute([$id]);
 
     if ($stmt->rowCount() === 0) {
-        jsonResponse(400, 'Cannot delete super admin or admin not found');
+        jsonResponse(400, 'Admin not found or could not be deleted');
     }
 
-    jsonResponse(200, 'Admin deleted successfully');
+    $isSelf = ($id === (int)$auth['admin_id']);
+
+    jsonResponse(200, 'Admin deleted successfully', ['is_self' => $isSelf]);
 }
 
 function resetPassword()

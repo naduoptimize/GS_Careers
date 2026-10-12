@@ -111,6 +111,12 @@ function calculateSalaryMatchScorePHP($salaryExpectation, $minSalary, $maxSalary
     $jobMin = (!empty($minSalary) && $minSalary > 0) ? (float)$minSalary : null;
     $jobMax = (!empty($maxSalary) && $maxSalary > 0) ? (float)$maxSalary : null;
 
+    if ($jobMin && $jobMax && $jobMin > $jobMax) {
+        $temp = $jobMin;
+        $jobMin = $jobMax;
+        $jobMax = $temp;
+    }
+
     if (!$jobMin && !$jobMax) return 100;
 
     $candSal = parseNumericSalaryPHP($salaryExpectation);
@@ -126,8 +132,10 @@ function calculateSalaryMatchScorePHP($salaryExpectation, $minSalary, $maxSalary
         $excess = ($candSal - $jobMax) / $jobMax;
         return max(10, round(100 - ($excess * 150)));
     } else if ($jobMin) {
-        if ($candSal >= $jobMin) return 100;
-        return 100;
+        if ($candSal <= $jobMin * 1.25) return 100;
+        if ($candSal < $jobMin) return 100;
+        $excess = ($candSal - $jobMin) / $jobMin;
+        return max(10, round(100 - ($excess * 120)));
     }
     return 100;
 }

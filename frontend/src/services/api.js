@@ -147,6 +147,7 @@ export const resetAdminPassword = (data) => api.post('/admins.php?action=reset-p
 export const getSettings = () => api.get('/settings.php');
 export const saveSettings = (data) => api.post('/settings.php', data);
 export const testSmtpSettings = (data) => api.post('/settings.php?action=test', data);
+export const checkGeminiQuota = (data = {}) => api.post('/ai.php?action=quota_status', data);
 export const getPublicPdpa = () => api.get('/public_pdpa.php');
 
 // CV Extractions

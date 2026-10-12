@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAllVacancyAuditLogs } from '../../services/api';
 import { formatDate, formatDateTime } from '../../utils/constants';
-import { FiActivity, FiSearch, FiClock, FiUser, FiBriefcase, FiAlertCircle, FiCheckCircle, FiXCircle, FiCalendar, FiUsers, FiTag, FiBook, FiRotateCcw } from 'react-icons/fi';
+import { FiActivity, FiSearch, FiClock, FiUser, FiBriefcase, FiAlertCircle, FiCheckCircle, FiXCircle, FiCalendar, FiUsers, FiTag, FiBook, FiRotateCcw, FiFilter, FiChevronDown, FiChevronUp, FiX } from 'react-icons/fi';
 
 function AuditLog({ admin }) {
     const [logs, setLogs] = useState([]);
@@ -9,6 +9,7 @@ function AuditLog({ admin }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [actionFilter, setActionFilter] = useState('');
     const [companyFilter, setCompanyFilter] = useState('');
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
 
     useEffect(() => {
         loadAuditLogs();
@@ -132,67 +133,125 @@ function AuditLog({ admin }) {
             </div>
 
             {/* ── FILTER BAR ── */}
-            <div className="card-p audit-filters-card" style={{ padding: '16px 20px', borderRadius: '18px', background: '#fff', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
-                <div className="audit-filters-row">
-                    <div className="audit-filter-search-wrap">
-                        <FiSearch style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
-                        <input
-                            type="text"
-                            className="audit-filter-input"
-                            placeholder="Search position, ref number, actor, details..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            onFocus={(e) => { e.target.style.borderColor = 'var(--crimson)'; e.target.style.backgroundColor = '#fff'; }}
-                            onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.backgroundColor = '#f8fafc'; }}
-                        />
-                    </div>
-
-                    {/* Action Filter */}
-                    <div className="audit-filter-select-wrap">
-                        <select
-                            className="audit-filter-select"
-                            value={actionFilter}
-                            onChange={(e) => setActionFilter(e.target.value)}
-                        >
-                            <option value="">All Actions</option>
-                            {uniqueActions.map(action => (
-                                <option key={action} value={action}>{action.replace(/_/g, ' ').toUpperCase()}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Subsidiary Filter (Only for GS Admins) */}
-                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="audit-filter-select-wrap">
-                            <select
-                                className="audit-filter-select"
-                                value={companyFilter}
-                                onChange={(e) => setCompanyFilter(e.target.value)}
-                            >
-                                <option value="">All Subsidiaries</option>
-                                {uniqueCompanies.map(company => (
-                                    <option key={company} value={company}>{company}</option>
-                                ))}
-                            </select>
+            <div className="applicant-filter-card">
+                <div className="filter-top-bar">
+                    <div className="filter-search-wrapper">
+                        <div className="search-input-box">
+                            <FiSearch className="search-lead-icon" />
+                            <input
+                                type="text"
+                                placeholder="Search position, ref number, actor, details..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    className="clear-search-trigger"
+                                    onClick={() => setSearchTerm('')}
+                                    title="Clear search"
+                                >
+                                    <FiX size={14} />
+                                </button>
+                            )}
                         </div>
-                    )}
+                    </div>
 
-                    {/* Reset Filters Button (Single-line aligned) */}
-                    {(searchTerm || actionFilter || companyFilter) && (
+                    <div className="filter-top-actions">
                         <button
-                            className="audit-filter-btn-reset"
-                            onClick={() => {
-                                setSearchTerm('');
-                                setActionFilter('');
-                                setCompanyFilter('');
-                            }}
-                            title="Reset all active filters"
+                            type="button"
+                            className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${[actionFilter, companyFilter].filter(Boolean).length > 0 ? 'has-active' : ''}`}
+                            onClick={() => setShowFilterPanel(!showFilterPanel)}
+                            title="Toggle filter options"
                         >
-                            <FiRotateCcw size={14} />
-                            <span>Reset Filters</span>
+                            <FiFilter className="btn-filter-icon" />
+                            <span>Filters</span>
+                            {([actionFilter, companyFilter].filter(Boolean).length > 0) && (
+                                <span className="filter-count-badge">
+                                    {[actionFilter, companyFilter].filter(Boolean).length}
+                                </span>
+                            )}
+                            {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
                         </button>
-                    )}
+                    </div>
                 </div>
+
+                {/* ACTIVE FILTER CHIPS */}
+                {(actionFilter || companyFilter || searchTerm) && (
+                    <div className="active-filter-chips-row">
+                        <span className="chips-label">Active Filters:</span>
+                        <div className="chips-list">
+                            {actionFilter && (
+                                <span className="filter-chip" onClick={() => setActionFilter('')}>
+                                    Action: {actionFilter.replace(/_/g, ' ').toUpperCase()}
+                                    <FiX className="chip-remove" size={12} />
+                                </span>
+                            )}
+                            {companyFilter && (
+                                <span className="filter-chip" onClick={() => setCompanyFilter('')}>
+                                    Subsidiary: {companyFilter}
+                                    <FiX className="chip-remove" size={12} />
+                                </span>
+                            )}
+                            {searchTerm && (
+                                <span className="filter-chip" onClick={() => setSearchTerm('')}>
+                                    Search: "{searchTerm}"
+                                    <FiX className="chip-remove" size={12} />
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                className="btn-clear-all-filters"
+                                onClick={() => {
+                                    setActionFilter('');
+                                    setCompanyFilter('');
+                                    setSearchTerm('');
+                                }}
+                            >
+                                <FiRotateCcw size={12} /> Reset All
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* EXPANDABLE DROPDOWNS PANEL */}
+                {showFilterPanel && (
+                    <div className="filter-dropdowns-expandable">
+                        <div className="filter-dropdowns-grid">
+                            <div className="filter-field-box">
+                                <label><FiActivity className="field-icon" /> Audit Action</label>
+                                <div className="custom-select-wrapper">
+                                    <select
+                                        value={actionFilter}
+                                        onChange={(e) => setActionFilter(e.target.value)}
+                                    >
+                                        <option value="">All Actions</option>
+                                        {uniqueActions.map(action => (
+                                            <option key={action} value={action}>{action.replace(/_/g, ' ').toUpperCase()}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                <div className="filter-field-box">
+                                    <label><FiBriefcase className="field-icon" /> Subsidiary / Establishment</label>
+                                    <div className="custom-select-wrapper">
+                                        <select
+                                            value={companyFilter}
+                                            onChange={(e) => setCompanyFilter(e.target.value)}
+                                        >
+                                            <option value="">All Subsidiaries</option>
+                                            {uniqueCompanies.map(company => (
+                                                <option key={company} value={company}>{company}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* ── LOGS TABLE ── */}

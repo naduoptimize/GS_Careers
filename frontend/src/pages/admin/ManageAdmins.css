@@ -173,6 +173,23 @@
 .o-btn.delete { color: var(--crimson); }
 .o-btn.delete:hover { background: rgba(139, 26, 43, 0.08); }
 
+.o-btn:disabled,
+.o-btn.disabled {
+    opacity: 0.32 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border-color: var(--border-light) !important;
+    color: #94a3b8 !important;
+    pointer-events: auto !important;
+}
+.o-btn:disabled:hover,
+.o-btn.disabled:hover {
+    background: transparent !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* ── PAGINATION ── */
 .pagination-footer {
     display: flex;

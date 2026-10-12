@@ -157,8 +157,8 @@ const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
     return Array.from(new Set(result));
 };
 
-const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}) => {
-    const minMed = candidateObj.min_medium_match_score || 50;
+const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}, minMedOverride = null) => {
+    const minMed = minMedOverride !== null ? minMedOverride : (candidateObj?.min_medium_match_score || 50);
     const scoreVal = calculateMatchScore(candidateObj);
     const isLowMatch = scoreVal < minMed;
     const isManual = candidateObj.is_manual_extracted === 1 || candidateObj.is_manual_extracted === '1' || candidateObj.is_manual_extracted === true;
@@ -1382,7 +1382,8 @@ function CvExtractionsPage({ admin }) {
                                         selectedCandidate.skills_metadata,
                                         selectedCandidate.tags,
                                         selectedCandidate.extracted_data,
-                                        selectedCandidate
+                                        selectedCandidate,
+                                        minMediumScore
                                     );
                                     const tabCategories = ['Relevant Skills', 'Related Skills', 'Additional Skills'];
                                     const activeSkills = skills.filter(item => item.category === activeAdminTab);

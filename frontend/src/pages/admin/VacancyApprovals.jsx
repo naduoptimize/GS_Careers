@@ -5,7 +5,7 @@ import {
     FiCheckCircle, FiXCircle, FiClock, FiAlertCircle, FiSearch, FiFilter,
     FiEye, FiArrowLeft, FiCheck, FiX, FiCalendar, FiBriefcase, FiMapPin,
     FiInfo, FiChevronLeft, FiChevronRight, FiUsers, FiActivity, FiUser, FiEdit2,
-    FiTarget, FiTrendingUp, FiMail, FiPhone, FiHome
+    FiTarget, FiTrendingUp, FiMail, FiPhone, FiHome, FiChevronDown, FiChevronUp, FiRotateCcw
 } from 'react-icons/fi';
 import { getPendingApprovals, approveVacancy, rejectVacancy, getVacancyAuditLog, API_BASE } from '../../services/api';
 import { formatDate, daysLeft } from '../../utils/constants';
@@ -276,6 +276,7 @@ function VacancyApprovals({ admin }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [companyFilter, setCompanyFilter] = useState('');
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [viewDetail, setViewDetail] = useState(null);
     const [modalTab, setModalTab] = useState('details'); // 'details', 'history'
     const [showRejectModal, setShowRejectModal] = useState(null); // stores vacancy object being rejected
@@ -606,81 +607,158 @@ function VacancyApprovals({ admin }) {
                     </div>
                 )}
 
-                {/* FILTERS TOOLBAR */}
-                <div className="console-toolbar-p">
-                    <div className="toolbar-inline-row">
-                        <div className="search-orchestrator">
-                            <FiSearch className="s-icon" />
-                            <input 
-                                id="pipeline_search"
-                                name="pipeline_search"
-                                type="text" 
-                                placeholder="Search by position name, reference number or entity..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            {searchTerm && (
-                                <button
-                                    type="button"
-                                    className="clear-search-btn"
-                                    onClick={() => setSearchTerm('')}
-                                    title="Clear search"
-                                >
-                                    <FiX />
-                                </button>
+                {/* MODERN COLLAPSIBLE FILTER SUITE */}
+                {(() => {
+                    const activeApprFilterCount = [statusFilter, companyFilter].filter(Boolean).length;
+                    const hasApprActiveFilters = Boolean(searchTerm || statusFilter || companyFilter);
+                    const activeApprChips = [];
+                    if (searchTerm) activeApprChips.push({ key: 'search', label: `Search: "${searchTerm}"`, clear: () => setSearchTerm('') });
+                    if (statusFilter) activeApprChips.push({ key: 'status', label: `Status: ${getStatusLabel(statusFilter)}`, clear: () => setStatusFilter('') });
+                    if (companyFilter) {
+                        const comp = uniqueCompanies.find(c => String(c.id) === String(companyFilter))?.name || 'Establishment';
+                        activeApprChips.push({ key: 'company', label: `Entity: ${comp}`, clear: () => setCompanyFilter('') });
+                    }
+
+                    return (
+                        <div className="applicant-filter-card">
+                            <div className="filter-top-bar">
+                                <div className="filter-search-wrapper">
+                                    <div className="search-input-box">
+                                        <FiSearch className="search-lead-icon" />
+                                        <input
+                                            id="pipeline_search"
+                                            name="pipeline_search"
+                                            type="text"
+                                            placeholder="Search by position name, reference number or entity..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                        {searchTerm && (
+                                            <button
+                                                type="button"
+                                                className="clear-search-trigger"
+                                                onClick={() => setSearchTerm('')}
+                                                title="Clear search"
+                                            >
+                                                <FiX size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="filter-top-actions">
+                                    <button
+                                        type="button"
+                                        className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${activeApprFilterCount > 0 ? 'has-active' : ''}`}
+                                        onClick={() => setShowFilterPanel(prev => !prev)}
+                                        title="Toggle filter options"
+                                    >
+                                        <FiFilter className="btn-filter-icon" />
+                                        <span>Filters</span>
+                                        {activeApprFilterCount > 0 && (
+                                            <span className="filter-count-badge">{activeApprFilterCount}</span>
+                                        )}
+                                        {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
+                                    </button>
+
+                                    {hasApprActiveFilters && (
+                                        <button 
+                                            type="button" 
+                                            className="btn-clear-all-filters" 
+                                            onClick={() => {
+                                                setSearchTerm('');
+                                                setStatusFilter('');
+                                                setCompanyFilter('');
+                                            }}
+                                            title="Reset all filters"
+                                        >
+                                            <FiRotateCcw size={13} /> Reset
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {activeApprChips.length > 0 && (
+                                <div className="active-filter-chips-row">
+                                    <span className="chips-label">Active Filters:</span>
+                                    <div className="chips-list">
+                                        {activeApprChips.map(chip => (
+                                            <button
+                                                key={chip.key}
+                                                type="button"
+                                                className="filter-chip"
+                                                onClick={chip.clear}
+                                                title={`Remove ${chip.label}`}
+                                            >
+                                                <span>{chip.label}</span>
+                                                <FiX size={12} className="chip-remove" />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {showFilterPanel && (
+                                <div className="filter-dropdowns-expandable animated-fade-in">
+                                    <div className="filter-panel-header">
+                                        <span className="panel-title-text">Filter Approval Pipeline</span>
+                                        <button 
+                                            type="button" 
+                                            className="panel-close-btn" 
+                                            onClick={() => setShowFilterPanel(false)}
+                                            title="Hide filters"
+                                        >
+                                            <FiX size={14} /> Close
+                                        </button>
+                                    </div>
+
+                                    <div className="filter-dropdowns-grid">
+                                        {activeTab === 'pipeline' && (
+                                            <div className={`filter-field-box ${statusFilter ? 'has-value' : ''}`}>
+                                                <label htmlFor="status_filter">
+                                                    <FiFilter className="field-icon" /> Status
+                                                </label>
+                                                <div className="custom-select-wrapper">
+                                                    <select 
+                                                        id="status_filter" 
+                                                        name="status_filter" 
+                                                        value={statusFilter} 
+                                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                                    >
+                                                        <option value="">All Statuses</option>
+                                                        <option value="pending_subadmin1">Pending Sub Admin 1</option>
+                                                        <option value="pending_global">Pending GS Admin</option>
+                                                        <option value="approved">Approved &amp; Published</option>
+                                                        <option value="rejected">Rejected</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                            <div className={`filter-field-box ${companyFilter ? 'has-value' : ''}`}>
+                                                <label htmlFor="company_filter">
+                                                    <FiHome className="field-icon" /> Establishment
+                                                </label>
+                                                <div className="custom-select-wrapper">
+                                                    <select 
+                                                        id="company_filter" 
+                                                        name="company_filter" 
+                                                        value={companyFilter} 
+                                                        onChange={(e) => setCompanyFilter(e.target.value)}
+                                                    >
+                                                        <option value="">All GS Entities</option>
+                                                        {uniqueCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
-
-                        {activeTab === 'pipeline' && (
-                            <div className="filter-item-orchestrator">
-                                <div className="select-orchestrator">
-                                    <FiFilter className="f-icon" />
-                                    <select 
-                                        id="status_filter" 
-                                        name="status_filter" 
-                                        value={statusFilter} 
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        aria-label="Filter by Status"
-                                    >
-                                        <option value="">All Statuses</option>
-                                        <option value="pending_subadmin1">Pending Sub Admin 1</option>
-                                        <option value="pending_global">Pending GS Admin</option>
-                                        <option value="approved">Approved &amp; Published</option>
-                                        <option value="rejected">Rejected</option>
-                                    </select>
-                                </div>
-                            </div>
-                        )}
-
-                        {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                            <div className="filter-item-orchestrator">
-                                <div className="select-orchestrator">
-                                    <FiHome className="f-icon" />
-                                    <select 
-                                        id="company_filter" 
-                                        name="company_filter" 
-                                        value={companyFilter} 
-                                        onChange={(e) => setCompanyFilter(e.target.value)}
-                                        aria-label="Filter by Establishment"
-                                    >
-                                        <option value="">All GS Entities</option>
-                                        {uniqueCompanies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                        )}
-
-                        {(searchTerm || statusFilter || companyFilter) && (
-                            <button 
-                                className="btn-reset-p" 
-                                onClick={() => { setSearchTerm(''); setStatusFilter(''); setCompanyFilter(''); }}
-                                title="Reset all filters"
-                            >
-                                <FiX size={14} /> <span>Reset Filter</span>
-                            </button>
-                        )}
-                    </div>
-                </div>
+                    );
+                })()}
 
                 {/* PIPELINE LIST */}
                 <div className="pipeline-list">

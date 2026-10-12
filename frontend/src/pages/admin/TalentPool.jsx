@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { getTalentPool, getCompanies, updateCandidateTags, API_BASE, deleteApplication, blockCandidate, unblockCandidate } from '../../services/api';
 import { OVERALL_EXPERIENCE_OPTIONS, QUALIFICATION_OPTIONS, formatDate } from '../../utils/constants';
-import { FiSearch, FiMail, FiPhone, FiFileText, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiUserCheck, FiChevronRight, FiChevronLeft, FiTag, FiPlus, FiAlertCircle, FiBarChart, FiBookOpen, FiDownload, FiTrash2, FiSlash, FiShield } from 'react-icons/fi';
+import { FiSearch, FiMail, FiPhone, FiFileText, FiUser, FiBriefcase, FiCalendar, FiExternalLink, FiX, FiHome, FiUserCheck, FiChevronRight, FiChevronLeft, FiTag, FiPlus, FiAlertCircle, FiBarChart, FiBookOpen, FiDownload, FiTrash2, FiSlash, FiShield, FiFilter, FiChevronDown, FiChevronUp, FiRotateCcw } from 'react-icons/fi';
 import './TalentPool.css';
 import PaginationFooter from '../../components/PaginationFooter';
 import { renderAsync } from 'docx-preview';
@@ -88,6 +88,7 @@ function TalentPool({ admin }) {
         status: '',
         show_blocked: ''
     });
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
 
     const [showBlockModal, setShowBlockModal] = useState(null);
     const [blockReason, setBlockReason] = useState('');
@@ -274,145 +275,222 @@ function TalentPool({ admin }) {
                 </div>
             </div>
 
-            {/* PROFESSIONAL CONSOLE TOOLBAR */}
-            <div className="console-toolbar-p">
-                <div className="toolbar-search-row">
-                    <div className="search-orchestrator">
-                        <FiSearch className="s-icon" />
-                        <input
-                            id="talent_search"
-                            name="talent_search"
-                            type="text"
-                            placeholder="Discover by name, email, expertise or tags..."
-                            value={filters.search}
-                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                        />
-                        {filters.search && (
-                            <button
-                                type="button"
-                                className="clear-search-btn"
-                                onClick={() => setFilters({ ...filters, search: '' })}
-                                title="Clear search"
-                            >
-                                <FiX />
-                            </button>
-                        )}
-                    </div>
-                    {(filters.search || filters.company_id || filters.overall_experience || filters.tag || filters.qualification || filters.status) && (
-                        <button className="btn-reset-p" onClick={clearFilters}>
-                            <FiX /> <span>Reset Discovery</span>
-                        </button>
-                    )}
+            {/* MODERN COLLAPSIBLE FILTER SUITE */}
+            {(() => {
+                const activeTalentFilterCount = [filters.company_id, filters.overall_experience, filters.qualification, filters.tag, filters.status].filter(Boolean).length;
+                const hasTalentActiveFilters = Boolean(filters.search || filters.company_id || filters.overall_experience || filters.tag || filters.qualification || filters.status);
+                const activeTalentChips = [];
+                if (filters.search) activeTalentChips.push({ key: 'search', label: `Search: "${filters.search}"`, clear: () => setFilters(prev => ({ ...prev, search: '' })) });
+                if (filters.company_id) {
+                    const comp = companies.find(c => String(c.id) === String(filters.company_id))?.name || 'Unit';
+                    activeTalentChips.push({ key: 'company', label: `Unit: ${comp}`, clear: () => setFilters(prev => ({ ...prev, company_id: '' })) });
+                }
+                if (filters.overall_experience) activeTalentChips.push({ key: 'exp', label: `Exp: ${filters.overall_experience}`, clear: () => setFilters(prev => ({ ...prev, overall_experience: '' })) });
+                if (filters.qualification) activeTalentChips.push({ key: 'qual', label: `Qual: ${filters.qualification}`, clear: () => setFilters(prev => ({ ...prev, qualification: '' })) });
+                if (filters.status) activeTalentChips.push({ key: 'status', label: `Status: ${filters.status}`, clear: () => setFilters(prev => ({ ...prev, status: '' })) });
 
-                    {/* Pool Mode Toggle */}
-                    <div className="pool-toggle-group" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e2e8f0', flexShrink: 0, height: 44 }}>
-                        <button
-                            type="button"
-                            onClick={() => setFilters({ ...filters, show_blocked: '' })}
-                            style={{
-                                padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
-                                background: filters.show_blocked !== '1' ? 'linear-gradient(135deg, #1a1a2e, #2a050b)' : '#fff',
-                                color: filters.show_blocked !== '1' ? '#c8a951' : '#94a3b8',
-                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
-                            }}
-                        >
-                            <FiUserCheck size={14} /> Active Pool ({activeCount})
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setFilters({ ...filters, show_blocked: '1' })}
-                            style={{
-                                padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
-                                borderLeft: '1.5px solid #e2e8f0',
-                                background: filters.show_blocked === '1' ? '#fef2f2' : '#fff',
-                                color: filters.show_blocked === '1' ? '#dc2626' : '#94a3b8',
-                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
-                            }}
-                        >
-                            <FiSlash size={14} /> Blocked ({blockedCount})
-                        </button>
-                    </div>
-                </div>
+                return (
+                    <div className="applicant-filter-card">
+                        <div className="filter-top-bar">
+                            <div className="filter-search-wrapper">
+                                <div className="search-input-box">
+                                    <FiSearch className="search-lead-icon" />
+                                    <input
+                                        id="talent_search"
+                                        name="talent_search"
+                                        type="text"
+                                        placeholder="Discover by candidate name, email, expertise or tags..."
+                                        value={filters.search}
+                                        onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                    />
+                                    {filters.search && (
+                                        <button
+                                            type="button"
+                                            className="clear-search-trigger"
+                                            onClick={() => setFilters({ ...filters, search: '' })}
+                                            title="Clear search"
+                                        >
+                                            <FiX size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
 
-                <div className="toolbar-divider" />
-
-                <div className="toolbar-filters-row">
-                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                        <div className="filter-group">
-                            <label>Business Unit</label>
-                            <div className="select-orchestrator">
-                                <FiHome className="f-icon" />
-                                <select 
-                                    id="company_filter" 
-                                    name="company_id" 
-                                    value={filters.company_id} 
-                                    onChange={(e) => setFilters({ ...filters, company_id: e.target.value })}
-                                    className="select-lg"
+                            <div className="filter-top-actions">
+                                <button
+                                    type="button"
+                                    className={`btn-toggle-filters ${showFilterPanel ? 'active' : ''} ${activeTalentFilterCount > 0 ? 'has-active' : ''}`}
+                                    onClick={() => setShowFilterPanel(prev => !prev)}
+                                    title="Toggle filter options"
                                 >
-                                    <option value="">All Business Units</option>
-                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                    <FiFilter className="btn-filter-icon" />
+                                    <span>Filters</span>
+                                    {activeTalentFilterCount > 0 && (
+                                        <span className="filter-count-badge">{activeTalentFilterCount}</span>
+                                    )}
+                                    {showFilterPanel ? <FiChevronUp className="btn-chevron-icon" /> : <FiChevronDown className="btn-chevron-icon" />}
+                                </button>
+
+                                {/* Pool Mode Toggle */}
+                                <div className="pool-toggle-group" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e2e8f0', flexShrink: 0, height: 48 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilters({ ...filters, show_blocked: '' })}
+                                        style={{
+                                            padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
+                                            background: filters.show_blocked !== '1' ? 'linear-gradient(135deg, #1a1a2e, #2a050b)' : '#fff',
+                                            color: filters.show_blocked !== '1' ? '#c8a951' : '#94a3b8',
+                                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        <FiUserCheck size={14} /> Active ({activeCount})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFilters({ ...filters, show_blocked: '1' })}
+                                        style={{
+                                            padding: '0 16px', height: '100%', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem',
+                                            borderLeft: '1.5px solid #e2e8f0',
+                                            background: filters.show_blocked === '1' ? '#fef2f2' : '#fff',
+                                            color: filters.show_blocked === '1' ? '#dc2626' : '#94a3b8',
+                                            transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        <FiSlash size={14} /> Blocked ({blockedCount})
+                                    </button>
+                                </div>
+
+                                {hasTalentActiveFilters && (
+                                    <button 
+                                        type="button" 
+                                        className="btn-clear-all-filters" 
+                                        onClick={clearFilters}
+                                        title="Reset all filters"
+                                    >
+                                        <FiRotateCcw size={13} /> Reset
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    )}
 
-                    <div className="filter-group">
-                        <label>Min. Experience</label>
-                        <div className="select-orchestrator">
-                            <FiBriefcase className="f-icon" />
-                            <select 
-                                id="experience_filter" 
-                                name="overall_experience" 
-                                value={filters.overall_experience} 
-                                onChange={(e) => setFilters({ ...filters, overall_experience: e.target.value })}
-                            >
-                                <option value="">All Experience</option>
-                                <option value="0 years">0 years (Freshers)</option>
-                                <option value="0-1 years">0–1 years</option>
-                                <option value="1-2 years">1–2 years</option>
-                                <option value="3-4 years">3–4 years</option>
-                                <option value="5-7 years">5–7 years</option>
-                                <option value="8-10 years">8–10 years</option>
-                                <option value="10+ years">10+ years</option>
-                            </select>
-                        </div>
-                    </div>
+                        {activeTalentChips.length > 0 && (
+                            <div className="active-filter-chips-row">
+                                <span className="chips-label">Active Filters:</span>
+                                <div className="chips-list">
+                                    {activeTalentChips.map(chip => (
+                                        <button
+                                            key={chip.key}
+                                            type="button"
+                                            className="filter-chip"
+                                            onClick={chip.clear}
+                                            title={`Remove ${chip.label}`}
+                                        >
+                                            <span>{chip.label}</span>
+                                            <FiX size={12} className="chip-remove" />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                    <div className="filter-group">
-                        <label>Academic Status</label>
-                        <div className="select-orchestrator">
-                            <FiFileText className="f-icon" />
-                            <select 
-                                id="qualification_filter" 
-                                name="qualification" 
-                                value={filters.qualification} 
-                                onChange={(e) => setFilters({ ...filters, qualification: e.target.value })}
-                            >
-                                <option value="">Academic Status</option>
-                                {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </div>
-                    </div>
+                        {showFilterPanel && (
+                            <div className="filter-dropdowns-expandable animated-fade-in">
+                                <div className="filter-panel-header">
+                                    <span className="panel-title-text">Filter & Refine Talent Pool Candidates</span>
+                                    <button 
+                                        type="button" 
+                                        className="panel-close-btn" 
+                                        onClick={() => setShowFilterPanel(false)}
+                                        title="Hide filters"
+                                    >
+                                        <FiX size={14} /> Close
+                                    </button>
+                                </div>
 
-                    <div className="filter-group">
-                        <label>Search Outcome</label>
-                        <div className="select-orchestrator">
-                            <FiUserCheck className="f-icon" />
-                            <select 
-                                id="status_filter" 
-                                name="status" 
-                                value={filters.status} 
-                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                            >
-                                <option value="">All Outcomes</option>
-                                <option value="pending">Pending Review</option>
-                                <option value="shortlisted">Shortlisted</option>
-                                <option value="rejected">Rejected</option>
-                            </select>
-                        </div>
+                                <div className="filter-dropdowns-grid">
+                                    {(admin.role === 'super_admin' || admin.role === 'admin') && (
+                                        <div className={`filter-field-box ${filters.company_id ? 'has-value' : ''}`}>
+                                            <label htmlFor="company_filter">
+                                                <FiHome className="field-icon" /> Business Unit
+                                            </label>
+                                            <div className="custom-select-wrapper">
+                                                <select 
+                                                    id="company_filter" 
+                                                    name="company_id" 
+                                                    value={filters.company_id} 
+                                                    onChange={(e) => setFilters({ ...filters, company_id: e.target.value })}
+                                                >
+                                                    <option value="">All Business Units</option>
+                                                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className={`filter-field-box ${filters.overall_experience ? 'has-value' : ''}`}>
+                                        <label htmlFor="experience_filter">
+                                            <FiBriefcase className="field-icon" /> Min. Experience
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="experience_filter" 
+                                                name="overall_experience" 
+                                                value={filters.overall_experience} 
+                                                onChange={(e) => setFilters({ ...filters, overall_experience: e.target.value })}
+                                            >
+                                                <option value="">All Experience</option>
+                                                <option value="0 years">0 years (Freshers)</option>
+                                                <option value="0-1 years">0–1 years</option>
+                                                <option value="1-2 years">1–2 years</option>
+                                                <option value="3-4 years">3–4 years</option>
+                                                <option value="5-7 years">5–7 years</option>
+                                                <option value="8-10 years">8–10 years</option>
+                                                <option value="10+ years">10+ years</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className={`filter-field-box ${filters.qualification ? 'has-value' : ''}`}>
+                                        <label htmlFor="qualification_filter">
+                                            <FiFileText className="field-icon" /> Academic Status
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="qualification_filter" 
+                                                name="qualification" 
+                                                value={filters.qualification} 
+                                                onChange={(e) => setFilters({ ...filters, qualification: e.target.value })}
+                                            >
+                                                <option value="">Any Academic Status</option>
+                                                {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className={`filter-field-box ${filters.status ? 'has-value' : ''}`}>
+                                        <label htmlFor="status_filter">
+                                            <FiUserCheck className="field-icon" /> Search Outcome
+                                        </label>
+                                        <div className="custom-select-wrapper">
+                                            <select 
+                                                id="status_filter" 
+                                                name="status" 
+                                                value={filters.status} 
+                                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                            >
+                                                <option value="">All Outcomes</option>
+                                                <option value="pending">Pending Review</option>
+                                                <option value="shortlisted">Shortlisted</option>
+                                                <option value="rejected">Rejected</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                </div>
-            </div>
+                );
+            })()}
 
             {/* Data Orchestration Table */}
             <div className="premium-table-container">
