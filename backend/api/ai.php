@@ -45,7 +45,7 @@ function handleParse()
 
     $aiProvider = $settings['ai_provider'] ?? 'ollama';
     $geminiApiKey = !empty($settings['gemini_api_key']) ? $settings['gemini_api_key'] : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
-    $geminiModel = $settings['gemini_model'] ?? 'gemini-2.5-flash';
+    $geminiModel = $settings['gemini_model'] ?? 'gemini-3.5-flash';
     
     // Fall back to config.php constants if not found in database settings
     $defaultOllamaServer = defined('OLLAMA_SERVER') ? OLLAMA_SERVER : 'http://172.16.7.21:11434';
@@ -220,18 +220,30 @@ function handleQuotaStatus()
         $message = "API Test Error (HTTP {$httpCode}): " . ($curlError ?: 'Unexpected response');
     }
 
-    // Extraction Counts
+    // Extraction Counts & API Usage
     $usedToday = 0;
     try {
-        $stmtToday = $db->query("SELECT COUNT(*) FROM applications WHERE extraction_status = 'completed' AND DATE(extracted_at) = CURDATE()");
-        $usedToday = (int)$stmtToday->fetchColumn();
+        $stmtToday = $db->query("SELECT COUNT(*) FROM applications WHERE (extraction_status = 'extracted' OR extracted_data IS NOT NULL) AND (DATE(extracted_at) = CURDATE() OR (extracted_at IS NULL AND DATE(applied_at) = CURDATE()))");
+        $appCountToday = (int)$stmtToday->fetchColumn();
+
+        // Also check tracked gemini calls for today
+        $todayStr = date('Y-m-d');
+        $stmtDate = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'gemini_calls_date'");
+        $storedDate = $stmtDate ? $stmtDate->fetchColumn() : null;
+        $trackedCalls = 0;
+        if ($storedDate === $todayStr) {
+            $stmtCalls = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'gemini_calls_today'");
+            $trackedCalls = (int)($stmtCalls ? $stmtCalls->fetchColumn() : 0);
+        }
+
+        $usedToday = max($appCountToday, $trackedCalls);
     } catch (\Exception $e) {
         $usedToday = 0;
     }
 
     $totalExtracted = 0;
     try {
-        $stmtTotal = $db->query("SELECT COUNT(*) FROM applications WHERE extraction_status = 'completed'");
+        $stmtTotal = $db->query("SELECT COUNT(*) FROM applications WHERE extraction_status = 'extracted' OR extracted_data IS NOT NULL");
         $totalExtracted = (int)$stmtTotal->fetchColumn();
     } catch (\Exception $e) {
         $totalExtracted = 0;

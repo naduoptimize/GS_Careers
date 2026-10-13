@@ -57,6 +57,13 @@ function SettingsPage({ admin }) {
         ollama_server: 'http://172.16.7.21:11434',
         ollama_model: 'qwen2.5:3b',
         
+        // Candidate Score Calculation Weights (%)
+        weight_skills: 35,
+        weight_experience: 30,
+        weight_qualification: 20,
+        weight_jd_alignment: 10,
+        weight_salary: 5,
+        
         // Defaults
         default_email: '',
         default_smtp_host: '',
@@ -174,6 +181,12 @@ function SettingsPage({ admin }) {
                 ollama_server: data.ollama_server || 'http://172.16.7.21:11434',
                 ollama_model: data.ollama_model || 'qwen2.5:3b',
                 
+                weight_skills: data.weight_skills !== undefined ? parseInt(data.weight_skills, 10) : 35,
+                weight_experience: data.weight_experience !== undefined ? parseInt(data.weight_experience, 10) : 30,
+                weight_qualification: data.weight_qualification !== undefined ? parseInt(data.weight_qualification, 10) : 20,
+                weight_jd_alignment: data.weight_jd_alignment !== undefined ? parseInt(data.weight_jd_alignment, 10) : 10,
+                weight_salary: data.weight_salary !== undefined ? parseInt(data.weight_salary, 10) : 5,
+                
                 default_email: data.default_email || '',
                 default_smtp_host: data.default_smtp_host || '',
                 default_smtp_port: data.default_smtp_port || '',
@@ -251,6 +264,17 @@ function SettingsPage({ admin }) {
             setActiveTab('pdpa');
             return;
         }
+
+        const totalWeights = (parseInt(settings.weight_skills, 10) || 0) +
+                             (parseInt(settings.weight_experience, 10) || 0) +
+                             (parseInt(settings.weight_qualification, 10) || 0) +
+                             (parseInt(settings.weight_jd_alignment, 10) || 0) +
+                             (parseInt(settings.weight_salary, 10) || 0);
+        if (totalWeights !== 100) {
+            toast.warning(`Total Candidate Score Calculation Weights must equal exactly 100% (currently ${totalWeights}%). Please adjust your weights.`);
+            setActiveTab('score');
+            return;
+        }
         
         setSaving(true);
         try {
@@ -265,6 +289,11 @@ function SettingsPage({ admin }) {
                 enable_candidate_emails: settings.enable_candidate_emails,
                 min_high_match_score: settings.min_high_match_score,
                 min_medium_match_score: settings.min_medium_match_score,
+                weight_skills: settings.weight_skills,
+                weight_experience: settings.weight_experience,
+                weight_qualification: settings.weight_qualification,
+                weight_jd_alignment: settings.weight_jd_alignment,
+                weight_salary: settings.weight_salary,
                 pdpa_title: settings.pdpa_title,
                 pdpa_description: settings.pdpa_description,
                 pdpa_purpose: settings.pdpa_purpose,
@@ -811,128 +840,392 @@ function SettingsPage({ admin }) {
                             </div>
 
                             {/* ALGORITHM WEIGHTING CARD */}
-                            <div style={{
-                                background: '#ffffff',
-                                padding: '24px',
-                                borderRadius: '16px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
-                                    <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <FiSliders style={{ color: '#7A1228' }} /> Candidate Score Calculation Weights
-                                    </h4>
-                                    <span style={{ background: 'rgba(122, 18, 40, 0.08)', color: '#7A1228', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', border: '1px solid rgba(122, 18, 40, 0.15)' }}>
-                                        TOTAL ALLOCATION: 100%
-                                    </span>
-                                </div>
-                                <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 18px 0', lineHeight: '1.45' }}>
-                                    Composite candidate match scores (0 – 100%) are evaluated dynamically by AI across the following 5 weighted recruitment dimensions:
-                                </p>
+                            {(() => {
+                                const totalWeights = (parseInt(settings.weight_skills, 10) || 0) +
+                                                     (parseInt(settings.weight_experience, 10) || 0) +
+                                                     (parseInt(settings.weight_qualification, 10) || 0) +
+                                                     (parseInt(settings.weight_jd_alignment, 10) || 0) +
+                                                     (parseInt(settings.weight_salary, 10) || 0);
+                                const isWeightValid = totalWeights === 100;
 
-                                {/* Dynamic Composite Visual Bar */}
-                                <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex', marginBottom: '20px' }}>
-                                    <div style={{ width: '35%', background: '#7A1228' }} title="Skills Overlap: 35%"></div>
-                                    <div style={{ width: '30%', background: '#0f172a' }} title="Relevant Experience: 30%"></div>
-                                    <div style={{ width: '20%', background: '#4f46e5' }} title="Qualifications: 20%"></div>
-                                    <div style={{ width: '10%', background: '#d97706' }} title="Job Description Alignment: 10%"></div>
-                                    <div style={{ width: '5%', background: '#16a34a' }} title="Salary Budget Alignment: 5%"></div>
-                                </div>
+                                return (
+                                    <div style={{
+                                        background: '#ffffff',
+                                        padding: '24px',
+                                        borderRadius: '16px',
+                                        border: isWeightValid ? '1px solid #e2e8f0' : '1px solid #fca5a5',
+                                        boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)',
+                                        transition: 'border-color 0.2s ease'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <FiSliders style={{ color: '#7A1228' }} /> Candidate Score Calculation Weights
+                                            </h4>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {isEditing && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSettings(prev => ({
+                                                            ...prev,
+                                                            weight_skills: 35,
+                                                            weight_experience: 30,
+                                                            weight_qualification: 20,
+                                                            weight_jd_alignment: 10,
+                                                            weight_salary: 5
+                                                        }))}
+                                                        style={{
+                                                            background: '#f8fafc',
+                                                            border: '1px solid #cbd5e1',
+                                                            borderRadius: '8px',
+                                                            padding: '4px 10px',
+                                                            fontSize: '0.72rem',
+                                                            fontWeight: 700,
+                                                            color: '#475569',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        title="Reset weights to default 35%, 30%, 20%, 10%, 5%"
+                                                    >
+                                                        <FiRefreshCw style={{ fontSize: '0.72rem' }} /> Reset Defaults
+                                                    </button>
+                                                )}
+                                                <span style={{
+                                                    background: isWeightValid ? 'rgba(22, 163, 74, 0.08)' : 'rgba(225, 29, 72, 0.1)',
+                                                    color: isWeightValid ? '#15803d' : '#be123c',
+                                                    fontSize: '0.74rem',
+                                                    fontWeight: 800,
+                                                    padding: '3px 12px',
+                                                    borderRadius: '12px',
+                                                    border: isWeightValid ? '1px solid rgba(22, 163, 74, 0.25)' : '1px solid rgba(225, 29, 72, 0.25)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '5px'
+                                                }}>
+                                                    {isWeightValid ? (
+                                                        <>
+                                                            <FiCheckCircle style={{ fontSize: '0.8rem' }} /> TOTAL ALLOCATION: 100%
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FiAlertTriangle style={{ fontSize: '0.8rem' }} /> TOTAL ALLOCATION: {totalWeights}% (MUST BE 100%)
+                                                        </>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
+                                            Composite candidate match scores (0 – 100%) are evaluated dynamically by AI across the following 5 weighted recruitment dimensions:
+                                        </p>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
-                                    
-                                    {/* Metric 1: Skills Overlap */}
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                🎯 Skills Match
-                                            </span>
-                                            <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                35%
-                                            </span>
+                                        {/* Validation Alert when total != 100% in edit mode */}
+                                        {isEditing && !isWeightValid && (
+                                            <div style={{
+                                                background: '#fff1f2',
+                                                border: '1px solid #fecdd3',
+                                                borderRadius: '10px',
+                                                padding: '10px 14px',
+                                                marginBottom: '16px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                fontSize: '0.8rem',
+                                                color: '#be123c',
+                                                fontWeight: 600
+                                            }}>
+                                                <FiAlertTriangle style={{ fontSize: '1rem', flexShrink: 0 }} />
+                                                <span>
+                                                    Total weights must equal exactly 100%. Currently allocated: <strong>{totalWeights}%</strong> ({100 - totalWeights > 0 ? `${100 - totalWeights}% remaining to allocate` : `${totalWeights - 100}% over allocated`}).
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Dynamic Composite Visual Bar */}
+                                        <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex', marginBottom: '20px' }}>
+                                            <div style={{ width: `${Math.max(0, settings.weight_skills || 0)}%`, background: '#7A1228', transition: 'width 0.2s ease' }} title={`Skills Match: ${settings.weight_skills}%`}></div>
+                                            <div style={{ width: `${Math.max(0, settings.weight_experience || 0)}%`, background: '#0f172a', transition: 'width 0.2s ease' }} title={`Relevant Experience: ${settings.weight_experience}%`}></div>
+                                            <div style={{ width: `${Math.max(0, settings.weight_qualification || 0)}%`, background: '#4f46e5', transition: 'width 0.2s ease' }} title={`Qualifications: ${settings.weight_qualification}%`}></div>
+                                            <div style={{ width: `${Math.max(0, settings.weight_jd_alignment || 0)}%`, background: '#d97706', transition: 'width 0.2s ease' }} title={`Job Description Alignment: ${settings.weight_jd_alignment}%`}></div>
+                                            <div style={{ width: `${Math.max(0, settings.weight_salary || 0)}%`, background: '#16a34a', transition: 'width 0.2s ease' }} title={`Salary Budget Alignment: ${settings.weight_salary}%`}></div>
                                         </div>
-                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: '35%', background: '#7A1228' }}></div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
+                                            
+                                            {/* Metric 1: Skills Overlap */}
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        🎯 Skills Match
+                                                    </span>
+                                                    <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                        {settings.weight_skills}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_skills || 0))}%`, background: '#7A1228', transition: 'width 0.2s' }}></div>
+                                                </div>
+                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                                    Overlap of candidate skills against mandatory &amp; optional vacancy criteria.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#7A1228' }}>Weight</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={settings.weight_skills}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_skills: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                    style={{
+                                                                        width: '48px',
+                                                                        padding: '2px 4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 800,
+                                                                        textAlign: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        color: '#7A1228'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value={settings.weight_skills}
+                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_skills: parseInt(e.target.value, 10) || 0 }))}
+                                                            style={{ width: '100%', accentColor: '#7A1228', cursor: 'pointer' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Metric 2: Experience */}
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        💼 Experience
+                                                    </span>
+                                                    <span style={{ background: '#0f172a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                        {settings.weight_experience}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_experience || 0))}%`, background: '#0f172a', transition: 'width 0.2s' }}></div>
+                                                </div>
+                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                                    Relevant domain work history years vs minimum position requirements.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>Weight</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={settings.weight_experience}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_experience: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                    style={{
+                                                                        width: '48px',
+                                                                        padding: '2px 4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 800,
+                                                                        textAlign: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        color: '#0f172a'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value={settings.weight_experience}
+                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_experience: parseInt(e.target.value, 10) || 0 }))}
+                                                            style={{ width: '100%', accentColor: '#0f172a', cursor: 'pointer' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Metric 3: Qualifications */}
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        🎓 Qualification
+                                                    </span>
+                                                    <span style={{ background: '#4f46e5', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                        {settings.weight_qualification}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_qualification || 0))}%`, background: '#4f46e5', transition: 'width 0.2s' }}></div>
+                                                </div>
+                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                                    Degree level (Bachelors/Masters/PhD) &amp; relevant field specialization.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#4f46e5' }}>Weight</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={settings.weight_qualification}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_qualification: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                    style={{
+                                                                        width: '48px',
+                                                                        padding: '2px 4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 800,
+                                                                        textAlign: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        color: '#4f46e5'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value={settings.weight_qualification}
+                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_qualification: parseInt(e.target.value, 10) || 0 }))}
+                                                            style={{ width: '100%', accentColor: '#4f46e5', cursor: 'pointer' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Metric 4: Job Description Alignment */}
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        📄 JD Alignment
+                                                    </span>
+                                                    <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                        {settings.weight_jd_alignment}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_jd_alignment || 0))}%`, background: '#d97706', transition: 'width 0.2s' }}></div>
+                                                </div>
+                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                                    Alignment of CV responsibilities with core role duties &amp; projects.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#d97706' }}>Weight</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={settings.weight_jd_alignment}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_jd_alignment: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                    style={{
+                                                                        width: '48px',
+                                                                        padding: '2px 4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 800,
+                                                                        textAlign: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        color: '#d97706'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value={settings.weight_jd_alignment}
+                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_jd_alignment: parseInt(e.target.value, 10) || 0 }))}
+                                                            style={{ width: '100%', accentColor: '#d97706', cursor: 'pointer' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Metric 5: Salary Budget */}
+                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        💵 Salary Budget
+                                                    </span>
+                                                    <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
+                                                        {settings.weight_salary}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_salary || 0))}%`, background: '#16a34a', transition: 'width 0.2s' }}></div>
+                                                </div>
+                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
+                                                    Candidate salary expectations vs allocated job vacancy budget range.
+                                                </span>
+                                                {isEditing && (
+                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#16a34a' }}>Weight</label>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    value={settings.weight_salary}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_salary: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                    style={{
+                                                                        width: '48px',
+                                                                        padding: '2px 4px',
+                                                                        fontSize: '0.78rem',
+                                                                        fontWeight: 800,
+                                                                        textAlign: 'center',
+                                                                        borderRadius: '6px',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        color: '#16a34a'
+                                                                    }}
+                                                                />
+                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                            </div>
+                                                        </div>
+                                                        <input
+                                                            type="range"
+                                                            min="0"
+                                                            max="100"
+                                                            step="1"
+                                                            value={settings.weight_salary}
+                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_salary: parseInt(e.target.value, 10) || 0 }))}
+                                                            style={{ width: '100%', accentColor: '#16a34a', cursor: 'pointer' }}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
                                         </div>
-                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                            Overlap of candidate skills against mandatory &amp; optional vacancy criteria.
-                                        </span>
                                     </div>
-
-                                    {/* Metric 2: Experience */}
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                💼 Experience
-                                            </span>
-                                            <span style={{ background: '#0f172a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                30%
-                                            </span>
-                                        </div>
-                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: '30%', background: '#0f172a' }}></div>
-                                        </div>
-                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                            Relevant domain work history years vs minimum position requirements.
-                                        </span>
-                                    </div>
-
-                                    {/* Metric 3: Qualifications */}
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                🎓 Qualification
-                                            </span>
-                                            <span style={{ background: '#4f46e5', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                20%
-                                            </span>
-                                        </div>
-                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: '20%', background: '#4f46e5' }}></div>
-                                        </div>
-                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                            Degree level (Bachelors/Masters/PhD) &amp; relevant field specialization.
-                                        </span>
-                                    </div>
-
-                                    {/* Metric 4: Job Description Alignment */}
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                📄 JD Alignment
-                                            </span>
-                                            <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                10%
-                                            </span>
-                                        </div>
-                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: '10%', background: '#d97706' }}></div>
-                                        </div>
-                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                            Alignment of CV responsibilities with core role duties &amp; projects.
-                                        </span>
-                                    </div>
-
-                                    {/* Metric 5: Salary Budget */}
-                                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                💵 Salary Budget
-                                            </span>
-                                            <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                5%
-                                            </span>
-                                        </div>
-                                        <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: '5%', background: '#16a34a' }}></div>
-                                        </div>
-                                        <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                            Candidate salary expectations vs allocated job vacancy budget range.
-                                        </span>
-                                    </div>
-
-                                </div>
-                            </div>
+                                );
+                            })()}
 
                             {/* OVERALL SCORE CALCULATION FORMULA & ENGINE CARD */}
                             <div style={{
@@ -946,7 +1239,7 @@ function SettingsPage({ admin }) {
                                     <FiZap style={{ color: '#7A1228' }} /> Overall Score Formula &amp; Generation Pipeline
                                 </h4>
                                 <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                                    How final candidate match scores (12% – 100%) are synthesized, weighted, and calculated by the system:
+                                    How final candidate match scores (12% – 100%) are synthesized, weighted, and calculated dynamically by the system:
                                 </p>
 
                                 {/* MATHEMATICAL FORMULA BANNER */}
@@ -963,10 +1256,10 @@ function SettingsPage({ admin }) {
                                     boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)'
                                 }}>
                                     <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.04em' }}>
-                                        🧮 SYSTEM OVERALL SCORE FORMULA
+                                        🧮 SYSTEM OVERALL SCORE FORMULA (DYNAMIC WEIGHTS)
                                     </div>
-                                    <div style={{ color: '#38bdf8', fontWeight: 700 }}>
-                                        Overall Score = <span style={{ color: '#f43f5e' }}>(Skills &amp; JD Alignment × 40%)</span> + <span style={{ color: '#fbbf24' }}>(Relevant Experience × 30%)</span> + <span style={{ color: '#818cf8' }}>(Qualifications × 20%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × 10%)</span>
+                                    <div style={{ color: '#38bdf8', fontWeight: 700, wordBreak: 'break-word' }}>
+                                        Overall Score = <span style={{ color: '#f43f5e' }}>(Skills Match × {settings.weight_skills}%)</span> + <span style={{ color: '#fbbf24' }}>(Experience × {settings.weight_experience}%)</span> + <span style={{ color: '#818cf8' }}>(Qualification × {settings.weight_qualification}%)</span> + <span style={{ color: '#fb923c' }}>(JD Alignment × {settings.weight_jd_alignment}%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × {settings.weight_salary}%)</span>
                                     </div>
                                 </div>
 

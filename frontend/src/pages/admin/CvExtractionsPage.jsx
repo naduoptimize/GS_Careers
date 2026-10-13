@@ -598,24 +598,55 @@ const calculateMatchScore = (app) => {
 };
 
 const getMatchBreakdown = (app) => {
-    if (!app) return { overall: 0, salary: 0, experience: 0, qualification: 0, jdSkills: 0 };
+    if (!app) return { overall: 0, salary: 0, experience: 0, qualification: 0, skills: 0, jdAlignment: 0, jdSkills: 0 };
     const res = calculateCandidateMatchScore(app);
     const score = res.score || 0;
     const factors = res.details?.factors || {};
 
-    const salary = typeof factors.salary === 'number' ? factors.salary : 100;
-    const experience = typeof factors.experience === 'number' ? factors.experience : 0;
-    const qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
-    const skillsScore = typeof factors.skills === 'number' ? factors.skills : 0;
-    const keywordScore = typeof factors.keyword === 'number' ? factors.keyword : 0;
-    const jdSkills = Math.round((skillsScore * 0.5) + (keywordScore * 0.5));
+    let salary = typeof factors.salary === 'number' ? factors.salary : 100;
+    let experience = typeof factors.experience === 'number' ? factors.experience : 0;
+    let qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
+    let skills = typeof factors.skills === 'number' ? factors.skills : 0;
+    let jdAlignment = typeof factors.keyword === 'number' ? factors.keyword : 0;
+
+    // Check direct AI breakdown from skills_metadata
+    if (app.skills_metadata) {
+        try {
+            const meta = typeof app.skills_metadata === 'string' ? JSON.parse(app.skills_metadata) : app.skills_metadata;
+            if (meta?.ai_score_breakdown) {
+                const bd = meta.ai_score_breakdown;
+                const hasBudget = Boolean(app.min_salary || app.max_salary || app.v_min_salary || app.v_max_salary);
+                if (hasBudget && typeof factors.salary === 'number') {
+                    salary = factors.salary;
+                } else if (typeof bd.salary_match_score === 'number') {
+                    salary = bd.salary_match_score;
+                }
+                if (typeof bd.experience_match_score === 'number') {
+                    experience = (app.overall_experience === '0 years' || app.relevant_experience === '0 years') && bd.experience_match_score > 35
+                        ? 25
+                        : bd.experience_match_score;
+                }
+                if (typeof bd.qualification_match_score === 'number') qualification = bd.qualification_match_score;
+                if (typeof bd.skills_match_score === 'number') skills = bd.skills_match_score;
+                if (typeof bd.job_description_match_score === 'number') jdAlignment = bd.job_description_match_score;
+            }
+        } catch (e) {}
+    }
+
+    if (app.overall_experience === '0 years' || app.relevant_experience === '0 years') {
+        experience = Math.min(experience, 25);
+    }
+
+    const jdSkills = skills > 0 ? skills : (jdAlignment > 0 ? jdAlignment : 0);
 
     return {
         overall: score,
         salary,
         experience,
         qualification,
-        jdSkills: Math.min(100, Math.max(10, jdSkills))
+        skills,
+        jdAlignment,
+        jdSkills
     };
 };
 
@@ -1036,13 +1067,13 @@ function CvExtractionsPage({ admin }) {
                                         const isLowMatch = matchScore < minMediumScore;
 
                                         let matchClass = 'high';
-                                        let matchLabel = 'High Match';
+                                        let tierName = 'High Match';
                                         if (isLowMatch) {
                                             matchClass = 'low';
-                                            matchLabel = `Low (<${minMediumScore}%)`;
+                                            tierName = 'Low Match';
                                         } else if (matchScore < minHighScore) {
                                             matchClass = 'medium';
-                                            matchLabel = 'Medium';
+                                            tierName = 'Medium Match';
                                         }
 
                                         return (
@@ -1072,20 +1103,25 @@ function CvExtractionsPage({ admin }) {
                                                 <td style={{ whiteSpace: 'nowrap' }}>
                                                     <div className="cve-match-cell">
                                                         <span className={`cve-match-pill ${matchClass}`}>
-                                                            <FiTarget /> {matchScore}% <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>({matchLabel})</span>
+                                                            <span className="cve-match-dot" />
+                                                            <strong>{matchScore}%</strong>
+                                                            <span className="cve-match-tier-text">{tierName}</span>
                                                         </span>
                                                         <div className="cve-match-breakdown-grid">
-                                                            <span className="cve-micro-rate" title="Salary Expectation vs Job Budget">
-                                                                💵 Sal: <strong>{matchBreakdown.salary}%</strong>
+                                                            <span className="cve-micro-rate" title="Skills Match: Candidate skills against vacancy requirements">
+                                                                🎯 Skills: <strong>{matchBreakdown.skills}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Relevant Experience vs Requirement">
+                                                            <span className="cve-micro-rate" title="Experience: Relevant work history vs requirements">
                                                                 💼 Exp: <strong>{matchBreakdown.experience}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Relevant Field Qualifications">
+                                                            <span className="cve-micro-rate" title="Qualifications: Degree level & specialization">
                                                                 🎓 Qual: <strong>{matchBreakdown.qualification}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Job Description & Skills Overlap">
-                                                                🎯 JD: <strong>{matchBreakdown.jdSkills}%</strong>
+                                                            <span className="cve-micro-rate" title="JD Alignment: Alignment of responsibilities with core role duties">
+                                                                📄 JD: <strong>{matchBreakdown.jdAlignment}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate cve-micro-rate-wide" title="Salary Budget: Salary expectation vs vacancy budget range">
+                                                                💵 Budget: <strong>{matchBreakdown.salary}%</strong>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1244,7 +1280,7 @@ function CvExtractionsPage({ admin }) {
                                                         ></div>
                                                     </div>
                                                     <div className="cve-metric-sub">
-                                                        Salary Expectation: <strong>{selectedCandidate.salary_expectation || 'Not Specified'}</strong> vs Job Budget
+                                                        Salary Expectation: <strong>{selectedCandidate.salary_expectation ? `LKR ${Number(String(selectedCandidate.salary_expectation).replace(/[^0-9.]/g, '')).toLocaleString()}` : 'Not Specified'}</strong> vs Job Budget{selectedCandidate.min_salary || selectedCandidate.max_salary ? `: LKR ${Number(selectedCandidate.min_salary || 0).toLocaleString()} - ${selectedCandidate.max_salary ? Number(selectedCandidate.max_salary).toLocaleString() : 'Uncapped'}` : ''}
                                                     </div>
                                                 </div>
 

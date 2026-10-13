@@ -1076,6 +1076,7 @@ function Applicants({ admin }) {
 
     const [minHighScore, setMinHighScore] = useState(75);
     const [minMediumScore, setMinMediumScore] = useState(50);
+    const [autoExtractionEnabled, setAutoExtractionEnabled] = useState(true);
 
     const loadMeta = async () => {
         try {
@@ -1092,6 +1093,9 @@ function Applicants({ admin }) {
                 const sData = setRes.data.data;
                 if (sData.min_high_match_score) setMinHighScore(parseInt(sData.min_high_match_score) || 75);
                 if (sData.min_medium_match_score) setMinMediumScore(parseInt(sData.min_medium_match_score) || 50);
+                if (sData.enable_cv_extraction !== undefined) {
+                    setAutoExtractionEnabled(sData.enable_cv_extraction === '1' || sData.enable_cv_extraction === 1 || sData.enable_cv_extraction === true || sData.enable_cv_extraction === 'true');
+                }
             }
         } catch (err) {
             console.error(err);
@@ -2313,36 +2317,40 @@ function Applicants({ admin }) {
                                                 const experience = typeof factors.experience === 'number' ? factors.experience : 0;
                                                 const qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
                                                 const skillsScore = typeof factors.skills === 'number' ? factors.skills : 0;
-                                                const keywordScore = typeof factors.keyword === 'number' ? factors.keyword : 0;
-                                                const jdSkills = Math.min(100, Math.max(10, Math.round((skillsScore * 0.5) + (keywordScore * 0.5))));
+                                                const jdScore = typeof factors.keyword === 'number' ? factors.keyword : 0;
 
                                                 let matchClass = 'high';
-                                                let matchLabel = 'High Match';
+                                                let tierName = 'High Match';
                                                 if (matchScore < minMediumScore) {
                                                     matchClass = 'low';
-                                                    matchLabel = `Low (<${minMediumScore}%)`;
+                                                    tierName = 'Low Match';
                                                 } else if (matchScore < minHighScore) {
                                                     matchClass = 'medium';
-                                                    matchLabel = 'Medium';
+                                                    tierName = 'Medium Match';
                                                 }
 
                                                 return (
                                                     <div className="cve-match-cell">
                                                         <span className={`cve-match-pill ${matchClass}`}>
-                                                            <FiTarget /> {matchScore}% <span style={{ fontSize: '0.72rem', opacity: 0.9 }}>({matchLabel})</span>
+                                                            <span className="cve-match-dot" />
+                                                            <strong>{matchScore}%</strong>
+                                                            <span className="cve-match-tier-text">{tierName}</span>
                                                         </span>
                                                         <div className="cve-match-breakdown-grid">
-                                                            <span className="cve-micro-rate" title="Salary Budget Match Rate">
-                                                                Sal: <strong>{salary}%</strong>
+                                                            <span className="cve-micro-rate" title="Skills Match: Candidate skills against vacancy requirements">
+                                                                🎯 Skills: <strong>{skillsScore}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Relevant Experience Match Rate">
-                                                                Exp: <strong>{experience}%</strong>
+                                                            <span className="cve-micro-rate" title="Experience: Relevant work history vs requirements">
+                                                                💼 Exp: <strong>{experience}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Qualifications Field Match Rate">
-                                                                Qual: <strong>{qualification}%</strong>
+                                                            <span className="cve-micro-rate" title="Qualifications: Degree level & specialization">
+                                                                🎓 Qual: <strong>{qualification}%</strong>
                                                             </span>
-                                                            <span className="cve-micro-rate" title="Job Description & Skills Match Rate">
-                                                                JD: <strong>{jdSkills}%</strong>
+                                                            <span className="cve-micro-rate" title="JD Alignment: Alignment of responsibilities with core role duties">
+                                                                📄 JD: <strong>{jdScore}%</strong>
+                                                            </span>
+                                                            <span className="cve-micro-rate cve-micro-rate-wide" title="Salary Budget: Salary expectation vs vacancy budget range">
+                                                                💵 Budget: <strong>{salary}%</strong>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -2350,9 +2358,35 @@ function Applicants({ admin }) {
                                             })()}
                                         </td>
                                         <td data-label="Status">
-                                            <span className={`status-pill status-${(app.status || 'pending').replace('_', '-')}`}>
-                                                {(app.status || 'pending').replace('_', ' ')}
-                                            </span>
+                                            {(() => {
+                                                const scoreData = calculateCandidateMatchScore(app, vacancies);
+                                                const matchScore = scoreData.score || 0;
+                                                const isLowMatch = matchScore < minMediumScore;
+                                                const isAutoEnabled = app.auto_extraction_enabled !== undefined 
+                                                    ? (app.auto_extraction_enabled === true || app.auto_extraction_enabled === '1' || app.auto_extraction_enabled === 1) 
+                                                    : autoExtractionEnabled;
+
+                                                return (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+                                                        <span className={`status-pill status-${(app.status || 'pending').replace('_', '-')}`}>
+                                                            {(app.status || 'pending').replace('_', ' ')}
+                                                        </span>
+                                                        {((app.extraction_status === 'extracted' || app.is_manual_extracted == 1) && (!isLowMatch || app.is_manual_extracted == 1)) ? (
+                                                            <span className="cve-badge extracted" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                                                                <FiCheckCircle size={10} /> Extracted {app.is_manual_extracted == 1 && <span style={{ fontSize: '0.62rem' }}>(Manual)</span>}
+                                                            </span>
+                                                        ) : (isAutoEnabled && isLowMatch) ? (
+                                                            <span className="cve-badge disabled-low" style={{ fontSize: '0.7rem', padding: '2px 8px' }} title={`Match score (${matchScore}%) is below minimum threshold (<${minMediumScore}%).`}>
+                                                                <FiXCircle size={10} /> Disabled (&lt;{minMediumScore}%)
+                                                            </span>
+                                                        ) : (
+                                                            <span className="cve-badge unextracted" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
+                                                                <FiAlertCircle size={10} /> Unextracted
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td data-label="Credentials">
                                             <div className="credentials-cell">
@@ -2560,6 +2594,28 @@ function Applicants({ admin }) {
                                             <span className={`status-badge-p badge-${showDetail.status || 'pending'}`}>
                                                 {(showDetail.status || 'pending').replace('_', ' ')}
                                             </span>
+                                            {(() => {
+                                                const scoreData = calculateCandidateMatchScore(showDetail, vacancies);
+                                                const matchScore = scoreData.score || 0;
+                                                const isLowMatch = matchScore < minMediumScore;
+                                                const isAutoEnabled = showDetail.auto_extraction_enabled !== undefined 
+                                                    ? (showDetail.auto_extraction_enabled === true || showDetail.auto_extraction_enabled === '1' || showDetail.auto_extraction_enabled === 1) 
+                                                    : autoExtractionEnabled;
+
+                                                return ((showDetail.extraction_status === 'extracted' || showDetail.is_manual_extracted == 1) && (!isLowMatch || showDetail.is_manual_extracted == 1)) ? (
+                                                    <span className="cve-badge extracted" style={{ fontSize: '0.75rem', padding: '3px 10px', marginLeft: '6px' }}>
+                                                        <FiCheckCircle size={12} /> Extracted {showDetail.is_manual_extracted == 1 && <span style={{ fontSize: '0.65rem' }}>(Manual)</span>}
+                                                    </span>
+                                                ) : (isAutoEnabled && isLowMatch) ? (
+                                                    <span className="cve-badge disabled-low" style={{ fontSize: '0.75rem', padding: '3px 10px', marginLeft: '6px' }} title={`Match score (${matchScore}%) is below minimum threshold (<${minMediumScore}%).`}>
+                                                        <FiXCircle size={12} /> Disabled (&lt;{minMediumScore}%)
+                                                    </span>
+                                                ) : (
+                                                    <span className="cve-badge unextracted" style={{ fontSize: '0.75rem', padding: '3px 10px', marginLeft: '6px' }}>
+                                                        <FiAlertCircle size={12} /> Unextracted
+                                                    </span>
+                                                );
+                                            })()}
                                         </h2>
                                         <div className="modal-subheaders" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                             <p className="modal-prospect-tag">{showDetail.is_suggestion ? 'Pool Candidate' : `${showDetail.vacancy_title} Prospect`}</p>

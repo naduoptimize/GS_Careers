@@ -1,6 +1,6 @@
 <?php
 ob_start();
-set_time_limit(60);
+set_time_limit(180);
 // ============================================
 // Applications API
 // ============================================
@@ -16,6 +16,9 @@ $action = $_GET['action'] ?? '';
 switch ($action) {
     case 'apply':
         handleApply();
+        break;
+    case 'ai_parse_cv':
+        handleAiParseCv();
         break;
     case 'list':
         listApplications();
@@ -145,13 +148,21 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
     if (!empty($vacancy['extracted_data']) && is_string($vacancy['extracted_data'])) {
         $parsedData = json_decode($vacancy['extracted_data'], true);
         if (isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
-            return min(100, max(12, (int)$parsedData['ai_match_score']));
+            if (empty($parsedData['is_job_mismatch'])) {
+                return min(100, max(12, (int)$parsedData['ai_match_score']));
+            } else {
+                return min(22, max(12, (int)$parsedData['ai_match_score']));
+            }
         }
     }
     if (!empty($skillsMetadata) && is_string($skillsMetadata)) {
         $parsedMeta = json_decode($skillsMetadata, true);
         if (isset($parsedMeta['ai_match_score']) && is_numeric($parsedMeta['ai_match_score'])) {
-            return min(100, max(12, (int)$parsedMeta['ai_match_score']));
+            if (empty($parsedMeta['is_job_mismatch'])) {
+                return min(100, max(12, (int)$parsedMeta['ai_match_score']));
+            } else {
+                return min(22, max(12, (int)$parsedMeta['ai_match_score']));
+            }
         }
     }
 
@@ -168,16 +179,16 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
 
     $vacancyTitle = strtolower($vacancy['vacancy_title'] ?? ($vacancy['title'] ?? ''));
     $targetFullText = strtolower(($vacancy['vacancy_title'] ?? ($vacancy['title'] ?? '')) . ' ' . ($vacancy['requirements'] ?? ($vacancy['vacancy_requirements'] ?? '')) . ' ' . ($vacancy['description'] ?? ($vacancy['vacancy_description'] ?? '')) . ' ' . ($vacancy['required_skills'] ?? ($vacancy['vacancy_required_skills'] ?? '')));
-    $candTextOnly = strtolower(($cvText ?? '') . ' ' . ($tags ?? '') . ' ' . ($skillsMetadata ?? ''));
+    $candTextOnly = strtolower(($cvText ?? '') . ' ' . ($tags ?? '') . ' ' . ($skillsMetadata ?? '') . ' ' . ($qualification ?? ''));
 
     // Core domain keyword definitions
     $domainKeywords = [
-        'hr_admin' => ['hr', 'human resources', 'recruitment', 'talent acquisition', 'hiring', 'onboarding', 'training', 'learning and development', 'performance management', 'kpi', 'employee relations', 'attendance', 'payroll', 'hris', 'industrial relations', 'labour law', 'welfare'],
-        'finance_accounting' => ['accountant', 'audit', 'auditor', 'tax', 'ledger', 'invoice', 'payroll', 'finance', 'reconciliation', 'budget', 'tally', 'quickbooks', 'casl', 'aat', 'cma', 'acca', 'cpa', 'financial reporting', 'ifrs'],
-        'it_cybersecurity' => ['software', 'developer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'azure', 'devops', 'docker', 'cybersecurity', 'database', 'api', 'code', 'programming', 'fullstack', 'frontend', 'backend', 'qa', 'testing', 'tester', 'engineer', 'tech'],
-        'legal_compliance' => ['legal', 'lawyer', 'attorney', 'litigation', 'corporate law', 'contract', 'compliance', 'regulatory', 'company secretary'],
+        'hr_admin' => ['hr', 'human resources', 'human resource', 'hrm', 'recruitment', 'talent acquisition', 'hiring', 'onboarding', 'training', 'learning and development', 'performance management', 'kpi', 'employee relations', 'attendance', 'payroll', 'hris', 'industrial relations', 'labour law', 'welfare', 'personnel', 'business management', 'business administration'],
+        'finance_accounting' => ['accountant', 'accounting', 'audit', 'auditor', 'tax', 'ledger', 'invoice', 'payroll', 'finance', 'reconciliation', 'budget', 'tally', 'quickbooks', 'casl', 'aat', 'cma', 'acca', 'cpa', 'financial reporting', 'ifrs', 'banking'],
+        'it_cybersecurity' => ['software', 'developer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'azure', 'devops', 'docker', 'cybersecurity', 'database', 'api', 'code', 'programming', 'fullstack', 'frontend', 'backend', 'qa', 'testing', 'tester', 'engineer', 'tech', 'computer science', 'information technology', 'bict', 'lan', 'wan', 'networking'],
+        'legal_compliance' => ['legal', 'lawyer', 'attorney', 'litigation', 'corporate law', 'contract', 'compliance', 'regulatory', 'company secretary', 'law'],
         'tea' => ['tea', 'tea taster', 'tea blending', 'tea processing', 'tea export', 'tea buyer', 'ctc', 'colombo tea auction'],
-        'healthcare_pharma' => ['pharmaceutical', 'pharma', 'healthcare', 'medical', 'pharmacist', 'nmra', 'clinical', 'hospital'],
+        'healthcare_pharma' => ['pharmaceutical', 'pharma', 'healthcare', 'medical', 'pharmacist', 'nmra', 'clinical', 'hospital', 'nursing'],
         'sales_marketing' => ['sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo', 'sem', 'social media', 'leads', 'conversions']
     ];
 
@@ -231,7 +242,27 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
     }
 
     // 3. Qual match (Level match + Field/Subject match)
-    $appQualWeight = $qualWeights[$qualification] ?? 50;
+    $appQualWeight = $qualWeights[$qualification] ?? null;
+    if ($appQualWeight === null) {
+        $qLower = strtolower($qualification ?? '');
+        if (strpos($qLower, 'phd') !== false || strpos($qLower, 'doctorate') !== false) {
+            $appQualWeight = 100;
+        } else if (preg_match('/\b(master|msc|mba|m\.sc|m\.eng|mtech)\b/i', $qLower) && !preg_match('/\b(imaster|scrum\s*master|taskmaster|webmaster)\b/i', $qLower)) {
+            $appQualWeight = 90;
+        } else if (preg_match('/\b(bachelor|degree|bsc|b\.sc|bit|b\.i\.t|bict|b\.i\.c\.t|beng|b\.eng|btech|bba|bcom|hons)\b/i', $qLower)) {
+            $appQualWeight = 80;
+        } else if (strpos($qLower, 'diploma') !== false || strpos($qLower, 'hnd') !== false || strpos($qLower, 'nvq') !== false) {
+            $appQualWeight = 65;
+        } else if (strpos($qLower, 'professional') !== false || strpos($qLower, 'certification') !== false || strpos($qLower, 'ccna') !== false || strpos($qLower, 'cima') !== false || strpos($qLower, 'acca') !== false) {
+            $appQualWeight = 75;
+        } else if (strpos($qLower, 'a/l') !== false || strpos($qLower, 'advanced level') !== false) {
+            $appQualWeight = 45;
+        } else if (strpos($qLower, 'o/l') !== false || strpos($qLower, 'ordinary level') !== false) {
+            $appQualWeight = 25;
+        } else {
+            $appQualWeight = 75;
+        }
+    }
     $requiredQualWeight = 80;
     if (strpos($targetFullText, 'phd') !== false) $requiredQualWeight = 100;
     else if (strpos($targetFullText, 'master') !== false || strpos($targetFullText, 'msc') !== false || strpos($targetFullText, 'mba') !== false) $requiredQualWeight = 90;
@@ -266,12 +297,15 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
             }
         }
 
-        if ($matchedTargetKws >= 1) {
+        // Conflicting domain MUST be checked first: if candidate belongs to another domain (e.g. HR degree applying for IT role), heavily penalize qualification
+        if ($hasConflictingDomain) {
+            $fieldMatchFactor = 0.20; // 80% penalty if qualification domain conflicts with job domain
+        } else if ($matchedTargetKws >= 3) {
             $fieldMatchFactor = 1.0;
-        } else if ($hasConflictingDomain) {
-            $fieldMatchFactor = 0.25; // 75% penalty if qualification field conflicts with job domain
+        } else if ($matchedTargetKws >= 1) {
+            $fieldMatchFactor = 0.60;
         } else {
-            $fieldMatchFactor = 0.65;
+            $fieldMatchFactor = 0.25;
         }
     }
 
@@ -362,18 +396,134 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
     if ($isJobMismatch) {
         $skillsScore *= 0.15;
         $keywordScore *= 0.10;
-        $qualScore *= 0.40;
+        $qualScore = min(20, round($qualScore * 0.20)); // Unrelated degree/qualification heavily penalized (capped at 20%)
         $expScore *= 0.25;
     }
 
-    $jdSkillsRate = min(100, max(10, round(($skillsScore * 0.5) + ($keywordScore * 0.5))));
+    static $configuredWeights = null;
+    if ($configuredWeights === null) {
+        try {
+            $db = getDB();
+            $stmtW = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('weight_skills', 'weight_experience', 'weight_qualification', 'weight_jd_alignment', 'weight_salary')");
+            $wRows = $stmtW ? $stmtW->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+            $configuredWeights = [
+                'skills' => isset($wRows['weight_skills']) ? (float)$wRows['weight_skills'] : 35.0,
+                'experience' => isset($wRows['weight_experience']) ? (float)$wRows['weight_experience'] : 30.0,
+                'qualification' => isset($wRows['weight_qualification']) ? (float)$wRows['weight_qualification'] : 20.0,
+                'jd' => isset($wRows['weight_jd_alignment']) ? (float)$wRows['weight_jd_alignment'] : 10.0,
+                'salary' => isset($wRows['weight_salary']) ? (float)$wRows['weight_salary'] : 5.0
+            ];
+        } catch (\Exception $e) {
+            $configuredWeights = ['skills' => 35.0, 'experience' => 30.0, 'qualification' => 20.0, 'jd' => 10.0, 'salary' => 5.0];
+        }
+    }
+
+    $wSkills = $configuredWeights['skills'];
+    $wExp = $configuredWeights['experience'];
+    $wQual = $configuredWeights['qualification'];
+    $wJd = $configuredWeights['jd'];
+    $wSal = $configuredWeights['salary'];
+
     $hasSalaryBudget = (!empty($jobMinSal) || !empty($jobMaxSal));
     if ($hasSalaryBudget) {
-        $finalScore = ($jdSkillsRate * 0.40) + ($expScore * 0.30) + ($qualScore * 0.20) + ($salaryScore * 0.10);
+        $finalScore = ($skillsScore * ($wSkills / 100)) +
+            ($expScore * ($wExp / 100)) +
+            ($qualScore * ($wQual / 100)) +
+            ($keywordScore * ($wJd / 100)) +
+            ($salaryScore * ($wSal / 100));
     } else {
-        $finalScore = ($jdSkillsRate * 0.45) + ($expScore * 0.32) + ($qualScore * 0.23);
+        $nonSalTotal = max(1, $wSkills + $wExp + $wQual + $wJd);
+        $finalScore = ($skillsScore * ($wSkills / $nonSalTotal)) +
+            ($expScore * ($wExp / $nonSalTotal)) +
+            ($qualScore * ($wQual / $nonSalTotal)) +
+            ($keywordScore * ($wJd / $nonSalTotal));
+    }
+    if ($isJobMismatch) {
+        return min(22, max(12, round($finalScore)));
     }
     return min(100, max(12, round($finalScore)));
+}
+
+function handleAiParseCv()
+{
+    require_once __DIR__ . '/../libs/PdfExtractor.php';
+
+    $vacancyId = (int)($_POST['vacancy_id'] ?? ($_GET['vacancy_id'] ?? 0));
+    $cvText = $_POST['cv_text'] ?? '';
+
+    // If a CV file is uploaded in this request:
+    if (isset($_FILES['cv']) && $_FILES['cv']['error'] === UPLOAD_ERR_OK) {
+        $tempPath = $_FILES['cv']['tmp_name'];
+        $extractedFromFile = PdfExtractor::extractTextFromFile($tempPath);
+        if (!empty($extractedFromFile) && strlen(trim($extractedFromFile)) >= 20) {
+            $cvText = $extractedFromFile;
+        }
+    }
+
+    if (empty(trim($cvText))) {
+        jsonResponse(400, 'CV text or file is required for AI evaluation.');
+    }
+
+    $db = getDB();
+    $vacancy = null;
+    if ($vacancyId > 0) {
+        $stmt = $db->prepare("SELECT v.*, c.name as company_name FROM vacancies v LEFT JOIN companies c ON v.company_id = c.id WHERE v.id = ?");
+        $stmt->execute([$vacancyId]);
+        $vacancy = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    $candData = [
+        'salary_expectation' => $_POST['salary_expectation'] ?? null,
+        'overall_experience' => $_POST['overall_experience'] ?? null,
+        'relevant_experience' => $_POST['relevant_experience'] ?? null,
+        'qualification' => $_POST['qualification'] ?? null
+    ];
+
+    // Call AI model (with multi-provider fallback) to evaluate against the target job
+    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy ?: 'Open Position', $candData);
+
+    // Guarantee score and breakdown even if AI model failed
+    if (!isset($parsedData['ai_match_score']) || !is_numeric($parsedData['ai_match_score'])) {
+        $score = computeCandidateMatchScore(
+            $vacancy ?: ['title' => 'Open Position'],
+            $parsedData['qualification'] ?? 'Bachelors Degree',
+            $parsedData['overall_experience'] ?? '1-2 years',
+            $parsedData['relevant_experience'] ?? '1-2 years',
+            $cvText,
+            '',
+            json_encode($parsedData['skills_analysis'] ?? []),
+            $parsedData['salary_expectation'] ?? null
+        );
+        $parsedData['ai_match_score'] = $score;
+        if (empty($parsedData['ai_score_breakdown'])) {
+            $parsedData['ai_score_breakdown'] = [
+                'skills_match_score' => $score,
+                'experience_match_score' => $score,
+                'qualification_match_score' => $score,
+                'job_description_match_score' => $score,
+                'salary_match_score' => 100
+            ];
+        }
+    }
+
+    // Ensure candidate contact number is strictly extracted from header, never from REFERENCES
+    $headerPhone = PdfExtractor::extractPhoneFromCVText($cvText);
+    if (!empty($headerPhone)) {
+        if (empty($parsedData['contact_number'])) {
+            $parsedData['contact_number'] = $headerPhone;
+        } else {
+            $refPos = stripos($cvText, 'REFERENCES');
+            if ($refPos === false) $refPos = stripos($cvText, 'REFEREES');
+            if ($refPos !== false) {
+                $phonePos = strpos($cvText, $parsedData['contact_number']);
+                if ($phonePos !== false && $phonePos > $refPos) {
+                    $parsedData['contact_number'] = $headerPhone;
+                }
+            }
+        }
+    }
+
+    jsonResponse(200, 'CV parsed and evaluated successfully by AI', $parsedData);
 }
 
 function handleApply()
@@ -457,81 +607,91 @@ function handleApply()
 
     require_once __DIR__ . '/../libs/PdfExtractor.php';
 
-    // Extract raw CV text immediately from uploaded file for accurate domain mismatch & score calculation
-    $cvText = $_POST['cv_text'] ?? null;
-    if (empty($cvText) || strlen(trim($cvText)) < 30 || PdfExtractor::isGarbledText($cvText)) {
-        $rawCvText = PdfExtractor::extractTextFromFile($cvPath);
-        if (!empty($rawCvText) && strlen(trim($rawCvText)) >= 30 && !PdfExtractor::isGarbledText($rawCvText)) {
-            $cvText = $rawCvText;
+    // 1. Extract raw CV text immediately from uploaded file
+    $cvTextExt = PdfExtractor::extractTextFromFile($cvPath);
+    if (!empty($cvTextExt) && strlen(trim($cvTextExt)) >= 30 && !PdfExtractor::isGarbledText($cvTextExt)) {
+        $cvText = $cvTextExt;
+    } else {
+        $cvTextFromPost = $_POST['cv_text'] ?? null;
+        if (!empty($cvTextFromPost) && strlen(trim($cvTextFromPost)) >= 30 && !PdfExtractor::isGarbledText($cvTextFromPost)) {
+            $cvText = $cvTextFromPost;
+        } else {
+            $cvText = "CANDIDATE RESUME PROFILE\n"
+                    . "Name: {$firstName} {$lastName}\n"
+                    . "Email: {$email}\n"
+                    . "Contact Number: {$contactNumber}\n"
+                    . "Qualification: {$qualification}\n"
+                    . "Overall Experience: {$overallExp}\n"
+                    . "Relevant Experience: {$relevantExp}\n"
+                    . "Target Vacancy: " . ($vacancy['title'] ?? 'Position') . "\n"
+                    . "Salary Expectation: " . ($salaryExpectation ? "LKR {$salaryExpectation}" : 'Not specified');
         }
     }
 
-    if (empty($cvText) || strlen(trim($cvText)) < 30 || PdfExtractor::isGarbledText($cvText)) {
-        $cvText = "CANDIDATE RESUME PROFILE\n"
-                . "Name: {$firstName} {$lastName}\n"
-                . "Email: {$email}\n"
-                . "Contact Number: {$contactNumber}\n"
-                . "Qualification: {$qualification}\n"
-                . "Overall Experience: {$overallExp}\n"
-                . "Relevant Experience: {$relevantExp}\n"
-                . "Target Vacancy: " . ($vacancy['title'] ?? 'Position') . "\n"
-                . "Salary Expectation: " . ($salaryExpectation ? "LKR {$salaryExpectation}" : 'Not specified');
-    }
-
-    // Check if email is already blocked
+    // 2. Check if email is already blocked
     $stmt = $db->prepare("SELECT is_blocked, block_reason FROM applications WHERE email = ? AND is_blocked = 1 LIMIT 1");
     $stmt->execute([$email]);
     $blockInfo = $stmt->fetch();
     $isBlocked = $blockInfo ? 1 : 0;
     $blockReason = $blockInfo ? $blockInfo['block_reason'] : null;
 
-    $extractedData = $_POST['extracted_data'] ?? null;
-    $matchScore = isset($_POST['match_score']) ? (int)$_POST['match_score'] : (isset($_POST['score']) ? (int)$_POST['score'] : null);
-
-    // Check setting enable_cv_extraction (Toggle status: 1 = Enabled, 0 = Disabled)
+    // 3. Read AI Toggle & Low Threshold settings
     $stmtExtSetting = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_cv_extraction'");
     $enableCvExt = $stmtExtSetting ? $stmtExtSetting->fetchColumn() : '1';
     $isToggleEnabled = ($enableCvExt === '1' || $enableCvExt === 'true' || $enableCvExt === true);
 
-    // Fetch min_medium_match_score setting limit (Low threshold limit, default 50%)
     $stmtMinMed = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'min_medium_match_score'");
     $minMedScore = $stmtMinMed ? (int)$stmtMinMed->fetchColumn() : 50;
     if ($minMedScore <= 0) $minMedScore = 50;
 
-    if ($matchScore === null) {
-        $matchScore = computeCandidateMatchScore($vacancy, $qualification, $overallExp, $relevantExp, $cvText, $tags, $skillsMetadata, $salaryExpectation);
+    $candData = [
+        'salary_expectation' => $salaryExpectation,
+        'overall_experience' => $overallExp,
+        'relevant_experience' => $relevantExp,
+        'qualification' => $qualification
+    ];
+
+    // 4. AI reads the CV and evaluates match score against Job Description (skills, experience, qualification, salary)
+    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy, $candData);
+
+    $aiScore = null;
+    if (!empty($parsedData) && isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
+        $aiScore = min(100, max(12, (int)$parsedData['ai_match_score']));
     }
 
-    // Rules:
-    // 1. If Toggle is Disabled ($isToggleEnabled === false) -> ALL CVs stay unextracted.
-    // 2. If Toggle is Enabled ($isToggleEnabled === true):
-    //    - Score >= Low Threshold ($minMedScore) -> Auto Extract CV!
-    //    - Score < Low Threshold ($minMedScore) -> Unextracted!
-    $isScoreGreaterOrEqualLow = ($matchScore !== null && $matchScore >= $minMedScore);
+    // Fallback if AI was unavailable or did not return score
+    if ($aiScore === null) {
+        $aiScore = computeCandidateMatchScore($vacancy, $qualification, $overallExp, $relevantExp, $cvText, $tags, $skillsMetadata, $salaryExpectation);
+    }
+
+    // Enforce job mismatch penalty: if candidate background does not match the target job, cap score strictly below 25% (Low)
+    if (!empty($parsedData['is_job_mismatch'])) {
+        $aiScore = min(22, max(12, (int)($aiScore ?: 18)));
+        $parsedData['ai_match_score'] = $aiScore;
+    }
+
+    // 5. Evaluation Decision:
+    // - If AI Score < Low Threshold ($minMedScore) -> UNEXTRACTED (even if Toggle is ON)
+    // - If Toggle is OFF -> UNEXTRACTED
+    // - If Toggle is ON AND AI Score >= Low Threshold -> AUTO EXTRACT!
+    $isScoreGreaterOrEqualLow = ($aiScore >= $minMedScore);
     $shouldAutoExtract = $isToggleEnabled && $isScoreGreaterOrEqualLow;
 
-    if (!$shouldAutoExtract) {
-        $extractionStatus = 'unextracted';
-        $cvText = null;
-        $extractedData = null;
-        $extractedAt = null;
-        $tags = '';
-        $skillsMetadata = null;
-    } else {
-        require_once __DIR__ . '/../libs/PdfExtractor.php';
-        $cvTextExt = PdfExtractor::extractTextFromFile($cvPath);
-        if ($cvTextExt) {
-            $cvText = $cvTextExt;
-        } else {
-            $cvText = "CV text content extracted.";
-        }
-
-        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy);
+    if ($shouldAutoExtract) {
+        $extractionStatus = 'extracted';
+        $extractedAt = date('Y-m-d H:i:s');
         $extractedData = json_encode($parsedData);
+
+        // Update candidate qualification with the true qualification extracted from CV
+        if (!empty($parsedData['qualifications_found'][0])) {
+            $qualification = $parsedData['qualifications_found'][0];
+        } else if (!empty($parsedData['qualification'])) {
+            $qualification = $parsedData['qualification'];
+        }
 
         // Construct skills_metadata array from AI evaluation report
         $skillsMetadataArr = [
-            'ai_match_score' => $parsedData['ai_match_score'] ?? null,
+            'ai_match_score' => $aiScore,
             'ai_match_reason' => $parsedData['ai_match_reason'] ?? '',
             'ai_score_breakdown' => $parsedData['ai_score_breakdown'] ?? [],
             'skills_analysis' => $parsedData['skills_analysis'] ?? [],
@@ -556,9 +716,26 @@ function handleApply()
         if (!empty($allSkillsList)) {
             $tags = implode(', ', array_unique($allSkillsList));
         }
+    } else {
+        $extractionStatus = 'unextracted';
+        $cvText = null;
+        $extractedData = null;
+        $extractedAt = null;
+        $tags = '';
+        // Retain the AI match score and reasoning in skills_metadata so Admin UI displays the exact AI score that fell below threshold
+        $unextractedReason = !$isToggleEnabled
+            ? "Auto-extraction is disabled in system settings."
+            : "Candidate AI match score ({$aiScore}%) is below the minimum threshold ({$minMedScore}%).";
 
-        $extractionStatus = 'extracted';
-        $extractedAt = date('Y-m-d H:i:s');
+        $skillsMetadata = json_encode([
+            'ai_match_score' => $aiScore,
+            'ai_match_reason' => $parsedData['ai_match_reason'] ?? $unextractedReason,
+            'unextracted_reason' => $unextractedReason,
+            'is_unextracted' => true,
+            'is_job_mismatch' => $parsedData['is_job_mismatch'] ?? false,
+            'mismatch_reason' => $parsedData['mismatch_reason'] ?? '',
+            'ai_score_breakdown' => $parsedData['ai_score_breakdown'] ?? []
+        ]);
     }
 
     // Insert application
@@ -1019,7 +1196,7 @@ function listApplications()
     $search = $_GET['search'] ?? '';
     $status = $_GET['status'] ?? '';
 
-    $sql = "SELECT a.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.reference_number as job_ref, v.designation, c.name as company_name, v.company_id, a.future_consent,
+    $sql = "SELECT a.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation, v.reference_number as job_ref, c.name as company_name, v.company_id, a.future_consent,
             (SELECT COUNT(*) > 0 FROM applications a2 WHERE a2.email = a.email AND a2.is_blocked = 1 LIMIT 1) as is_email_blocked
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
@@ -1087,7 +1264,70 @@ function listApplications()
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    $applications = $stmt->fetchAll();
+    $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Read score settings and extraction toggle for synchronized presentation with CV Extractions
+    $stmtScores = $db->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('min_high_match_score', 'min_medium_match_score')");
+    $scoreSettings = $stmtScores ? $stmtScores->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+    $minHigh = isset($scoreSettings['min_high_match_score']) ? (int)$scoreSettings['min_high_match_score'] : 75;
+    $minMedium = isset($scoreSettings['min_medium_match_score']) ? (int)$scoreSettings['min_medium_match_score'] : 50;
+
+    $stmtSetting = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'enable_cv_extraction'");
+    $settingVal = $stmtSetting ? $stmtSetting->fetchColumn() : null;
+    $enableSetting = ($settingVal === null || $settingVal === false || $settingVal === '1' || $settingVal === 'true' || $settingVal === true || $settingVal === 1);
+
+    require_once __DIR__ . '/../libs/PdfExtractor.php';
+
+    foreach ($applications as &$item) {
+        $cvTextToUse = $item['cv_text'];
+        if ((empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) && !empty($item['cv_path'])) {
+            $fullPath = UPLOAD_DIR . $item['cv_path'];
+            if (file_exists($fullPath)) {
+                $extractedRaw = PdfExtractor::extractTextFromFile($fullPath);
+                if ($extractedRaw && !PdfExtractor::isGarbledText($extractedRaw)) {
+                    $cvTextToUse = $extractedRaw;
+                } else {
+                    $cvTextToUse = "Candidate resume text extracted from document.";
+                }
+            }
+        } else if (!empty($cvTextToUse)) {
+            $cvTextToUse = PdfExtractor::cleanExtractedCvText($cvTextToUse);
+            if (empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) {
+                $cvTextToUse = "Candidate resume text extracted from document.";
+            }
+        }
+        $item['cv_text'] = $cvTextToUse;
+
+        $calculatedScore = computeCandidateMatchScore(
+            $item,
+            $item['qualification'],
+            $item['overall_experience'],
+            $item['relevant_experience'],
+            $cvTextToUse,
+            $item['tags'],
+            $item['skills_metadata'],
+            $item['salary_expectation']
+        );
+        $item['match_score'] = $calculatedScore;
+        $item['score'] = $calculatedScore;
+
+        $isManual = (isset($item['is_manual_extracted']) && ($item['is_manual_extracted'] == 1 || $item['is_manual_extracted'] === '1'));
+        $isLowMatch = ($calculatedScore < $minMedium);
+
+        if ($isManual) {
+            $effectiveStatus = 'extracted';
+        } else if (!$enableSetting || $isLowMatch) {
+            $effectiveStatus = 'unextracted';
+        } else {
+            $effectiveStatus = 'extracted';
+        }
+
+        $item['extraction_status'] = $effectiveStatus;
+        $item['auto_extraction_enabled'] = $enableSetting;
+        $item['min_medium_match_score'] = $minMedium;
+        $item['min_high_match_score'] = $minHigh;
+    }
+    unset($item);
 
     jsonResponse(200, 'Applications retrieved', $applications);
 }
@@ -2194,7 +2434,7 @@ function handleListExtractions()
                 $cvFilePath = UPLOAD_DIR . $item['cv_path'];
                 if (file_exists($cvFilePath)) {
                     $extractedCvText = PdfExtractor::extractTextFromFile($cvFilePath) ?: "CV text content extracted.";
-                    $parsedData = PdfExtractor::parseCvDataWithAI($extractedCvText, $item);
+                    $parsedData = PdfExtractor::parseCvDataWithAI($extractedCvText, $item, $item);
                     $jsonExtractedData = json_encode($parsedData);
 
                     $skillsMetadataArr = [
@@ -2306,7 +2546,7 @@ function handleExtractCV()
     foreach ($ids as $id) {
         if ($id <= 0) continue;
 
-        $stmt = $db->prepare("SELECT a.*, v.title as vacancy_title FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
+        $stmt = $db->prepare("SELECT a.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
         $stmt->execute([$id]);
         $app = $stmt->fetch();
         if (!$app) continue;
@@ -2321,10 +2561,11 @@ function handleExtractCV()
                     . "Qualification: " . ($app['qualification'] ?? '') . "\n"
                     . "Overall Experience: " . ($app['overall_experience'] ?? '') . "\n"
                     . "Relevant Experience: " . ($app['relevant_experience'] ?? '') . "\n"
-                    . "Target Vacancy: " . ($app['vacancy_title'] ?? 'Position');
+                    . "Target Vacancy: " . ($app['vacancy_title'] ?? 'Position') . "\n"
+                    . "Salary Expectation: " . (!empty($app['salary_expectation']) ? "LKR {$app['salary_expectation']}" : 'Not specified');
         }
 
-        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $app);
+        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $app, $app);
         $jsonExtractedData = json_encode($parsedData);
 
         // Construct skills_metadata array from AI evaluation report
@@ -2357,7 +2598,7 @@ function handleExtractCV()
         $firstNameExt = PdfExtractor::cleanNamePart($parsedData['first_name'] ?? '');
         $lastNameExt = PdfExtractor::cleanNamePart($parsedData['last_name'] ?? '');
         $phoneExt = $parsedData['contact_number'] ?? '';
-        $qualExt = $parsedData['qualification'] ?? '';
+        $qualExt = !empty($parsedData['qualifications_found'][0]) ? $parsedData['qualifications_found'][0] : ($parsedData['qualification'] ?? '');
         $overallExpExt = $parsedData['overall_experience'] ?? '';
         $relevantExpExt = $parsedData['relevant_experience'] ?? '';
 

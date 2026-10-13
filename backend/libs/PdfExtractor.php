@@ -579,7 +579,7 @@ class PdfExtractor {
     /**
      * Parse raw CV text into Personal Information & Professional Profile JSON using AI model
      */
-    public static function parseCvDataWithAI($cvText, $vacancyInfo = 'Open Position') {
+    public static function parseCvDataWithAI($cvText, $vacancyInfo = 'Open Position', $candidateData = []) {
         if (empty(trim($cvText))) {
             return self::fallbackRegexParse($cvText);
         }
@@ -608,6 +608,23 @@ class PdfExtractor {
             $vacancyTitle = $vacancyInfo;
         }
 
+        $candSalary = '';
+        $candExp = '';
+        $candRelExp = '';
+        $candQual = '';
+        if (is_array($candidateData) && !empty($candidateData)) {
+            $candSalary = $candidateData['salary_expectation'] ?? '';
+            $candExp = $candidateData['overall_experience'] ?? '';
+            $candRelExp = $candidateData['relevant_experience'] ?? '';
+            $candQual = $candidateData['qualification'] ?? '';
+        } else if (is_array($vacancyInfo)) {
+            $candSalary = $vacancyInfo['salary_expectation'] ?? '';
+            $candExp = $vacancyInfo['overall_experience'] ?? '';
+            $candRelExp = $vacancyInfo['relevant_experience'] ?? '';
+            $candQual = $vacancyInfo['qualification'] ?? '';
+        }
+        $candSalaryStr = !empty($candSalary) ? "LKR " . number_format((float)preg_replace('/[^0-9.]/', '', (string)$candSalary)) : 'Not specified';
+
         $salaryStr = 'Not specified';
         if (!empty($minSal) || !empty($maxSal)) {
             $salaryStr = "LKR " . ($minSal ? number_format((float)$minSal) : '0') . " - LKR " . ($maxSal ? number_format((float)$maxSal) : 'Uncapped');
@@ -624,34 +641,75 @@ class PdfExtractor {
 
         $aiProvider = $settings['ai_provider'] ?? 'gemini';
         $geminiApiKey = !empty($settings['gemini_api_key']) ? $settings['gemini_api_key'] : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
-        $geminiModel = $settings['gemini_model'] ?? 'gemini-2.5-flash';
+        $geminiModel = $settings['gemini_model'] ?? 'gemini-3.5-flash';
         $ollamaServer = !empty($settings['ollama_server']) ? $settings['ollama_server'] : (defined('OLLAMA_SERVER') ? OLLAMA_SERVER : 'http://172.16.7.21:11434');
         $ollamaModel = !empty($settings['ollama_model']) ? $settings['ollama_model'] : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : 'qwen2.5:3b');
 
-        $prompt = "You are the Lead Talent Acquisition AI for George Steuart Group. Evaluate the candidate CV text against ALL the target job specifications below. Generate an overall AI Match Score (0 to 100) and an in-depth AI Recruiter Evaluation Report.
+        @set_time_limit(180);
 
-JOB SPECIFICATIONS & CREATION DETAILS:
+        $prompt = "You are the Lead Talent Acquisition AI for George Steuart Group. Evaluate the candidate CV text against the target job specifications below. Generate an overall AI Match Score (0 to 100) and an in-depth AI Recruiter Evaluation Report.
+
+JOB SPECIFICATIONS:
 - Job Title: {$vacancyTitle}
 - Designation: {$designation}
 - Required Minimum Overall Experience: {$minExp}
-- Required Minimum Relevant Experience: {$minRelExp} (Pay heavy attention: 75% weight on relevant work history)
-- Target Job Budget / Expected Salary Range: {$salaryStr}
-- Mandatory / Required Skills: {$reqSkills}
+- Required Minimum Relevant Experience: {$minRelExp}
+- Target Salary Range: {$salaryStr}
+- Mandatory Skills: {$reqSkills}
 - Job Description: {$jobDesc}
 - Job Requirements: {$jobReqs}
+
+CANDIDATE STATED PROFILE:
+- Stated Overall Experience: {$candExp}
+- Stated Relevant Experience: {$candRelExp}
+- Stated Qualification: {$candQual}
+- Candidate Salary Expectation: {$candSalaryStr}
 
 CANDIDATE CV TEXT:
 {$cvText}
 
-Return ONLY valid JSON matching this exact schema:
+RULES FOR ACCURATE EVALUATION:
+1. EXPERIENCE MATCH SCORING:
+   - If candidate has 0 years commercial experience (student, fresh graduate, or no commercial employment history), set experience_match_score strictly between 20% and 35% (entry-level trainee baseline). NEVER award 70%-100% experience match for someone with 0 years commercial experience, even for a Trainee role!
+   - 0-1 years: 35% - 50%
+   - 1-2 years: 50% - 70%
+   - 3-5 years relevant: 75% - 90%
+   - If candidate's background/experience is in an unrelated domain, set experience_match_score below 20%.
+
+2. SKILLS MATCH & JD ALIGNMENT:
+   - Carefully cross-reference Mandatory Skills and Job Description.
+   - For example, if a position requires IT Support, Hardware/Networking, troubleshooting, and field visits, but candidate CV only lists Web Development (React, PHP) or QA, set skills_match_score and job_description_match_score between 30% and 50%.
+   - Only award skills scores >= 75% if candidate actively possesses and proves the primary skills sought.
+
+3. QUALIFICATIONS:
+   - Relevant field qualification (e.g. IT/Software degree for IT role): 75% - 90%.
+   - Unrelated field qualification (e.g. HR degree for IT role): set qualification_match_score strictly between 10% - 25% and mark is_job_mismatch: true.
+
+4. SALARY BUDGET MATCH:
+   - Target Job Budget: {$salaryStr}
+   - Candidate Stated Salary Expectation: {$candSalaryStr}
+   - If candidate salary expectation is within or below the target salary budget: salary_match_score = 100%.
+   - If candidate salary expectation exceeds the maximum budget, heavily penalize salary_match_score strictly:
+     * Asking 100%+ over maximum budget (e.g. asking LKR 78,000 for a LKR 30,000 - 35,000 budget): set salary_match_score strictly between 10% and 15%!
+     * Asking 30-60% over budget: set salary_match_score between 35% and 50%.
+     * Asking 10-25% over budget: set salary_match_score between 60% and 75%.
+     * Not specified: set salary_match_score = 80%.
+
+5. OVERALL MATCH SCORE:
+   - Calculate the overall ai_match_score accurately as:
+     ai_match_score = round((skills_match_score * 0.35) + (experience_match_score * 0.25) + (qualification_match_score * 0.20) + (job_description_match_score * 0.10) + (salary_match_score * 0.10)).
+
+Return ONLY valid JSON matching this schema:
 {
-  \"ai_match_score\": 85,
-  \"ai_match_reason\": \"Detailed 2-3 sentence AI recruiter reasoning explaining why this score was awarded based on skills, relevant experience, salary, and job description alignment.\",
+  \"ai_match_score\": 55,
+  \"ai_match_reason\": \"2-3 sentence recruiter reasoning explaining the score based on skills, experience, and qualification alignment.\",
+  \"is_job_mismatch\": false,
+  \"mismatch_reason\": \"\",
   \"ai_score_breakdown\": {
-    \"skills_match_score\": 85,
-    \"experience_match_score\": 80,
-    \"qualification_match_score\": 90,
-    \"job_description_match_score\": 85,
+    \"skills_match_score\": 50,
+    \"experience_match_score\": 25,
+    \"qualification_match_score\": 80,
+    \"job_description_match_score\": 45,
     \"salary_match_score\": 100
   },
   \"first_name\": \"string\",
@@ -662,58 +720,74 @@ Return ONLY valid JSON matching this exact schema:
   \"overall_experience\": \"0 years\" | \"0-1 years\" | \"1-2 years\" | \"3-4 years\" | \"5-7 years\" | \"8-10 years\" | \"10+ years\",
   \"relevant_experience\": \"0 years\" | \"0-1 years\" | \"1-2 years\" | \"3-4 years\" | \"5-7 years\" | \"8-10 years\" | \"10+ years\",
   \"salary_expectation\": \"string\",
-  \"profile_summary\": \"string (2-3 sentences summary of candidate background)\",
-  \"experience_summary\": \"Detailed 2-3 sentence overview of candidate's career background, domain expertise, and years of experience.\",
+  \"profile_summary\": \"string\",
+  \"experience_summary\": \"string\",
   \"recruiter_insights\": [
-    \"AI observation about candidate match and strengths for {$vacancyTitle}\",
-    \"AI observation on key qualifications, salary, or work history\"
+    \"AI observation for {$vacancyTitle}\"
   ],
   \"skills_analysis\": [
     {
       \"skill\": \"Skill Name\",
       \"category\": \"Relevant Skills\" | \"Related Skills\" | \"Additional Skills\",
-      \"experience_level\": \"Expert\" | \"Advanced\" | \"Intermediate\" | \"Basic\",
-      \"estimated_duration\": \"1-2 Years\",
-      \"evidence_strength\": \"Strong Evidence\" | \"Moderate Evidence\" | \"Mentioned Only\",
-      \"evidence_source\": \"Work Experience\" | \"Projects\" | \"Skills Section\",
-      \"usage_context\": \"Specific line or project context from CV.\",
+      \"experience_level\": \"Intermediate\",
       \"verified\": true
     }
   ],
-  \"fully_demonstrated_skills\": [\"Skill1\", \"Skill2\"],
+  \"fully_demonstrated_skills\": [\"Skill1\"],
   \"partially_demonstrated_skills\": [],
   \"requirements_without_evidence\": [],
   \"additional_skills\": [],
-  \"qualifications_found\": [\"Qualification Name\"],
-  \"certifications_found\": [\"Certification Name\"]
+  \"qualifications_found\": [\"Qualification\"],
+  \"certifications_found\": [\"Certification\"]
 }";
 
         $json = null;
 
+        // 1. Try Gemini if provider is gemini and key is provided
         if ($aiProvider === 'gemini' && !empty($geminiApiKey)) {
             $payload = [
                 'contents' => [['parts' => [['text' => $prompt]]]],
-                'generationConfig' => ['responseMimeType' => 'application/json']
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'temperature' => 0.2
+                ]
             ];
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$geminiModel}:generateContent?key={$geminiApiKey}";
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($payload),
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_TIMEOUT => 45
-            ]);
-            $res = curl_exec($ch);
-            curl_close($ch);
-            if ($res) {
-                $arr = json_decode($res, true);
-                $txt = $arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                if ($txt) {
-                    $json = json_decode($txt, true);
+
+            $modelsToTry = array_unique([$geminiModel, 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.8-flash']);
+            foreach ($modelsToTry as $mTry) {
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$mTry}:generateContent?key={$geminiApiKey}";
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($payload),
+                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                    CURLOPT_TIMEOUT => 40
+                ]);
+                $res = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($res && $httpCode === 200) {
+                    self::recordGeminiApiCall();
+                    $arr = json_decode($res, true);
+                    $txt = $arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                    if ($txt) {
+                        $clean = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($txt));
+                        $parsed = json_decode($clean, true);
+                        if (is_array($parsed) && isset($parsed['ai_match_score'])) {
+                            $json = $parsed;
+                            break;
+                        }
+                    }
+                } else {
+                    error_log("Gemini model {$mTry} returned HTTP {$httpCode}. Trying next fallback...");
                 }
             }
-        } else {
+        }
+
+        // 2. Multi-provider automatic fallback: If Gemini failed, quota/prepayment exhausted (402), or provider is ollama
+        if (!$json || !is_array($json)) {
             $payload = [
                 'model' => $ollamaModel,
                 'prompt' => $prompt,
@@ -726,11 +800,12 @@ Return ONLY valid JSON matching this exact schema:
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => json_encode($payload),
                 CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_TIMEOUT => 60
+                CURLOPT_TIMEOUT => 12
             ]);
             $res = curl_exec($ch);
+            $ollamaHttp = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
-            if ($res) {
+            if ($res && $ollamaHttp === 200) {
                 $arr = json_decode($res, true);
                 if (isset($arr['response'])) {
                     $json = json_decode($arr['response'], true);
@@ -738,6 +813,7 @@ Return ONLY valid JSON matching this exact schema:
             }
         }
 
+        // 3. Fallback to regex parse if both AI providers are unavailable
         if (!$json || !is_array($json)) {
             $json = self::fallbackRegexParse($cvText);
         }
@@ -767,12 +843,245 @@ Return ONLY valid JSON matching this exact schema:
         }
 
         // Validate AI response against CV text and sanitize hallucinations
-        $json = self::validateAndSanitizeExtractedData($json, $cvText);
+        $json = self::validateAndSanitizeExtractedData($json, $cvText, $vacancyTitle);
+
+        // Enforce exact mathematical salary score based on real job budget
+        if (!empty($minSal) || !empty($maxSal)) {
+            $candSalToUse = !empty($candSalary) ? $candSalary : ($json['salary_expectation'] ?? '');
+            $exactSal = self::computeSalaryMatchScore($candSalToUse, $minSal, $maxSal);
+            if (!isset($json['ai_score_breakdown']) || !is_array($json['ai_score_breakdown'])) {
+                $json['ai_score_breakdown'] = [];
+            }
+            $json['ai_score_breakdown']['salary_match_score'] = $exactSal;
+        }
+
+        if (isset($json['ai_score_breakdown']) && is_array($json['ai_score_breakdown'])) {
+            $sScore = (int)($json['ai_score_breakdown']['skills_match_score'] ?? 50);
+            $eScore = (int)($json['ai_score_breakdown']['experience_match_score'] ?? 25);
+            $qScore = (int)($json['ai_score_breakdown']['qualification_match_score'] ?? 75);
+            $jScore = (int)($json['ai_score_breakdown']['job_description_match_score'] ?? 45);
+            $salScore = (int)($json['ai_score_breakdown']['salary_match_score'] ?? 100);
+
+            if ($candExp === '0 years' || $candRelExp === '0 years') {
+                $eScore = min($eScore, 25);
+                $json['ai_score_breakdown']['experience_match_score'] = $eScore;
+            }
+
+            // Realistically weighted overall score
+            $composite = round(($sScore * 0.35) + ($eScore * 0.25) + ($qScore * 0.20) + ($jScore * 0.10) + ($salScore * 0.10));
+            $json['ai_match_score'] = min(100, max(12, $composite));
+        }
+
+        // Ensure AI match score is guaranteed and never null
+        if (!isset($json['ai_match_score']) || !is_numeric($json['ai_match_score'])) {
+            $calc = self::computeAlgorithmicScore($vacancyInfo, $json, $cvText);
+            $json['ai_match_score'] = $calc['score'];
+            $json['ai_match_reason'] = $calc['reason'];
+            if (empty($json['ai_score_breakdown'])) {
+                $json['ai_score_breakdown'] = $calc['breakdown'];
+            }
+        }
 
         return $json;
     }
 
-    public static function validateAndSanitizeExtractedData($json, $cvText) {
+    public static function computeSalaryMatchScore($salaryExpectation, $minSalary, $maxSalary) {
+        $jobMin = (!empty($minSalary) && (float)$minSalary > 0) ? (float)$minSalary : null;
+        $jobMax = (!empty($maxSalary) && (float)$maxSalary > 0) ? (float)$maxSalary : null;
+
+        if ($jobMin && $jobMax && $jobMin > $jobMax) {
+            $temp = $jobMin;
+            $jobMin = $jobMax;
+            $jobMax = $temp;
+        }
+
+        if (!$jobMin && !$jobMax) return 100;
+
+        if (empty($salaryExpectation) || strtolower(trim((string)$salaryExpectation)) === 'not specified') return 80;
+        $clean = preg_replace('/[^0-9.]/', '', (string)$salaryExpectation);
+        if (empty($clean)) return 80;
+        $candSal = (float)$clean;
+        if (stripos((string)$salaryExpectation, 'k') !== false && $candSal < 1000) $candSal *= 1000;
+
+        if ($jobMin && $jobMax) {
+            if ($candSal <= $jobMax) return 100;
+            $excess = ($candSal - $jobMax) / $jobMax;
+            return max(10, min(100, round(100 - ($excess * 150))));
+        } else if ($jobMax) {
+            if ($candSal <= $jobMax) return 100;
+            $excess = ($candSal - $jobMax) / $jobMax;
+            return max(10, min(100, round(100 - ($excess * 150))));
+        } else if ($jobMin) {
+            if ($candSal <= $jobMin * 1.25) return 100;
+            $excess = ($candSal - $jobMin) / $jobMin;
+            return max(10, min(100, round(100 - ($excess * 120))));
+        }
+        return 100;
+    }
+
+    public static function computeAlgorithmicScore($vacancyInfo, $parsed, $cvText) {
+        $qualWeights = [
+            'PhD' => 100, 'Masters Degree' => 90, 'Bachelors Degree' => 80,
+            'Professional Certification' => 75, 'Diploma' => 65,
+            'A/L' => 45, 'O/L' => 25
+        ];
+        $expWeights = [
+            '10+ years' => 100, '8-10 years' => 85, '5-7 years' => 70,
+            '3-4 years' => 55, '1-2 years' => 35, '0-1 years' => 15, '0 years' => 5
+        ];
+
+        $domainKeywords = [
+            'hr_admin' => ['hr', 'human resources', 'human resource', 'hrm', 'recruitment', 'talent acquisition', 'hiring', 'onboarding', 'training', 'learning and development', 'performance management', 'kpi', 'employee relations', 'attendance', 'payroll', 'hris', 'industrial relations', 'labour law', 'welfare', 'personnel', 'business management', 'business administration'],
+            'finance_accounting' => ['accountant', 'accounting', 'audit', 'auditor', 'tax', 'taxation', 'ledger', 'invoice', 'payroll', 'finance', 'financial', 'reconciliation', 'budget', 'budgeting', 'tally', 'quickbooks', 'casl', 'aat', 'cma', 'acca', 'cpa', 'accounts payable', 'accounts receivable', 'cost accounting', 'financial reporting', 'ifrs', 'general ledger', 'journal entries', 'bank reconciliation', 'petty cash'],
+            'it_cybersecurity' => ['software', 'developer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'azure', 'devops', 'docker', 'cybersecurity', 'database', 'api', 'code', 'programming', 'fullstack', 'frontend', 'backend', 'qa', 'testing', 'tester', 'hardware', 'lan', 'wan', 'network', 'networking', 'troubleshooting', 'it support', 'helpdesk', 'infrastructure', 'cloud', 'information technology', 'computer science'],
+            'legal_compliance' => ['legal', 'lawyer', 'attorney', 'litigation', 'corporate law', 'contract', 'compliance', 'regulatory', 'company secretary', 'law'],
+            'tea' => ['tea', 'tea taster', 'tea blending', 'tea processing', 'tea export', 'tea buyer', 'ctc', 'colombo tea auction'],
+            'healthcare_pharma' => ['pharmaceutical', 'pharma', 'healthcare', 'medical', 'pharmacist', 'nmra', 'clinical', 'hospital', 'nursing'],
+            'sales_marketing' => ['sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo', 'sem', 'social media', 'leads', 'conversions']
+        ];
+
+        $domainLabels = [
+            'hr_admin' => 'Human Resources & Administration',
+            'finance_accounting' => 'Accounting & Finance',
+            'it_cybersecurity' => 'Information Technology & Software',
+            'legal_compliance' => 'Legal & Compliance',
+            'tea' => 'Tea Industry',
+            'healthcare_pharma' => 'Healthcare & Pharmaceuticals',
+            'sales_marketing' => 'Sales & Marketing'
+        ];
+
+        $vacancyTitle = is_array($vacancyInfo) ? ($vacancyInfo['title'] ?? ($vacancyInfo['vacancy_title'] ?? 'Position')) : (string)$vacancyInfo;
+        $reqSkillsStr = is_array($vacancyInfo) ? ($vacancyInfo['required_skills'] ?? ($vacancyInfo['vacancy_required_skills'] ?? '')) : '';
+        $vacDescStr = is_array($vacancyInfo) ? ($vacancyInfo['description'] ?? ($vacancyInfo['vacancy_description'] ?? '')) : '';
+        $vacReqsStr = is_array($vacancyInfo) ? ($vacancyInfo['requirements'] ?? ($vacancyInfo['vacancy_requirements'] ?? '')) : '';
+        $targetFullText = strtolower($vacancyTitle . ' ' . $reqSkillsStr . ' ' . $vacDescStr . ' ' . $vacReqsStr);
+
+        $candQual = $parsed['qualification'] ?? 'Bachelors Degree';
+        $candExp = $parsed['overall_experience'] ?? '1-2 years';
+        $candRelExp = $parsed['relevant_experience'] ?? '1-2 years';
+        $candText = strtolower($cvText . ' ' . json_encode($parsed['skills_analysis'] ?? []) . ' ' . $candQual);
+
+        // Detect job domain
+        $jobDomain = '';
+        $vacTitleLower = strtolower($vacancyTitle);
+        if (preg_match('/(hr|human resource|recruitment|talent acquisition)/i', $vacTitleLower)) {
+            $jobDomain = 'hr_admin';
+        } else if (preg_match('/(finance|account|audit|tax|ledger)/i', $vacTitleLower)) {
+            $jobDomain = 'finance_accounting';
+        } else if (preg_match('/(it|software|developer|cybersecurity|network|system|cloud|tech|engineer|qa|tester)/i', $vacTitleLower)) {
+            $jobDomain = 'it_cybersecurity';
+        } else if (preg_match('/(legal|lawyer|compliance)/i', $vacTitleLower)) {
+            $jobDomain = 'legal_compliance';
+        } else if (preg_match('/(tea)/i', $vacTitleLower)) {
+            $jobDomain = 'tea';
+        } else if (preg_match('/(pharma|medical|health)/i', $vacTitleLower)) {
+            $jobDomain = 'healthcare_pharma';
+        } else if (preg_match('/(sales|marketing|brand)/i', $vacTitleLower)) {
+            $jobDomain = 'sales_marketing';
+        }
+
+        if (!$jobDomain) {
+            $maxVacDomCount = 0;
+            foreach ($domainKeywords as $dKey => $dKws) {
+                $c = 0;
+                foreach ($dKws as $kw) {
+                    if (strpos($targetFullText, $kw) !== false) $c++;
+                }
+                if ($c > $maxVacDomCount) {
+                    $maxVacDomCount = $c;
+                    $jobDomain = $dKey;
+                }
+            }
+        }
+
+        // Detect candidate primary domain
+        $genericStopwords = ['executive', 'manager', 'coordinator', 'assistant', 'officer', 'bachelors', 'degree', 'diploma', 'operations', 'admin', 'clerk', 'management', 'communication', 'organization', 'interpersonal', 'reporting'];
+        $candDomainCounts = [];
+        foreach ($domainKeywords as $dKey => $dKws) {
+            $c = 0;
+            foreach ($dKws as $kw) {
+                if (!in_array($kw, $genericStopwords) && strpos($candText, $kw) !== false) {
+                    $c++;
+                }
+            }
+            $candDomainCounts[$dKey] = $c;
+        }
+
+        $candPrimaryDomain = '';
+        $maxCandCount = 0;
+        foreach ($candDomainCounts as $dKey => $c) {
+            if ($c > $maxCandCount) {
+                $maxCandCount = $c;
+                $candPrimaryDomain = $dKey;
+            }
+        }
+
+        $targetDomainMatches = $jobDomain ? ($candDomainCounts[$jobDomain] ?? 0) : 0;
+        $isMismatch = false;
+        $mismatchReason = '';
+
+        if ($jobDomain && $candPrimaryDomain && $candPrimaryDomain !== $jobDomain && $maxCandCount >= 2 && $maxCandCount > $targetDomainMatches) {
+            $isMismatch = true;
+            $candLabel = $domainLabels[$candPrimaryDomain] ?? ucfirst($candPrimaryDomain);
+            $mismatchReason = "Background focus ({$candLabel}) differs from target role ({$vacancyTitle}).";
+        }
+
+        // 1. Skills match
+        $reqSkills = array_filter(array_map('trim', explode(',', strtolower($reqSkillsStr))));
+        $skillsScore = 70;
+        if (!empty($reqSkills)) {
+            $mCount = 0;
+            foreach ($reqSkills as $rs) {
+                if (strpos($candText, $rs) !== false) $mCount++;
+            }
+            $skillsScore = min(100, max(20, round(($mCount / count($reqSkills)) * 100)));
+        } else if ($jobDomain && isset($domainKeywords[$jobDomain])) {
+            $domKws = $domainKeywords[$jobDomain];
+            $matchedCount = 0;
+            foreach ($domKws as $kw) {
+                if (strpos($candText, $kw) !== false) $matchedCount++;
+            }
+            $skillsScore = min(100, max(15, round(($matchedCount / min(6, count($domKws))) * 100)));
+        }
+
+        // 2. Experience match
+        $expScore = $expWeights[$candExp] ?? 35;
+        $relExpScore = $expWeights[$candRelExp] ?? 35;
+        $combinedExpScore = round(($relExpScore * 0.70) + ($expScore * 0.30));
+
+        // 3. Qualification match
+        $qualScore = $qualWeights[$candQual] ?? 75;
+
+        // Apply strict mismatch penalty if candidate domain does not match job domain
+        if ($isMismatch) {
+            $skillsScore = min(15, round($skillsScore * 0.15));
+            $combinedExpScore = min(20, round($combinedExpScore * 0.25));
+            $qualScore = min(15, round($qualScore * 0.20));
+            $jdScore = 10;
+            $finalScore = min(25, max(12, round(($skillsScore * 0.35) + ($combinedExpScore * 0.30) + ($qualScore * 0.20) + ($jdScore * 0.10) + 5)));
+            $reason = "Job & CV Mismatch Warning: {$mismatchReason} Candidate matches only {$finalScore}% of requirements for {$vacancyTitle}.";
+        } else {
+            $jdScore = $skillsScore;
+            $finalScore = min(100, max(12, round(($skillsScore * 0.35) + ($combinedExpScore * 0.30) + ($qualScore * 0.20) + ($jdScore * 0.10) + 5)));
+            $reason = "Candidate matches {$finalScore}% of requirements for {$vacancyTitle} based on evaluated skills ({$skillsScore}%), experience ({$combinedExpScore}%), qualifications ({$qualScore}%), and JD alignment ({$jdScore}%).";
+        }
+
+        return [
+            'score' => $finalScore,
+            'reason' => $reason,
+            'is_job_mismatch' => $isMismatch,
+            'mismatch_reason' => $mismatchReason,
+            'breakdown' => [
+                'skills_match_score' => $skillsScore,
+                'experience_match_score' => $combinedExpScore,
+                'qualification_match_score' => $qualScore,
+                'job_description_match_score' => $jdScore,
+                'salary_match_score' => 100
+            ]
+        ];
+    }
+
+    public static function validateAndSanitizeExtractedData($json, $cvText, $vacancyTitle = '') {
         if (!is_array($json)) $json = [];
 
         $parsedQuals = self::extractQualificationsFromCVText($cvText);
@@ -848,7 +1157,157 @@ Return ONLY valid JSON matching this exact schema:
             $json['qualification'] = 'Bachelors Degree';
         }
 
+        // Enforce discipline and domain alignment between candidate background and target vacancy
+        $domainKeywords = [
+            'hr_admin' => ['hr', 'human resources', 'human resource', 'hrm', 'recruitment', 'talent acquisition', 'hiring', 'onboarding', 'training', 'learning and development', 'performance management', 'kpi', 'employee relations', 'attendance', 'payroll', 'hris', 'industrial relations', 'labour law', 'welfare', 'personnel', 'business management', 'business administration'],
+            'finance_accounting' => ['accountant', 'accounting', 'audit', 'auditor', 'tax', 'taxation', 'ledger', 'invoice', 'payroll', 'finance', 'financial', 'reconciliation', 'budget', 'budgeting', 'tally', 'quickbooks', 'casl', 'aat', 'cma', 'acca', 'cpa', 'accounts payable', 'accounts receivable', 'cost accounting', 'financial reporting', 'ifrs', 'general ledger', 'journal entries', 'bank reconciliation', 'petty cash'],
+            'it_cybersecurity' => ['software', 'developer', 'react', 'javascript', 'node', 'php', 'mysql', 'python', 'java', 'aws', 'azure', 'devops', 'docker', 'cybersecurity', 'database', 'api', 'code', 'programming', 'fullstack', 'frontend', 'backend', 'qa', 'testing', 'tester', 'hardware', 'lan', 'wan', 'network', 'networking', 'troubleshooting', 'it support', 'helpdesk', 'infrastructure', 'cloud', 'information technology', 'computer science'],
+            'legal_compliance' => ['legal', 'lawyer', 'attorney', 'litigation', 'corporate law', 'contract', 'compliance', 'regulatory', 'company secretary', 'law'],
+            'tea' => ['tea', 'tea taster', 'tea blending', 'tea processing', 'tea export', 'tea buyer', 'ctc', 'colombo tea auction'],
+            'healthcare_pharma' => ['pharmaceutical', 'pharma', 'healthcare', 'medical', 'pharmacist', 'nmra', 'clinical', 'hospital', 'nursing'],
+            'sales_marketing' => ['sales', 'marketing', 'branding', 'advertising', 'digital marketing', 'seo', 'sem', 'social media', 'leads', 'conversions']
+        ];
+        $domainLabels = [
+            'hr_admin' => 'Human Resources & Administration',
+            'finance_accounting' => 'Accounting & Finance',
+            'it_cybersecurity' => 'Information Technology & Software',
+            'legal_compliance' => 'Legal & Compliance',
+            'tea' => 'Tea Industry',
+            'healthcare_pharma' => 'Healthcare & Pharmaceuticals',
+            'sales_marketing' => 'Sales & Marketing'
+        ];
+
+        $vacTitleLower = strtolower($vacancyTitle);
+        $jobDomain = '';
+        if (preg_match('/(hr|human resource|recruitment|talent acquisition)/i', $vacTitleLower)) {
+            $jobDomain = 'hr_admin';
+        } else if (preg_match('/(finance|account|audit|tax|ledger)/i', $vacTitleLower)) {
+            $jobDomain = 'finance_accounting';
+        } else if (preg_match('/(it|software|developer|cybersecurity|network|system|cloud|tech|engineer|qa|tester)/i', $vacTitleLower)) {
+            $jobDomain = 'it_cybersecurity';
+        } else if (preg_match('/(legal|lawyer|compliance)/i', $vacTitleLower)) {
+            $jobDomain = 'legal_compliance';
+        } else if (preg_match('/(tea)/i', $vacTitleLower)) {
+            $jobDomain = 'tea';
+        } else if (preg_match('/(pharma|medical|health)/i', $vacTitleLower)) {
+            $jobDomain = 'healthcare_pharma';
+        } else if (preg_match('/(sales|marketing|brand)/i', $vacTitleLower)) {
+            $jobDomain = 'sales_marketing';
+        }
+
+        $candFullText = strtolower(($json['qualification'] ?? '') . ' ' . implode(' ', $json['qualifications_found'] ?? []) . ' ' . ($cvText ?? ''));
+        $genericStopwords = ['executive', 'manager', 'coordinator', 'assistant', 'officer', 'bachelors', 'degree', 'diploma', 'operations', 'admin', 'clerk', 'management', 'communication', 'organization', 'interpersonal', 'reporting'];
+
+        $candDomainCounts = [];
+        foreach ($domainKeywords as $dKey => $dKws) {
+            $c = 0;
+            foreach ($dKws as $kw) {
+                if (!in_array($kw, $genericStopwords) && strpos($candFullText, $kw) !== false) {
+                    $c++;
+                }
+            }
+            $candDomainCounts[$dKey] = $c;
+        }
+
+        $candPrimaryDomain = '';
+        $maxCandCount = 0;
+        foreach ($candDomainCounts as $dKey => $c) {
+            if ($c > $maxCandCount) {
+                $maxCandCount = $c;
+                $candPrimaryDomain = $dKey;
+            }
+        }
+
+        $targetDomainMatches = $jobDomain ? ($candDomainCounts[$jobDomain] ?? 0) : 0;
+        if ($jobDomain && $candPrimaryDomain && $candPrimaryDomain !== $jobDomain && $maxCandCount >= 2 && $maxCandCount > $targetDomainMatches) {
+            $candLabel = $domainLabels[$candPrimaryDomain] ?? ucfirst($candPrimaryDomain);
+            $json['is_job_mismatch'] = true;
+            $json['mismatch_reason'] = "Background focus ({$candLabel}) differs from target role ({$vacancyTitle}).";
+            $json['ai_match_score'] = min(22, max(12, (int)($json['ai_match_score'] ?? 18)));
+            $json['ai_score_breakdown'] = [
+                'skills_match_score' => 10,
+                'experience_match_score' => 14,
+                'qualification_match_score' => 15,
+                'job_description_match_score' => 10,
+                'salary_match_score' => 100
+            ];
+            $json['ai_match_reason'] = "Job & CV Mismatch Warning: Background focus ({$candLabel}) differs from target role ({$vacancyTitle}). Evaluated match score is penalized to {$json['ai_match_score']}%.";
+        }
+
+        // Validate and sanitize contact_number from AI to prevent extracting Student IDs, Index Numbers, or Referee contact numbers!
+        $headerPhone = self::extractPhoneFromCVText($cvText);
+        if (!empty($headerPhone)) {
+            if (empty($json['contact_number'])) {
+                $json['contact_number'] = $headerPhone;
+            } else {
+                $digitsOnly = preg_replace('/\D/', '', $json['contact_number']);
+                if (strlen($digitsOnly) < 9 || strlen($digitsOnly) > 13 || preg_match('/(?:student|index|id|reg|cert|card)/i', $json['contact_number'])) {
+                    $json['contact_number'] = $headerPhone;
+                } else {
+                    // Check if AI picked a referee's phone number located in REFERENCES
+                    $refPos = stripos($cvText, 'REFERENCES');
+                    if ($refPos === false) $refPos = stripos($cvText, 'REFEREES');
+                    if ($refPos !== false) {
+                        $phonePos = strpos($cvText, $json['contact_number']);
+                        if ($phonePos !== false && $phonePos > $refPos) {
+                            $json['contact_number'] = $headerPhone;
+                        }
+                    }
+                }
+            }
+        }
+
         return $json;
+    }
+
+    public static function extractPhoneFromCVText($cvText) {
+        if (empty($cvText)) return '';
+
+        // 1. Exclude REFERENCES / REFEREES section so referee contacts are NEVER extracted as candidate phone!
+        $textWithoutRefs = preg_split('/(?:^|\n)\s*(?:REFERENCES|REFEREES)\b/i', $cvText)[0] ?: $cvText;
+        $lines = preg_split('/\r\n|\r|\n/', trim($textWithoutRefs));
+        $headerLines = implode("\n", array_slice($lines, 0, 35));
+
+        // 2. High priority: Header Sri Lankan phone number
+        // Matches: (+94) 78-1835728, +94 (78) 1835728, +94 77 123 4567, 077-1234567, (011) 2345678, etc.
+        if (preg_match_all('/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/', $headerLines, $matches)) {
+            foreach ($matches[0] as $m) {
+                $digits = preg_replace('/\D/', '', $m);
+                if (strlen($digits) >= 9 && strlen($digits) <= 11) {
+                    return trim($m);
+                }
+            }
+        }
+
+        // 3. Look for labeled phone number before references
+        if (preg_match('/(?:phone|tel|mobile|contact|cell)(?:\s*(?:no|number|#)?)?\s*[:\-]?\s*(\(?\+?[0-9]{1,4}\)?[\s\-\.]*\(?[0-9]{1,4}\)?[\s\-\.]*[0-9]{3,4}[\s\-\.]*[0-9]{3,4})/i', $textWithoutRefs, $m)) {
+            $digits = preg_replace('/\D/', '', $m[1]);
+            if (strlen($digits) >= 9 && strlen($digits) <= 15 && !preg_match('/(?:student|index|id|reg|cert)/i', $m[0])) {
+                return trim($m[1]);
+            }
+        }
+
+        // 4. Any Sri Lankan phone before references
+        if (preg_match_all('/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/', $textWithoutRefs, $matches)) {
+            foreach ($matches[0] as $m) {
+                $digits = preg_replace('/\D/', '', $m);
+                if (strlen($digits) >= 9 && strlen($digits) <= 11) {
+                    return trim($m);
+                }
+            }
+        }
+
+        // 5. International format with explicit country code (+...)
+        if (preg_match_all('/\+\d{1,4}[\s\-\.]*\(?\d{2,4}\)?[\s\-\.]*\d{3,4}[\s\-\.]*\d{3,4}/', $textWithoutRefs, $matches)) {
+            foreach ($matches[0] as $m) {
+                $digits = preg_replace('/\D/', '', $m);
+                if (strlen($digits) >= 9 && strlen($digits) <= 15) {
+                    return trim($m);
+                }
+            }
+        }
+
+        return '';
     }
 
     public static function extractQualificationsFromCVText($cvText) {
@@ -1112,10 +1571,7 @@ Return ONLY valid JSON matching this exact schema:
             $email = $m[0];
         }
 
-        $phone = '';
-        if (preg_match('/(?:\+94\s*\d{2}|\b07\d)\s*[\d\s\-]{7,10}/', $cvText, $m)) {
-            $phone = trim($m[0]);
-        }
+        $phone = self::extractPhoneFromCVText($cvText);
 
         // Extract name from header lines
         $firstName = '';
@@ -1186,5 +1642,27 @@ Return ONLY valid JSON matching this exact schema:
             'qualifications_found' => $quals,
             'certifications_found' => $certs
         ];
+    }
+
+    /**
+     * Record a Gemini API call for today's quota tracking in the database settings table
+     */
+    public static function recordGeminiApiCall() {
+        try {
+            $db = getDB();
+            $today = date('Y-m-d');
+            $stmt = $db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'gemini_calls_date'");
+            $stmt->execute();
+            $storedDate = $stmt->fetchColumn();
+
+            if ($storedDate !== $today) {
+                $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('gemini_calls_date', ?) ON DUPLICATE KEY UPDATE setting_value = ?")->execute([$today, $today]);
+                $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('gemini_calls_today', '1') ON DUPLICATE KEY UPDATE setting_value = '1'")->execute();
+            } else {
+                $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('gemini_calls_today', '1') ON DUPLICATE KEY UPDATE setting_value = CAST(setting_value AS UNSIGNED) + 1")->execute();
+            }
+        } catch (\Exception $e) {
+            // Silently continue
+        }
     }
 }

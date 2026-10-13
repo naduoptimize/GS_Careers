@@ -8,7 +8,7 @@ import {
     FiChevronDown, FiChevronUp, FiEdit2
 } from 'react-icons/fi';
 import { toast } from 'react-toastify';
-import { getVacancy, applyForJob, API_BASE, getPublicPdpa } from '../services/api';
+import { getVacancy, applyForJob, aiParseCv, API_BASE, getPublicPdpa } from '../services/api';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
 
@@ -433,14 +433,63 @@ function ApplyPage() {
         });
     };
 
+    const extractPhoneNumberFromText = (text) => {
+        if (!text) return '';
+
+        // 1. Exclude REFERENCES / REFEREES section so referee contacts are NEVER extracted as candidate phone!
+        const textWithoutRefs = text.split(/(?:^|\n)\s*(?:REFERENCES|REFEREES)\b/i)[0] || text;
+        const lines = textWithoutRefs.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const headerLines = lines.slice(0, 35).join('\n');
+
+        // 2. High-priority: Candidate header Sri Lankan mobile/landline regex
+        const slMatchesHeader = headerLines.match(/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/g);
+        if (slMatchesHeader && slMatchesHeader.length > 0) {
+            for (const m of slMatchesHeader) {
+                const cleanDigits = m.replace(/\D/g, '');
+                if (cleanDigits.length === 9 || cleanDigits.length === 10 || cleanDigits.length === 11) {
+                    return m.trim();
+                }
+            }
+        }
+
+        // 3. Check for labeled phone number before references section
+        const labeled = textWithoutRefs.match(/(?:phone|tel|mobile|contact|cell)(?:\s*(?:no|number|#)?)?\s*[:\-]?\s*(\(?\+?[0-9]{1,4}\)?[\s\-\.]*\(?[0-9]{1,4}\)?[\s\-\.]*[0-9]{3,4}[\s\-\.]*[0-9]{3,4})/i);
+        if (labeled) {
+            const raw = labeled[1].trim();
+            const digits = raw.replace(/\D/g, '');
+            if (digits.length >= 9 && digits.length <= 15 && !/(?:student|index|id|reg|cert)/i.test(labeled[0])) {
+                return raw;
+            }
+        }
+
+        // 4. Any Sri Lankan mobile/landline regex in non-reference body
+        const slMatches = textWithoutRefs.match(/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/g);
+        if (slMatches && slMatches.length > 0) {
+            for (const m of slMatches) {
+                const cleanDigits = m.replace(/\D/g, '');
+                if (cleanDigits.length === 9 || cleanDigits.length === 10 || cleanDigits.length === 11) {
+                    return m.trim();
+                }
+            }
+        }
+
+        // 5. International format with explicit country code (+...)
+        const intlMatches = textWithoutRefs.match(/\+\d{1,4}[\s\-\.]*\(?\d{2,4}\)?[\s\-\.]*\d{3,4}[\s\-\.]*\d{3,4}/g);
+        if (intlMatches && intlMatches.length > 0) {
+            for (const m of intlMatches) {
+                const digits = m.replace(/\D/g, '');
+                if (digits.length >= 9 && digits.length <= 15) return m.trim();
+            }
+        }
+
+        return '';
+    };
+
     const fastExtractProfileFromText = (text, fileName = '') => {
         if (!text && !fileName) return {};
         const emailMatch = text ? text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) : null;
         const email = emailMatch ? emailMatch[0] : '';
-
-        // Match Sri Lankan (+94 76 445 7821, 076 445 7821, +94764457821) and international phone numbers with spaces/dashes
-        const phoneMatch = text ? text.match(/(?:\+94\s*\d{2}|\+94\s*7\d|\b07\d|\b011|\b0\d{2})[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\+?\d{1,4}[\s\-\.\(]*\d{2,4}[\s\-\.\)]*\d{3,4}[\s\-\.]*\d{3,4}/) : null;
-        const contact_number = phoneMatch ? phoneMatch[0].trim() : '';
+        const contact_number = extractPhoneNumberFromText(text);
 
         let first_name = '';
         let last_name = '';
@@ -514,13 +563,27 @@ function ApplyPage() {
 
         let qualification = 'Bachelors Degree';
         const lower = (text || '').toLowerCase();
-        if (lower.includes('phd') || lower.includes('doctor of philosophy')) qualification = 'PhD';
-        else if (lower.includes('master') || lower.includes('msc') || lower.includes('mba')) qualification = 'Masters Degree';
-        else if (lower.includes('bachelor') || lower.includes('bsc') || lower.includes('bba') || lower.includes('b.tech') || lower.includes('degree')) qualification = 'Bachelors Degree';
-        else if (lower.includes('diploma') || lower.includes('hnd')) qualification = 'Diploma';
-        else if (lower.includes('a/l') || lower.includes('advanced level')) qualification = 'A/L';
-        else if (lower.includes('o/l') || lower.includes('ordinary level')) qualification = 'O/L';
-        else if (lower.includes('cma') || lower.includes('acca') || lower.includes('cima') || lower.includes('certification')) qualification = 'Professional Certification';
+        
+        // Exact academic regex checks (avoid false positives like 'iMaster', 'scrum master', etc.)
+        const isMaster = /\b(?:master(?:'s)?(?:\s+degree)?|master\s+of\s+[a-z]+|m\.?sc|m\.?b\.?a|m\.?phil|m\.?tech|m\.?eng|postgraduate\s+degree)\b/i.test(text) &&
+            !/(?:\bimaster\b|\bscrum\s+master\b|\btask\s*master\b|\bwebmaster\b)/i.test(text);
+
+        const isBachelor = /\b(?:bachelor(?:'s)?(?:\s+degree)?|b\.?sc|b\.?i\.?t|bit(?:\(hons\))?|b\.?i\.?c\.?t|bict|b\.?eng|b\.?tech|b\.?b\.?a|b\.?com|b\.?a|undergraduate\s+degree|degree)\b/i.test(text);
+
+        const isPhD = /\b(?:ph\.?d|doctorate|doctor\s+of\s+philosophy)\b/i.test(text);
+        const isDiploma = /\b(?:national\s+diploma|higher\s+national\s+diploma|hnd|diploma|nvq\s+level\s*[456]|pg\s+diploma)\b/i.test(text);
+        const isProfCert = /\b(?:cima|acca|aat|ca\s+sri\s+lanka|pmp|cisco\s+certified|ccna)\b/i.test(text);
+        const isAL = /\b(?:g\.?c\.?e\.?\s*)?(?:advanced\s+level|advance\s+level|a\/l)\b/i.test(text);
+        const isOL = /\b(?:g\.?c\.?e\.?\s*)?(?:ordinary\s+level|o\/l)\b/i.test(text);
+
+        if (isPhD) qualification = 'PhD';
+        else if (isMaster && !isBachelor) qualification = 'Masters Degree';
+        else if (isMaster && isBachelor) qualification = 'Masters Degree';
+        else if (isBachelor) qualification = 'Bachelors Degree';
+        else if (isDiploma) qualification = 'Diploma';
+        else if (isProfCert) qualification = 'Professional Certification';
+        else if (isAL) qualification = 'A/L';
+        else if (isOL) qualification = 'O/L';
 
         let overall_experience = '1-2 years';
         let relevant_experience = '1-2 years';
@@ -563,6 +626,7 @@ function ApplyPage() {
             }
             setRawCvText(text);
 
+            // Fast instant local extraction (completes in < 0.2s!)
             const extracted = fastExtractProfileFromText(text, file ? file.name : '');
 
             setForm(prev => ({
@@ -577,8 +641,16 @@ function ApplyPage() {
                 salary_expectation: extracted.salary_expectation || prev.salary_expectation || ''
             }));
 
+            // Auto-detect mandatory skills for tags from CV text
+            if (vacancy?.required_skills) {
+                const reqSkills = vacancy.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                const matched = reqSkills.filter(s => checkSkillInCvText(s, text));
+                setMatchedSkills(matched);
+                setUserSkills(matched);
+            }
+
             setParsingProgress(100);
-            toast.success("✨ Personal Information & Professional Profile extracted! Please review your details.", { autoClose: 4000 });
+            toast.success("✨ Personal Information & Professional Profile extracted instantly! Please review your details.", { autoClose: 3500 });
         } catch (err) {
             console.error("CV parsing error:", err);
             toast.info("CV uploaded! Please review and complete your details.");
@@ -1633,318 +1705,6 @@ function ApplyPage() {
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* ── AI Skill Match / Extracted Skills Dashboard ── */}
-                                        {aiAnalysis && !parsing && (
-                                            <div className={`apb-skill-match-panel premium-skills-container ${!skillsPanelExpanded ? 'collapsed' : ''}`} style={{ marginTop: '24px', marginBottom: '24px' }}>
-                                                <div className="apb-smp-header" onClick={() => setSkillsPanelExpanded(v => !v)}>
-                                                    <FiZap size={16} className="apb-smp-icon pulse-animation" style={{ color: 'var(--gold-accent)' }} />
-                                                    <span className="apb-smp-title">
-                                                        George Steuart AI Skills Profile Analysis
-                                                    </span>
-                                                    {form.cv && !parsing && (
-                                                        <span className="apb-smp-badge" style={{ marginRight: '8px' }}>
-                                                            {skillsMetadata.length} Verified Skills
-                                                        </span>
-                                                    )}
-                                                    <span className="apb-smp-chevron">
-                                                        {skillsPanelExpanded ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
-                                                    </span>
-                                                </div>
-
-                                                {skillsPanelExpanded && (
-                                                    <>
-                                                        {form.cv && !parsing && (
-                                                            <div className="ai-verification-notice">
-                                                                <span className="ai-notice-icon">🤖</span>
-                                                                <div>
-                                                                    <strong>Human-like Verification:</strong> George Steuart AI filtered out list-only skills that lacked supporting work history or project context in your CV.
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {skillsMetadata.length > 0 && skillsMetadata.filter(item => item.category === 'Relevant Skills' || item.category === 'Related Skills').length === 0 && (
-                                                            <div className="ai-verification-notice mismatch-alert" style={{ background: '#fff5f5', border: '1px solid #fa5252', color: '#fa5252', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                                <FiAlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px', color: '#fa5252' }} />
-                                                                <div>
-                                                                    <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '4px', fontWeight: 800 }}>Profile Mismatch Warning</strong>
-                                                                    <p style={{ margin: 0, fontSize: '0.82rem', color: '#e03131', lineHeight: '1.45' }}>
-                                                                        Our AI analysis indicates that your CV experience and skills do not align with the requirements for this <strong>{vacancy?.title}</strong> role. Please review your CV details below.
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Case: Mandatory Skills checklist - if vacancy has mandatory skills, show quick checklist of them */}
-                                                        {vacancy?.required_skills && vacancy.required_skills.split(',').filter(s => s.trim()).length > 0 && (
-                                                            <div className="mandatory-skills-checklist">
-                                                                <h4 className="skills-subtitle">
-                                                                    <FiCheckCircle size={13} style={{ color: 'var(--gold-accent)', marginRight: '6px' }} />
-                                                                    Mandatory Requirements Status
-                                                                </h4>
-                                                                <div className="apb-smp-skills">
-                                                                    {vacancy.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => {
-                                                                        const skillName = skill.trim();
-                                                                        const isMatched = checkSkillInCvText(skillName, rawCvText);
-
-                                                                        return (
-                                                                            <div key={idx} className={`apb-smp-skill ${isMatched ? 'matched' : ''}`}>
-                                                                                <span className={`apb-smp-check-icon ${isMatched ? 'on' : 'off'}`}>
-                                                                                    {isMatched ? <FiCheck size={10} /> : <FiX size={10} />}
-                                                                                </span>
-                                                                                <span className="apb-smp-skill-name">{skillName}</span>
-                                                                                {isMatched ? (
-                                                                                    <span className="apb-smp-ai-tag">
-                                                                                        <FiZap size={9} /> Matched
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="apb-smp-missing-tag">Not found in CV</span>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Detailed categorized skills display */}
-                                                        {skillsMetadata.length > 0 ? (
-                                                            <div className="categorized-skills-grid">
-                                                                {/* Horizontal Tab System */}
-                                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '16px', gap: '16px', flexWrap: 'wrap' }}>
-                                                                    {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
-                                                                        const count = skillsMetadata.filter(item => item.category === tabName).length;
-
-                                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
-
-                                                                        return (
-                                                                            <button
-                                                                                key={tabName}
-                                                                                type="button"
-                                                                                className={`apb-tab-btn ${activeTab === tabName ? 'active' : ''}`}
-                                                                                onClick={() => setActiveTab(tabName)}
-                                                                                style={{
-                                                                                    padding: '10px 16px',
-                                                                                    background: 'none',
-                                                                                    border: 'none',
-                                                                                    borderBottom: activeTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
-                                                                                    color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                                    fontWeight: 700,
-                                                                                    fontSize: '0.88rem',
-                                                                                    cursor: 'pointer',
-                                                                                    display: 'flex',
-                                                                                    alignItems: 'center',
-                                                                                    gap: '6px',
-                                                                                    transition: 'all 0.2s ease',
-                                                                                    marginBottom: '-2px'
-                                                                                }}
-                                                                            >
-                                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                                    {emoji} {tabName}
-                                                                                    <span className="apb-tooltip" onClick={(e) => e.stopPropagation()}>
-                                                                                        ?
-                                                                                        <span className="apb-tooltip-text">
-                                                                                            {tabName === 'Relevant Skills' && 'Core skills directly required in the job description or essential for performing this role.'}
-                                                                                            {tabName === 'Related Skills' && 'Supporting skills from the same industry/domain that add value to your profile.'}
-                                                                                            {tabName === 'Additional Skills' && 'Other skills from different domains or general abilities found in your CV.'}
-                                                                                        </span>
-                                                                                    </span>
-                                                                                </span>
-                                                                                <span style={{
-                                                                                    fontSize: '0.72rem',
-                                                                                    background: activeTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
-                                                                                    color: activeTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                                    padding: '2px 8px',
-                                                                                    borderRadius: '100px',
-                                                                                    fontWeight: 800
-                                                                                }}>
-                                                                                    {count}
-                                                                                </span>
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-
-                                                                {/* Tab Content */}
-                                                                {(() => {
-                                                                    const activeSkills = skillsMetadata.filter(item => item.category === activeTab);
-
-                                                                    return (
-                                                                        <div className="category-block animate-fade-in" style={{ border: 'none', background: 'transparent', padding: 0 }}>
-                                                                            {activeSkills.length === 0 && (
-                                                                                <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', marginBottom: '16px' }}>
-                                                                                    No skills identified under {activeTab} in your CV. You can manually add some below.
-                                                                                </p>
-                                                                            )}
-                                                                            <div className="category-skills-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px', width: '100%' }}>
-                                                                                {activeSkills.map((item, idx) => {
-                                                                                    const isEditing = editingSkillName === item.skill;
-                                                                                    const isMatched = checkSkillInCvText(item.skill, rawCvText);
-
-                                                                                    if (isEditing) {
-                                                                                        const currentMatch = checkSkillInCvText(editingSkillValue, rawCvText);
-                                                                                        return (
-                                                                                            <div key={idx} className={`skill-metadata-card editing-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`} style={{ border: '2px solid var(--gold-accent, #c8a951)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold-accent)' }}>Edit Skill Name</label>
-                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                        <input
-                                                                                                            type="text"
-                                                                                                            value={editingSkillValue}
-                                                                                                            onChange={(e) => setEditingSkillValue(e.target.value)}
-                                                                                                            className="apb-input"
-                                                                                                            style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
-                                                                                                            autoFocus
-                                                                                                            onKeyDown={(e) => {
-                                                                                                                if (e.key === 'Enter') {
-                                                                                                                    handleSaveSkill(item.skill, editingSkillValue);
-                                                                                                                } else if (e.key === 'Escape') {
-                                                                                                                    setEditingSkillName(null);
-                                                                                                                    setEditingSkillValue('');
-                                                                                                                }
-                                                                                                            }}
-                                                                                                        />
-                                                                                                        {rawCvText && (
-                                                                                                            <span className={`skill-match-status-badge ${currentMatch ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                                {currentMatch ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                                            </span>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '4px' }}>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="btn-secondary-small"
-                                                                                                        onClick={() => {
-                                                                                                            setEditingSkillName(null);
-                                                                                                            setEditingSkillValue('');
-                                                                                                        }}
-                                                                                                        style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
-                                                                                                    >
-                                                                                                        <FiX size={12} /> Cancel
-                                                                                                    </button>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="btn-primary-small"
-                                                                                                        onClick={() => handleSaveSkill(item.skill, editingSkillValue)}
-                                                                                                        style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', height: '26px' }}
-                                                                                                    >
-                                                                                                        <FiCheck size={12} /> Save
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    }
-
-                                                                                    return (
-                                                                                        <div key={idx} className={`skill-metadata-card ${item.is_mandatory ? 'is-mandatory-card' : ''}`}>
-                                                                                            <div className="skill-card-top" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                                                                                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', flex: 1 }}>
-                                                                                                    <span className="skill-card-name" style={{ fontWeight: 'bold' }}>
-                                                                                                        {item.skill}
-                                                                                                    </span>
-                                                                                                    {rawCvText && (
-                                                                                                        <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                                                            {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                                        </span>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                                <div className="skill-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="skill-edit-btn-trigger"
-                                                                                                        onClick={() => {
-                                                                                                            setEditingSkillName(item.skill);
-                                                                                                            setEditingSkillValue(item.skill);
-                                                                                                        }}
-                                                                                                        title="Edit Skill"
-                                                                                                    >
-                                                                                                        <FiEdit2 size={12} />
-                                                                                                    </button>
-                                                                                                    <button
-                                                                                                        type="button"
-                                                                                                        className="skill-delete-btn"
-                                                                                                        onClick={() => {
-                                                                                                            setSkillsMetadata(prev => prev.filter(x => x.skill.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                            setUserSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                            if (item.is_mandatory) {
-                                                                                                                setMatchedSkills(prev => prev.filter(x => x.toLowerCase() !== item.skill.toLowerCase()));
-                                                                                                            }
-                                                                                                        }}
-                                                                                                        title="Remove Skill"
-                                                                                                    >
-                                                                                                        <FiX size={12} />
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            </div>
-                                                                                            {item.evidence_source && (
-                                                                                                <div className="skill-meta-row-candidate" style={{ display: 'flex', gap: '6px', margin: '4px 0' }}>
-                                                                                                    <span className="skill-source-badge">
-                                                                                                        via {item.evidence_source}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            )}
-                                                                                            <p className="skill-card-context">
-                                                                                                {item.context}
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-
-                                                                                {/* Add Skill card */}
-                                                                                <div className="skill-metadata-card add-skill-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                                                                                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                                            ✨ Add New Skill to {activeTab.replace(' Skills', '')}
-                                                                                        </span>
-                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                            <input
-                                                                                                type="text"
-                                                                                                placeholder="e.g. Docker, Python"
-                                                                                                value={newSkillName}
-                                                                                                onChange={(e) => setNewSkillName(e.target.value)}
-                                                                                                className="apb-input"
-                                                                                                style={{ flex: 1, padding: '4px 8px', fontSize: '0.85rem', height: '32px' }}
-                                                                                                onKeyDown={(e) => {
-                                                                                                    if (e.key === 'Enter') {
-                                                                                                        handleAddSkill();
-                                                                                                    }
-                                                                                                }}
-                                                                                            />
-                                                                                            {newSkillName.trim() && rawCvText && (
-                                                                                                <span className={`skill-match-status-badge ${checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`} style={{ whiteSpace: 'nowrap' }}>
-                                                                                                    {checkSkillInCvText(newSkillName, rawCvText) ? (activeTab === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                                </span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className="btn-primary-small"
-                                                                                            onClick={() => handleAddSkill()}
-                                                                                            style={{ padding: '4px 12px', fontSize: '0.78rem', alignSelf: 'flex-end', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                                                        >
-                                                                                            + Add Skill
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="no-skills-extracted">
-                                                                {form.cv ? (
-                                                                    <p>George Steuart AI could not find any skills with sufficient project context in your resume. You can add skills manually below.</p>
-                                                                ) : (
-                                                                    <p>Upload a PDF CV to automatically extract and verify your skills with project experience details.</p>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
 
                                         {/* CV is now uploaded and parsed at the top */}
 

@@ -43,4 +43,10 @@ backend/.env.production.local
 # Uploaded files
 backend/uploads/*
 !backend/uploads/.gitkeep
-scratch/test_new_key.php
+# Scratch & temporary test scripts
+scratch/
+scratch/*
+backend/scratch_*
+backend/test_*
+backend/check_*
+frontend/test_*

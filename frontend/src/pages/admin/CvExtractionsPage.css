@@ -577,12 +577,33 @@ input:checked + .cve-slider:before {
 .cve-match-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
+    gap: 6px;
+    padding: 3px 10px;
     border-radius: 20px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 700;
     white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.cve-match-pill .cve-match-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.cve-match-pill.high .cve-match-dot {
+    background: #16a34a;
+}
+
+.cve-match-pill.medium .cve-match-dot {
+    background: #d97706;
+}
+
+.cve-match-pill.low .cve-match-dot {
+    background: #dc2626;
 }
 
 .cve-match-pill.high {
@@ -601,6 +622,12 @@ input:checked + .cve-slider:before {
     background: #fef2f2;
     color: #991b1b;
     border: 1px solid #fecaca;
+}
+
+.cve-match-tier-text {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.9;
 }
 
 /* Actions Column */
@@ -1521,40 +1548,46 @@ input:checked + .cve-slider:before {
     flex-direction: column;
     gap: 6px;
     align-items: flex-start;
+    min-width: 175px;
 }
 
 .cve-match-breakdown-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(72px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     width: 100%;
-    max-width: 175px;
+    max-width: 185px;
 }
 
 .cve-micro-rate {
-    background: #f8fafc;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
-    padding: 3px 6px;
-    font-size: 0.69rem;
+    padding: 2.5px 6px;
+    font-size: 0.68rem;
     color: #475569;
     white-space: nowrap;
     display: flex;
     align-items: center;
     justify-content: space-between;
     transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .cve-micro-rate:hover {
-    background: #ffffff;
+    background: #f8fafc;
     border-color: #cbd5e1;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    transform: translateY(-1px);
 }
 
 .cve-micro-rate strong {
     font-weight: 800;
     color: #0f172a;
-    margin-left: 2px;
+    margin-left: 3px;
+}
+
+.cve-micro-rate-wide {
+    grid-column: span 2;
 }
 
 /* Modal Pre-Extraction Assessment Card */

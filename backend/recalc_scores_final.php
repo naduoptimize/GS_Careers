@@ -139,7 +139,27 @@ function computeCandidateMatchScoreDirect($vacancy, $qualification, $overallExp,
         $expScore = round($expScore * 0.65); // 35% penalty if relevant experience falls below requirement
     }
 
-    $appQualWeight = $qualWeights[$qualification] ?? 50;
+    $appQualWeight = $qualWeights[$qualification] ?? null;
+    if ($appQualWeight === null) {
+        $qLower = strtolower($qualification ?? '');
+        if (strpos($qLower, 'phd') !== false || strpos($qLower, 'doctorate') !== false) {
+            $appQualWeight = 100;
+        } else if (preg_match('/\b(master|msc|mba|m\.sc|m\.eng|mtech)\b/i', $qLower) && !preg_match('/\b(imaster|scrum\s*master|taskmaster|webmaster)\b/i', $qLower)) {
+            $appQualWeight = 90;
+        } else if (preg_match('/\b(bachelor|degree|bsc|b\.sc|bit|b\.i\.t|bict|b\.i\.c\.t|beng|b\.eng|btech|bba|bcom|hons)\b/i', $qLower)) {
+            $appQualWeight = 80;
+        } else if (strpos($qLower, 'diploma') !== false || strpos($qLower, 'hnd') !== false || strpos($qLower, 'nvq') !== false) {
+            $appQualWeight = 65;
+        } else if (strpos($qLower, 'professional') !== false || strpos($qLower, 'certification') !== false || strpos($qLower, 'ccna') !== false || strpos($qLower, 'cima') !== false || strpos($qLower, 'acca') !== false) {
+            $appQualWeight = 75;
+        } else if (strpos($qLower, 'a/l') !== false || strpos($qLower, 'advanced level') !== false) {
+            $appQualWeight = 45;
+        } else if (strpos($qLower, 'o/l') !== false || strpos($qLower, 'ordinary level') !== false) {
+            $appQualWeight = 25;
+        } else {
+            $appQualWeight = 75;
+        }
+    }
     $requiredQualWeight = 80;
     if (strpos($targetFullText, 'phd') !== false) $requiredQualWeight = 100;
     else if (strpos($targetFullText, 'master') !== false || strpos($targetFullText, 'msc') !== false || strpos($targetFullText, 'mba') !== false) $requiredQualWeight = 90;

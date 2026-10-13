@@ -79,6 +79,7 @@ export const rejectVacancy = (data) => api.post('/vacancies.php?action=reject', 
 export const applyForJob = (formData) => api.post('/applications.php?action=apply', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
 });
+export const aiParseCv = (formData) => api.post('/applications.php?action=ai_parse_cv', formData);
 export const getApplications = (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return api.get(`/applications.php?action=list&${query}`);

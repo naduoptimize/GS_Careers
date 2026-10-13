@@ -33,11 +33,16 @@ function getSettings()
         $settings[$row['setting_key']] = $row['setting_value'];
     }
 
-    // Default fallback values for Match Score Thresholds & Email Toggles
+    // Default fallback values for Match Score Thresholds, Calculation Weights & Email Toggles
     $matchScoreDefaults = [
         'min_high_match_score' => '75',
         'min_medium_match_score' => '50',
-        'enable_candidate_emails' => '1'
+        'enable_candidate_emails' => '1',
+        'weight_skills' => '35',
+        'weight_experience' => '30',
+        'weight_qualification' => '20',
+        'weight_jd_alignment' => '10',
+        'weight_salary' => '5'
     ];
 
     foreach ($matchScoreDefaults as $key => $defaultVal) {

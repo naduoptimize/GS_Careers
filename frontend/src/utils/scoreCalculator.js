@@ -9,13 +9,13 @@ export const DOMAIN_KEYWORDS = {
         'external audit', 'statutory', 'chartered accountant', 'ca sri lanka'
     ],
     hr_admin: [
-        'hr', 'human resources', 'recruitment', 'talent acquisition', 'hiring', 'onboarding',
+        'hr', 'human resources', 'human resource', 'hrm', 'recruitment', 'talent acquisition', 'hiring', 'onboarding',
         'training', 'learning and development', 'l&d', 'performance management', 'kpi',
         'administrative', 'office', 'receptionist', 'clerk', 'coordinator', 'executive',
         'operations', 'clerical', 'data entry', 'policy', 'employee relations', 'attendance',
         'secretarial', 'compliance', 'payroll', 'hris', 'grievance', 'organizational development',
         'workforce planning', 'compensation', 'benefits', 'job evaluation', 'hr generalist',
-        'labour law', 'industrial relations', 'welfare', 'succession planning'
+        'labour law', 'industrial relations', 'welfare', 'succession planning', 'personnel', 'business management', 'business administration'
     ],
     legal_compliance: [
         'legal', 'lawyer', 'attorney', 'legal officer', 'compliance', 'regulatory',
@@ -370,6 +370,9 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
     } else {
         expScore = (appRelevantWeight * 0.75) + (appOverallWeight * 0.25);
     }
+    if (app.overall_experience === '0 years' || app.relevant_experience === '0 years') {
+        expScore = Math.min(expScore, 25);
+    }
     details.factors.experience = Math.round(Math.min(100, expScore));
 
     // Detect Job Domain first
@@ -405,8 +408,8 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
         if (!qStr) return 75;
         const lower = String(qStr).toLowerCase();
         if (lower.includes('phd') || lower.includes('doctorate')) return 100;
-        if (lower.includes('master') || lower.includes('msc') || lower.includes('mba') || lower.includes('m.sc')) return 90;
-        if (lower.includes('bachelor') || lower.includes('bsc') || lower.includes('b.sc') || lower.includes('degree') || lower.includes('bict') || lower.includes('bba') || lower.includes('b.com')) return 80;
+        if (((lower.includes('master') && !lower.includes('imaster') && !lower.includes('scrum master') && !lower.includes('taskmaster')) || lower.includes('msc') || lower.includes('mba') || lower.includes('m.sc'))) return 90;
+        if (lower.includes('bachelor') || lower.includes('bsc') || lower.includes('b.sc') || lower.includes('degree') || lower.includes('bict') || lower.includes('bba') || lower.includes('b.com') || lower.includes('bit') || lower.includes('b.i.t')) return 80;
         if (lower.includes('cima') || lower.includes('acca') || lower.includes('aat') || lower.includes('certification') || lower.includes('chartered') || lower.includes('ca sri lanka')) return 75;
         if (lower.includes('diploma') || lower.includes('hnd')) return 65;
         if (lower.includes('a/l') || lower.includes('advanced level')) return 45;
@@ -438,18 +441,21 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
             for (const [dKey, dKws] of Object.entries(DOMAIN_KEYWORDS)) {
                 if (dKey === jobDomain) continue;
                 const cnt = dKws.filter(k => candidateCvTextOnly.includes(k)).length;
-                if (cnt >= 2 && cnt > matchedTargetKws) {
+                if ((cnt >= 2 && cnt > matchedTargetKws) || (cnt >= 1 && matchedTargetKws === 0)) {
                     hasConflictingDomain = true;
                     break;
                 }
             }
 
-            if (matchedTargetKws >= 1) {
+            // Conflicting domain MUST be checked first: if candidate belongs to another domain (e.g. HR degree applying for IT), heavily penalize qualification
+            if (hasConflictingDomain) {
+                fieldMatchFactor = 0.20; // 80% penalty if degree/qualification field conflicts with job domain
+            } else if (matchedTargetKws >= 2) {
                 fieldMatchFactor = 1.0;
-            } else if (hasConflictingDomain) {
-                fieldMatchFactor = 0.25; // 75% penalty if degree/qualification field conflicts with job domain
+            } else if (matchedTargetKws === 1) {
+                fieldMatchFactor = 0.50;
             } else {
-                fieldMatchFactor = 0.65;
+                fieldMatchFactor = 0.25;
             }
         }
 
@@ -545,6 +551,23 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
         }
     }
 
+    // Incorporate AI breakdown if available from skills_metadata
+    if (report && report.ai_score_breakdown && typeof report.ai_score_breakdown === 'object') {
+        const aiBd = report.ai_score_breakdown;
+        if (typeof aiBd.skills_match_score === 'number') details.factors.skills = aiBd.skills_match_score;
+        if (typeof aiBd.experience_match_score === 'number') {
+            details.factors.experience = (app.overall_experience === '0 years' || app.relevant_experience === '0 years') && aiBd.experience_match_score > 35
+                ? 25
+                : aiBd.experience_match_score;
+        }
+        if (typeof aiBd.qualification_match_score === 'number') details.factors.qualification = aiBd.qualification_match_score;
+        if (salMatchResult && salMatchResult.status !== 'no_budget_defined') {
+            details.factors.salary = salMatchResult.score;
+        } else if (typeof aiBd.salary_match_score === 'number') {
+            details.factors.salary = aiBd.salary_match_score;
+        }
+    }
+
     let finalSkills = details.factors.skills;
     let finalExp = details.factors.experience;
     let finalQual = details.factors.qualification;
@@ -552,33 +575,65 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
     let finalSal = details.factors.salary;
 
     if (isJobMismatch) {
-        finalSkills *= 0.15;
-        finalKw *= 0.10;
-        finalQual *= 0.40;
-        finalExp *= 0.25;
+        finalSkills = Math.round(finalSkills * 0.15);
+        finalKw = Math.round(finalKw * 0.10);
+        finalQual = Math.round(Math.min(finalQual * 0.20, 20)); // Unrelated qualification strictly penalized (capped at 20%)
+        finalExp = Math.round(finalExp * 0.25);
         details.isJobMismatch = true;
+        details.factors.skills = Math.max(5, finalSkills);
+        details.factors.experience = Math.max(5, finalExp);
+        details.factors.qualification = Math.max(10, finalQual);
+        details.factors.keyword = Math.max(5, finalKw);
     }
 
-    const jdSkillsRate = Math.min(100, Math.max(10, Math.round((finalSkills * 0.5) + (finalKw * 0.5))));
     const hasSalaryBudget = Boolean(minSalary || maxSalary);
+    // Dynamic / configured default recruitment dimension weights:
+    // Skills (35%), Relevant Experience (30%), Qualification (20%), JD Alignment (10%), Salary Budget (5%)
+    const wSkills = 35;
+    const wExp = 30;
+    const wQual = 20;
+    const wJd = 10;
+    const wSal = 5;
+
     let finalScore = 0;
     if (hasSalaryBudget) {
-        finalScore = (jdSkillsRate * 0.40) +
-            (finalExp * 0.30) +
-            (finalQual * 0.20) +
-            (finalSal * 0.10);
+        finalScore = (finalSkills * (wSkills / 100)) +
+            (finalExp * (wExp / 100)) +
+            (finalQual * (wQual / 100)) +
+            (finalKw * (wJd / 100)) +
+            (finalSal * (wSal / 100));
     } else {
-        finalScore = (jdSkillsRate * 0.45) +
-            (finalExp * 0.32) +
-            (finalQual * 0.23);
+        const nonSalTotal = wSkills + wExp + wQual + wJd;
+        finalScore = (finalSkills * (wSkills / nonSalTotal)) +
+            (finalExp * (wExp / nonSalTotal)) +
+            (finalQual * (wQual / nonSalTotal)) +
+            (finalKw * (wJd / nonSalTotal));
     }
 
     const calculatedScore = Math.min(100, Math.max(12, Math.round(finalScore)));
+
     const backendProvidedScore = (typeof app.match_score === 'number' || (typeof app.match_score === 'string' && app.match_score !== '')) 
         ? parseInt(app.match_score, 10) 
-        : ((typeof app.score === 'number' || (typeof app.score === 'string' && app.score !== '')) ? parseInt(app.score, 10) : null);
+        : ((typeof app.score === 'number' || (typeof app.score === 'string' && app.score !== '')) 
+            ? parseInt(app.score, 10) 
+            : (report && typeof report.ai_match_score === 'number' ? report.ai_match_score : null));
 
-    const resultScore = (backendProvidedScore !== null && !isNaN(backendProvidedScore)) ? backendProvidedScore : calculatedScore;
+    let resultScore = (backendProvidedScore !== null && !isNaN(backendProvidedScore)) ? backendProvidedScore : calculatedScore;
+
+    // Strict Role Alignment Guard: If job mismatch is detected, score MUST be low (< 22%), reflecting role misalignment
+    if (isJobMismatch || details.isJobMismatch) {
+        resultScore = Math.min(resultScore, calculatedScore, 22);
+    }
+
+    // Consistency Guard: If overall match score is low (< 35%) due to AI evaluation or role mismatch,
+    // ensure factors breakdown reflects the mismatch instead of showing unpenalized 90%-100% qualification
+    if (resultScore < 35 && details.factors.qualification > 25) {
+        details.isJobMismatch = true;
+        details.factors.qualification = Math.min(20, Math.round(details.factors.qualification * 0.20));
+        details.factors.skills = Math.min(details.factors.skills, 20);
+        details.factors.keyword = Math.min(details.factors.keyword, 15);
+        details.factors.experience = Math.min(details.factors.experience, 25);
+    }
 
     return { score: resultScore, details };
 };
