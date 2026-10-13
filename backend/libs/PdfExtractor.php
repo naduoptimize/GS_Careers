@@ -647,98 +647,109 @@ class PdfExtractor {
 
         @set_time_limit(180);
 
-        $prompt = "You are the Lead Talent Acquisition AI for George Steuart Group. Evaluate the candidate CV text against the target job specifications below. Generate an overall AI Match Score (0 to 100) and an in-depth AI Recruiter Evaluation Report.
+        $prompt = "You are the Principal Talent Acquisition Partner and Technical Evaluation Specialist for George Steuart Group.
+Your mission is to perform a rigorous, evidence-grounded assessment of the candidate's CV against the target Job Specifications to find the single best-fit candidate for this specific role.
 
-JOB SPECIFICATIONS:
-- Job Title: {$vacancyTitle}
+TARGET JOB SPECIFICATIONS:
+- Position Title: {$vacancyTitle}
 - Designation: {$designation}
 - Required Minimum Overall Experience: {$minExp}
 - Required Minimum Relevant Experience: {$minRelExp}
-- Target Salary Range: {$salaryStr}
-- Mandatory Skills: {$reqSkills}
-- Job Description: {$jobDesc}
-- Job Requirements: {$jobReqs}
+- Target Salary Budget: {$salaryStr}
+- Mandatory Technical Skills: {$reqSkills}
+- Job Description & Responsibilities: {$jobDesc}
+- Job Requirements & Education: {$jobReqs}
 
-CANDIDATE STATED PROFILE:
+CANDIDATE APPLICATION PROFILE:
 - Stated Overall Experience: {$candExp}
 - Stated Relevant Experience: {$candRelExp}
 - Stated Qualification: {$candQual}
-- Candidate Salary Expectation: {$candSalaryStr}
+- Stated Salary Expectation: {$candSalaryStr}
 
-CANDIDATE CV TEXT:
+FULL CANDIDATE CV TEXT:
 {$cvText}
 
-RULES FOR ACCURATE EVALUATION:
-1. EXPERIENCE MATCH SCORING:
-   - If candidate has 0 years commercial experience (student, fresh graduate, or no commercial employment history), set experience_match_score strictly between 20% and 35% (entry-level trainee baseline). NEVER award 70%-100% experience match for someone with 0 years commercial experience, even for a Trainee role!
-   - 0-1 years: 35% - 50%
-   - 1-2 years: 50% - 70%
-   - 3-5 years relevant: 75% - 90%
-   - If candidate's background/experience is in an unrelated domain, set experience_match_score below 20%.
+EVALUATION METHODOLOGY (ACT AS A SENIOR TECHNICAL RECRUITER):
+1. FACTUAL GROUNDING & VERBATIM EXTRACTION (ZERO HALLUCINATIONS):
+   - QUALIFICATIONS: Extract actual degree, diploma, or educational qualification titles directly from the Education section VERBATIM (e.g., 'BIT(Hons) in Networking and Mobile Computing', 'BSc (Hons) in Software Engineering', 'National Diploma in ICT').
+   - NEVER confuse software, tools, or job roles with degrees! For example, 'Huawei iMaster NCE' is a network management platform, NOT a Masters degree; 'Scrum Master' is an Agile role, NOT a Masters degree; 'Webmaster' is a position, NOT a degree.
+   - CERTIFICATIONS: Extract authentic industry certifications from the Certifications/Licenses section VERBATIM (e.g., 'CCNA Certified', 'Cisco Certified Support Technician (CCST)', 'AWS Certified Solutions Architect'). Do not list general degree subjects as certifications.
 
-2. SKILLS MATCH & JD ALIGNMENT:
-   - Carefully cross-reference Mandatory Skills and Job Description.
-   - For example, if a position requires IT Support, Hardware/Networking, troubleshooting, and field visits, but candidate CV only lists Web Development (React, PHP) or QA, set skills_match_score and job_description_match_score between 30% and 50%.
-   - Only award skills scores >= 75% if candidate actively possesses and proves the primary skills sought.
+2. DOMAIN & ROLE COMPATIBILITY AUDIT:
+   - Determine if the candidate belongs to the job's domain.
+   - If the candidate's background is entirely from a different profession (e.g., HR degree/experience applying for an IT/Networking job, or Finance applicant applying for a Software role), immediately flag 'is_job_mismatch: true', set 'qualification_match_score' between 10-25%, and keep the overall match score capped strictly below 25%.
 
-3. QUALIFICATIONS:
-   - Relevant field qualification (e.g. IT/Software degree for IT role): 75% - 90%.
-   - Unrelated field qualification (e.g. HR degree for IT role): set qualification_match_score strictly between 10% - 25% and mark is_job_mismatch: true.
+3. CANDIDATE COMPETENCE RANKING (RATE 0-100 IN EACH PILLAR):
+   - PILLAR A: SKILLS MATCH (Weight 35%):
+     * Cross-reference each mandatory skill against concrete evidence in the CV.
+     * High (75-95%): Candidate demonstrates hands-on implementation of the core technical stack in production, enterprise client projects, or technical internships.
+     * Medium (50-70%): Candidate has foundational knowledge, academic projects, or entry-level familiarity with the tools.
+     * Low (<45%): Candidate lists keywords with zero contextual evidence, or skills belong to an adjacent/unrelated stack (e.g. web frontend for a network infrastructure role).
+   - PILLAR B: RELEVANT EXPERIENCE (Weight 25%):
+     * Focus strictly on commercial/technical experience relevant to this specific role.
+     * For Trainee/Associate roles: 
+       - Fresh graduate with only university coursework = 25-35%.
+       - Real-world client deployment, field support, or technical internship experience (6-18 months) = 55-70%.
+       - 2+ years proven commercial hands-on track record = 75-90%.
+   - PILLAR C: QUALIFICATION RELEVANCE (Weight 20%):
+     * Direct specialization alignment (e.g. BIT(Hons) in Networking for Network/IT role) = 85-95%.
+     * General IT/Computing degree = 75-85%.
+     * Relevant Diploma or Higher National Diploma = 60-70%.
+     * Unrelated field = 10-25%.
+   - PILLAR D: JOB DESCRIPTION & DUTIES ALIGNMENT (Weight 10%):
+     * Evaluate alignment with day-to-day duties (end-user troubleshooting, monitoring systems, vendor coordination, hardware/network maintenance).
+   - PILLAR E: SALARY BUDGET ALIGNMENT (Weight 10%):
+     * Expectation within/below budget ({$salaryStr}) = 100%.
+     * 10-25% over budget = 65-75%.
+     * 50%+ over budget = 10-25%.
+     * Not specified = 80%.
 
-4. SALARY BUDGET MATCH:
-   - Target Job Budget: {$salaryStr}
-   - Candidate Stated Salary Expectation: {$candSalaryStr}
-   - If candidate salary expectation is within or below the target salary budget: salary_match_score = 100%.
-   - If candidate salary expectation exceeds the maximum budget, heavily penalize salary_match_score strictly:
-     * Asking 100%+ over maximum budget (e.g. asking LKR 78,000 for a LKR 30,000 - 35,000 budget): set salary_match_score strictly between 10% and 15%!
-     * Asking 30-60% over budget: set salary_match_score between 35% and 50%.
-     * Asking 10-25% over budget: set salary_match_score between 60% and 75%.
-     * Not specified: set salary_match_score = 80%.
-
-5. OVERALL MATCH SCORE:
-   - Calculate the overall ai_match_score accurately as:
+4. OVERALL MATCH SCORE:
+   - Calculate accurately:
      ai_match_score = round((skills_match_score * 0.35) + (experience_match_score * 0.25) + (qualification_match_score * 0.20) + (job_description_match_score * 0.10) + (salary_match_score * 0.10)).
+   - If 'is_job_mismatch' is true, force ai_match_score between 12% and 22%.
 
-Return ONLY valid JSON matching this schema:
+Return ONLY valid JSON matching this exact schema:
 {
-  \"ai_match_score\": 55,
-  \"ai_match_reason\": \"2-3 sentence recruiter reasoning explaining the score based on skills, experience, and qualification alignment.\",
+  \"ai_match_score\": 75,
+  \"ai_match_reason\": \"2-3 sentence executive summary detailing why this candidate is a strong, medium, or poor fit for {$vacancyTitle} based on verified skills, relevant experience, and qualifications.\",
   \"is_job_mismatch\": false,
   \"mismatch_reason\": \"\",
   \"ai_score_breakdown\": {
-    \"skills_match_score\": 50,
-    \"experience_match_score\": 25,
-    \"qualification_match_score\": 80,
-    \"job_description_match_score\": 45,
+    \"skills_match_score\": 75,
+    \"experience_match_score\": 60,
+    \"qualification_match_score\": 85,
+    \"job_description_match_score\": 70,
     \"salary_match_score\": 100
   },
   \"first_name\": \"string\",
   \"last_name\": \"string\",
   \"email\": \"string\",
   \"contact_number\": \"string\",
-  \"qualification\": \"O/L\" | \"A/L\" | \"Diploma\" | \"Bachelors Degree\" | \"Masters Degree\" | \"PhD\" | \"Professional Certification\",
+  \"qualification\": \"Exact title of highest qualification verbatim from CV (e.g., 'BIT(Hons) in Networking and Mobile Computing')\",
   \"overall_experience\": \"0 years\" | \"0-1 years\" | \"1-2 years\" | \"3-4 years\" | \"5-7 years\" | \"8-10 years\" | \"10+ years\",
   \"relevant_experience\": \"0 years\" | \"0-1 years\" | \"1-2 years\" | \"3-4 years\" | \"5-7 years\" | \"8-10 years\" | \"10+ years\",
   \"salary_expectation\": \"string\",
   \"profile_summary\": \"string\",
   \"experience_summary\": \"string\",
   \"recruiter_insights\": [
-    \"AI observation for {$vacancyTitle}\"
+    \"Key candidate strength or gap for {$vacancyTitle}\",
+    \"Assessment of practical suitability compared to position requirements\"
   ],
   \"skills_analysis\": [
     {
       \"skill\": \"Skill Name\",
       \"category\": \"Relevant Skills\" | \"Related Skills\" | \"Additional Skills\",
-      \"experience_level\": \"Intermediate\",
+      \"experience_level\": \"Beginner\" | \"Intermediate\" | \"Advanced\" | \"Expert\",
       \"verified\": true
     }
   ],
-  \"fully_demonstrated_skills\": [\"Skill1\"],
-  \"partially_demonstrated_skills\": [],
+  \"fully_demonstrated_skills\": [\"Skill1\", \"Skill2\"],
+  \"partially_demonstrated_skills\": [\"Skill3\"],
   \"requirements_without_evidence\": [],
   \"additional_skills\": [],
-  \"qualifications_found\": [\"Qualification\"],
-  \"certifications_found\": [\"Certification\"]
+  \"qualifications_found\": [\"Exact Full Title of Degree/Qualification verbatim from Education section\"],
+  \"certifications_found\": [\"Exact Full Title of Certification verbatim\"]
 }";
 
         $json = null;
@@ -869,6 +880,9 @@ Return ONLY valid JSON matching this schema:
 
             // Realistically weighted overall score
             $composite = round(($sScore * 0.35) + ($eScore * 0.25) + ($qScore * 0.20) + ($jScore * 0.10) + ($salScore * 0.10));
+            if (!empty($json['is_job_mismatch'])) {
+                $composite = min(22, max(12, $composite));
+            }
             $json['ai_match_score'] = min(100, max(12, $composite));
         }
 
