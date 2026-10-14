@@ -148,6 +148,26 @@ export const DOMAIN_KEYWORDS = {
     ]
 };
 
+export const DOMAIN_LABELS = {
+    finance_accounting: 'Accounting & Finance',
+    hr_admin: 'Human Resources & Administration',
+    legal_compliance: 'Legal & Compliance',
+    tea: 'Tea Industry',
+    healthcare_pharma: 'Healthcare & Pharmaceuticals',
+    solutions_engineering: 'Solutions & Engineering',
+    food_beverage: 'Food & Beverage',
+    fmcg_sales_distribution: 'FMCG Sales & Distribution',
+    travel_tourism: 'Travel & Tourism',
+    aviation: 'Aviation',
+    hospitality_leisure: 'Hospitality & Leisure',
+    insurance: 'Insurance',
+    investments_money_market: 'Investments & Money Market',
+    asset_management_wealth: 'Asset Management & Wealth',
+    overseas_recruitment: 'Overseas Recruitment',
+    it_cybersecurity: 'Information Technology & Software',
+    sales_marketing: 'Sales & Marketing'
+};
+
 export const parseNumericSalary = (val) => {
     if (!val) return null;
     let s = String(val).toLowerCase().trim();
@@ -493,7 +513,16 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
     if (candidateCvTextOnly.trim().length > 20 && uniqueJdKeywords.length > 0) {
         const matchedJdWords = uniqueJdKeywords.filter(kw => {
             if (kw.length <= 3) {
-                return new RegExp(`\\b${kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i').test(candidateCvTextOnly);
+                const escaped = kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                const hasSpecial = /[^a-zA-Z0-9\s]/.test(kw);
+                try {
+                    const regex = hasSpecial
+                        ? new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'i')
+                        : new RegExp(`\\b${escaped}\\b`, 'i');
+                    return regex.test(candidateCvTextOnly);
+                } catch (e) {
+                    return candidateCvTextOnly.toLowerCase().includes(kw.toLowerCase());
+                }
             }
             return candidateCvTextOnly.includes(kw);
         });
@@ -522,73 +551,62 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
 
     // 5. JOB & CV MISMATCH DETECTION & PENALTY
     let isJobMismatch = false;
-    if (report && (report.is_job_mismatch === true || (report.mismatch_reason && report.mismatch_reason.length > 0))) {
-        isJobMismatch = true;
+    let mismatchReasonText = '';
+
+    if ((!report || Object.keys(report).length === 0) && app.skills_metadata) {
+        try {
+            report = typeof app.skills_metadata === 'string' ? JSON.parse(app.skills_metadata) : app.skills_metadata;
+        } catch (e) {}
+    }
+    if ((!report || !report.ai_score_breakdown) && app.extracted_data) {
+        try {
+            const ext = typeof app.extracted_data === 'string' ? JSON.parse(app.extracted_data) : app.extracted_data;
+            if (ext && typeof ext === 'object') {
+                report = { ...ext, ...(report || {}) };
+                if (ext.ai_score_breakdown) {
+                    report.ai_score_breakdown = ext.ai_score_breakdown;
+                }
+            }
+        } catch (e) {}
     }
 
-    const genericStopwords = ['executive', 'manager', 'coordinator', 'assistant', 'officer', 'bachelors', 'degree', 'diploma', 'operations', 'admin', 'clerk', 'management', 'communication', 'organization', 'interpersonal'];
-
-    if (!isJobMismatch && jobDomain && DOMAIN_KEYWORDS[jobDomain] && candidateCvTextOnly.trim().length > 10) {
-        const domainCounts = {};
-        for (const [dKey, dKws] of Object.entries(DOMAIN_KEYWORDS)) {
-            const specificKws = dKws.filter(k => !genericStopwords.includes(k.toLowerCase()));
-            domainCounts[dKey] = specificKws.filter(k => candidateCvTextOnly.includes(k)).length;
+    if (report) {
+        if (report.is_job_mismatch === true || (report.mismatch_reason && report.mismatch_reason.length > 0)) {
+            isJobMismatch = true;
+            details.isJobMismatch = true;
         }
-
-        let maxCount = 0;
-        let candidatePrimaryDomain = '';
-        for (const [dKey, cnt] of Object.entries(domainCounts)) {
-            if (cnt > maxCount) {
-                maxCount = cnt;
-                candidatePrimaryDomain = dKey;
+        if (report.mismatch_reason && typeof report.mismatch_reason === 'string' && report.mismatch_reason.trim()) {
+            mismatchReasonText = report.mismatch_reason.trim();
+        } else if (report.ai_match_reason && typeof report.ai_match_reason === 'string') {
+            const r = report.ai_match_reason.trim();
+            if (/mismatch|differs|differ|unrelated|penalized|penalty/i.test(r)) {
+                mismatchReasonText = r.replace(/^Job & CV Mismatch Warning:\s*/i, '').trim();
             }
         }
-
-        const targetJobDomainMatches = domainCounts[jobDomain] || 0;
-
-        if (candidatePrimaryDomain && candidatePrimaryDomain !== jobDomain && maxCount >= 2 && maxCount > targetJobDomainMatches) {
-            isJobMismatch = true;
-        }
     }
 
-    // Incorporate AI breakdown if available from skills_metadata
-    if (report && report.ai_score_breakdown && typeof report.ai_score_breakdown === 'object') {
+    details.isJobMismatch = isJobMismatch;
+    details.mismatchReason = mismatchReasonText;
+
+    // Incorporate authoritative AI breakdown if available from skills_metadata or extracted_data
+    const hasAiBreakdown = Boolean(report && report.ai_score_breakdown && typeof report.ai_score_breakdown === 'object');
+    if (hasAiBreakdown) {
         const aiBd = report.ai_score_breakdown;
         if (typeof aiBd.skills_match_score === 'number') details.factors.skills = aiBd.skills_match_score;
-        if (typeof aiBd.experience_match_score === 'number') {
-            details.factors.experience = (app.overall_experience === '0 years' || app.relevant_experience === '0 years') && aiBd.experience_match_score > 35
-                ? 25
-                : aiBd.experience_match_score;
-        }
+        if (typeof aiBd.experience_match_score === 'number') details.factors.experience = aiBd.experience_match_score;
         if (typeof aiBd.qualification_match_score === 'number') details.factors.qualification = aiBd.qualification_match_score;
-        if (salMatchResult && salMatchResult.status !== 'no_budget_defined') {
-            details.factors.salary = salMatchResult.score;
-        } else if (typeof aiBd.salary_match_score === 'number') {
-            details.factors.salary = aiBd.salary_match_score;
+        if (typeof (aiBd.job_description_match_score ?? aiBd.jd_alignment_score) === 'number') {
+            details.factors.keyword = (aiBd.job_description_match_score ?? aiBd.jd_alignment_score);
         }
-    }
-
-    let finalSkills = details.factors.skills;
-    let finalExp = details.factors.experience;
-    let finalQual = details.factors.qualification;
-    let finalKw = details.factors.keyword;
-    let finalSal = details.factors.salary;
-
-    if (isJobMismatch) {
-        finalSkills = Math.round(finalSkills * 0.15);
-        finalKw = Math.round(finalKw * 0.10);
-        finalQual = Math.round(Math.min(finalQual * 0.20, 20)); // Unrelated qualification strictly penalized (capped at 20%)
-        finalExp = Math.round(finalExp * 0.25);
-        details.isJobMismatch = true;
-        details.factors.skills = Math.max(5, finalSkills);
-        details.factors.experience = Math.max(5, finalExp);
-        details.factors.qualification = Math.max(10, finalQual);
-        details.factors.keyword = Math.max(5, finalKw);
+        if (typeof aiBd.salary_match_score === 'number') {
+            details.factors.salary = aiBd.salary_match_score;
+        } else if (salMatchResult && salMatchResult.status !== 'no_budget_defined') {
+            details.factors.salary = salMatchResult.score;
+        }
     }
 
     const hasSalaryBudget = Boolean(minSalary || maxSalary);
-    // Dynamic / configured default recruitment dimension weights:
-    // Skills (35%), Relevant Experience (30%), Qualification (20%), JD Alignment (10%), Salary Budget (5%)
+    // Configured recruitment weights: Skills (35%), Experience (30%), Qualification (20%), JD Alignment (10%), Salary (5%)
     const wSkills = 35;
     const wExp = 30;
     const wQual = 20;
@@ -597,20 +615,20 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
 
     let finalScore = 0;
     if (hasSalaryBudget) {
-        finalScore = (finalSkills * (wSkills / 100)) +
-            (finalExp * (wExp / 100)) +
-            (finalQual * (wQual / 100)) +
-            (finalKw * (wJd / 100)) +
-            (finalSal * (wSal / 100));
+        finalScore = (details.factors.skills * (wSkills / 100)) +
+            (details.factors.experience * (wExp / 100)) +
+            (details.factors.qualification * (wQual / 100)) +
+            (details.factors.keyword * (wJd / 100)) +
+            (details.factors.salary * (wSal / 100));
     } else {
         const nonSalTotal = wSkills + wExp + wQual + wJd;
-        finalScore = (finalSkills * (wSkills / nonSalTotal)) +
-            (finalExp * (wExp / nonSalTotal)) +
-            (finalQual * (wQual / nonSalTotal)) +
-            (finalKw * (wJd / nonSalTotal));
+        finalScore = (details.factors.skills * (wSkills / nonSalTotal)) +
+            (details.factors.experience * (wExp / nonSalTotal)) +
+            (details.factors.qualification * (wQual / nonSalTotal)) +
+            (details.factors.keyword * (wJd / nonSalTotal));
     }
 
-    const calculatedScore = Math.min(100, Math.max(12, Math.round(finalScore)));
+    const calculatedScore = Math.min(100, Math.max(0, Math.round(finalScore)));
 
     const backendProvidedScore = (typeof app.match_score === 'number' || (typeof app.match_score === 'string' && app.match_score !== '')) 
         ? parseInt(app.match_score, 10) 
@@ -618,22 +636,58 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
             ? parseInt(app.score, 10) 
             : (report && typeof report.ai_match_score === 'number' ? report.ai_match_score : null));
 
-    let resultScore = (backendProvidedScore !== null && !isNaN(backendProvidedScore)) ? backendProvidedScore : calculatedScore;
+    // Authoritative score from Gemini AI backend
+    const resultScore = (backendProvidedScore !== null && !isNaN(backendProvidedScore)) ? backendProvidedScore : calculatedScore;
 
-    // Strict Role Alignment Guard: If job mismatch is detected, score MUST be low (< 22%), reflecting role misalignment
-    if (isJobMismatch || details.isJobMismatch) {
-        resultScore = Math.min(resultScore, calculatedScore, 22);
-    }
-
-    // Consistency Guard: If overall match score is low (< 35%) due to AI evaluation or role mismatch,
-    // ensure factors breakdown reflects the mismatch instead of showing unpenalized 90%-100% qualification
-    if (resultScore < 35 && details.factors.qualification > 25) {
-        details.isJobMismatch = true;
-        details.factors.qualification = Math.min(20, Math.round(details.factors.qualification * 0.20));
-        details.factors.skills = Math.min(details.factors.skills, 20);
-        details.factors.keyword = Math.min(details.factors.keyword, 15);
-        details.factors.experience = Math.min(details.factors.experience, 25);
+    if (report?.mismatch_reason && typeof report.mismatch_reason === 'string' && report.mismatch_reason.trim()) {
+        details.mismatchReason = report.mismatch_reason.trim();
+    } else if (report?.ai_match_reason && typeof report.ai_match_reason === 'string' && report.ai_match_reason.trim()) {
+        if (/mismatch|differs|differ|unrelated|penalized/i.test(report.ai_match_reason)) {
+            details.mismatchReason = report.ai_match_reason.replace(/^Job & CV Mismatch Warning:\s*/i, '').trim();
+        }
     }
 
     return { score: resultScore, details };
+};
+
+export const extractCandidateMismatchReason = (app, scoreData = null) => {
+    if (!app) return '';
+    let reason = '';
+
+    // 1. Direct from scoreData if already computed
+    if (scoreData?.details?.mismatchReason) {
+        return scoreData.details.mismatchReason;
+    }
+
+    // 2. Check skills_metadata
+    if (app.skills_metadata) {
+        try {
+            const meta = typeof app.skills_metadata === 'string' ? JSON.parse(app.skills_metadata) : app.skills_metadata;
+            if (meta?.mismatch_reason && typeof meta.mismatch_reason === 'string' && meta.mismatch_reason.trim()) {
+                reason = meta.mismatch_reason.trim();
+            } else if (meta?.ai_match_reason && typeof meta.ai_match_reason === 'string') {
+                const r = meta.ai_match_reason.trim();
+                if (/mismatch|differs|differ|unrelated|penalized/i.test(r)) {
+                    reason = r.replace(/^Job & CV Mismatch Warning:\s*/i, '').trim();
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 3. Check extracted_data
+    if (!reason && app.extracted_data) {
+        try {
+            const ext = typeof app.extracted_data === 'string' ? JSON.parse(app.extracted_data) : app.extracted_data;
+            if (ext?.mismatch_reason && typeof ext.mismatch_reason === 'string' && ext.mismatch_reason.trim()) {
+                reason = ext.mismatch_reason.trim();
+            } else if (ext?.ai_match_reason && typeof ext.ai_match_reason === 'string') {
+                const r = ext.ai_match_reason.trim();
+                if (/mismatch|differs|differ|unrelated|penalized/i.test(r)) {
+                    reason = r.replace(/^Job & CV Mismatch Warning:\s*/i, '').trim();
+                }
+            }
+        } catch (e) {}
+    }
+
+    return reason;
 };

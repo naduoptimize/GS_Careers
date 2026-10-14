@@ -15,9 +15,34 @@ import {
 import './CvExtractionsPage.css';
 import PaginationFooter from '../../components/PaginationFooter';
 import { copyToClipboard } from '../../utils/constants';
-import { calculateCandidateMatchScore } from '../../utils/scoreCalculator';
+import { calculateCandidateMatchScore, extractCandidateMismatchReason } from '../../utils/scoreCalculator';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
+
+const escapeRegExp = (str) => {
+    return (str || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+};
+
+const safeMatchInText = (term, text) => {
+    if (!term || !text) return false;
+    const termClean = term.trim();
+    if (!termClean) return false;
+    if (termClean.toLowerCase() === text.toLowerCase()) return true;
+
+    const escaped = escapeRegExp(termClean);
+    const hasSpecial = /[^a-zA-Z0-9\s]/.test(termClean);
+    try {
+        if (hasSpecial) {
+            const regex = new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'i');
+            return regex.test(text);
+        } else {
+            const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+            return regex.test(text);
+        }
+    } catch (e) {
+        return text.toLowerCase().includes(termClean.toLowerCase());
+    }
+};
 
 const DOMAIN_SKILL_CATEGORIES = {
     'Relevant Skills': [
@@ -163,6 +188,19 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const isLowMatch = scoreVal < minMed;
     const isManual = candidateObj.is_manual_extracted === 1 || candidateObj.is_manual_extracted === '1' || candidateObj.is_manual_extracted === true;
 
+    const tryParse = (val) => {
+        if (!val) return null;
+        if (typeof val === 'object') return val;
+        try {
+            return JSON.parse(val);
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const dataFromMetadata = tryParse(skillsMetadataStr || candidateObj?.skills_metadata);
+    const dataFromExtracted = tryParse(extractedDataInput || candidateObj?.extracted_data);
+
     const isUnextracted = (
         !isManual && (
             candidateObj.extraction_status === 'unextracted' ||
@@ -174,14 +212,17 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     );
 
     if (isUnextracted) {
+        const metaObj = dataFromMetadata || dataFromExtracted;
         return {
             skills: [],
             parsedReport: {
                 is_unextracted: true,
-                is_job_mismatch: false,
-                mismatch_reason: `CV auto-extraction skipped because candidate match score (${scoreVal}%) is below minimum threshold (<${minMed}%).`,
-                experience_summary: `Extraction Skipped: Candidate match score (${scoreVal}%) is below ${minMed}% threshold. Admins can manually extract this CV.`,
-                recruiter_insights: [`⚠️ Auto-extraction skipped (${scoreVal}% Match Score < ${minMed}%). Click Manual Extract to parse with AI.`],
+                is_job_mismatch: metaObj?.is_job_mismatch ?? false,
+                mismatch_reason: metaObj?.mismatch_reason || `CV auto-extraction skipped because candidate match score (${scoreVal}%) is below minimum threshold (<${minMed}%).`,
+                experience_summary: metaObj?.experience_summary || `Extraction Skipped: Candidate match score (${scoreVal}%) is below ${minMed}% threshold. Admins can manually extract this CV.`,
+                recruiter_insights: Array.isArray(metaObj?.recruiter_insights) && metaObj.recruiter_insights.length > 0 
+                    ? metaObj.recruiter_insights 
+                    : [`⚠️ Auto-extraction skipped (${scoreVal}% Match Score < ${minMed}%). Click Manual Extract to parse with AI.`],
                 fully_demonstrated_skills: [],
                 partially_demonstrated_skills: [],
                 requirements_without_evidence: [],
@@ -191,19 +232,6 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     }
 
     let parsedReport = null;
-
-    const tryParse = (val) => {
-        if (!val) return null;
-        if (typeof val === 'object') return val;
-        try {
-            return JSON.parse(val);
-        } catch (e) {
-            return null;
-        }
-    };
-
-    const dataFromMetadata = tryParse(skillsMetadataStr);
-    const dataFromExtracted = tryParse(extractedDataInput);
 
     let parsedData = null;
     if (dataFromMetadata && Array.isArray(dataFromMetadata.skills_analysis) && dataFromMetadata.skills_analysis.length > 0) {
@@ -321,8 +349,7 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
                 if (kw === 'C') {
                     matched = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|\bC\+\+\b)/i.test(cvTextContent);
                 } else {
-                    const regex = new RegExp(`\\b${kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
-                    matched = regex.test(cvTextContent);
+                    matched = safeMatchInText(kw, cvTextContent);
                 }
                 if (matched) {
                     const key = kw.toLowerCase();
@@ -397,65 +424,120 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const textLower = cvTextContent.toLowerCase();
 
     const domainKeywords = {
-        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial', 'reconciliation', 'ledger', 'quickbooks', 'sap', 'journal', 'audit', 'tax', 'petty cash', 'bookkeeper', 'invoicing', 'banking', 'finance'],
-        'Digital Marketing': ['marketing', 'digital marketing', 'seo', 'sem', 'social media', 'google ads', 'meta ads', 'content', 'copywriting', 'campaign', 'analytics', 'branding', 'advertising'],
-        'Software Engineering & IT': ['software', 'developer', 'engineer', 'javascript', 'python', 'php', 'react', 'html', 'css', 'sql', 'git', 'c++', 'java', 'node', 'code', 'programming', 'web', 'database', 'it', 'technical'],
+        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial', 'reconciliation', 'ledger', 'quickbooks', 'sap', 'journal', 'audit', 'tax', 'petty cash', 'bookkeeper', 'invoicing', 'banking', 'finance', 'cost accounting', 'tally', 'budgeting'],
+        'Digital Marketing': ['marketing', 'digital marketing', 'seo', 'sem', 'social media', 'google ads', 'meta ads', 'content', 'copywriting', 'campaign', 'analytics', 'branding', 'advertising', 'email marketing', 'google analytics'],
+        'Software Engineering & IT': ['software', 'developer', 'engineer', 'javascript', 'python', 'php', 'react', 'html', 'css', 'sql', 'git', 'c++', 'java', 'node', 'code', 'programming', 'web', 'database', 'it', 'technical', 'network', 'networking', 'hardware', 'lan', 'wan', 'troubleshoot', 'troubleshooting', 'system', 'infrastructure', 'cloud', 'devops', 'support', 'helpdesk', 'cybersecurity', 'active directory', 'windows server'],
         'HR & Administration': ['human resources', 'hr', 'recruitment', 'payroll', 'employee', 'admin', 'office manager', 'onboarding', 'attendance', 'leave', 'engagement', 'labor law', 'personnel', 'staffing', 'talent', 'hiring', 'interviews'],
         'Sales & Business Development': ['sales', 'business development', 'client', 'account manager', 'revenue', 'b2b', 'negotiation', 'leads', 'prospecting']
     };
 
+    const jobDescriptionText = (candidateObj.vacancy_description || candidateObj.description || candidateObj.v_description || '').toLowerCase();
+    const jobRequirementsText = (candidateObj.vacancy_requirements || candidateObj.requirements || candidateObj.v_requirements || '').toLowerCase();
+    const jobRequiredSkillsText = (candidateObj.vacancy_required_skills || candidateObj.required_skills || candidateObj.v_required_skills || '').toLowerCase();
+    const fullJobContextText = `${candidateJob.toLowerCase()} ${jobDescriptionText} ${jobRequirementsText} ${jobRequiredSkillsText}`.trim();
+
     let targetDomain = '';
     Object.entries(domainKeywords).forEach(([dName, kwList]) => {
-        if (!targetDomain && kwList.some(k => vLower.includes(k))) {
-            targetDomain = dName;
+        if (!targetDomain) {
+            const hasMatch = kwList.some(k => {
+                if (k.length <= 3) {
+                    return safeMatchInText(k, fullJobContextText);
+                }
+                return fullJobContextText.includes(k.toLowerCase());
+            });
+            if (hasMatch) {
+                targetDomain = dName;
+            }
         }
     });
-
-    // Dynamic Skill Categorization Rule:
-    // 1. Relevant Skills: Skills matching Job Description / Requirements / Required Skills or Core Job Role Competencies
-    // 2. Related Skills: Skills not in Job Description, but related to Job Domain / Industry
-    // 3. Additional Skills: Other general / extra skills
-    const jobDescriptionText = (candidateObj.vacancy_description || candidateObj.description || '').toLowerCase();
-    const jobRequirementsText = (candidateObj.vacancy_requirements || candidateObj.requirements || '').toLowerCase();
-    const jobRequiredSkillsText = (candidateObj.vacancy_required_skills || candidateObj.required_skills || '').toLowerCase();
-    const fullJobContextText = `${candidateJob.toLowerCase()} ${jobDescriptionText} ${jobRequirementsText} ${jobRequiredSkillsText}`;
 
     const targetDomainKeywords = targetDomain ? (domainKeywords[targetDomain] || []) : [];
 
     const coreDomainRelevantSkills = {
-        'Software Engineering & IT': ['java', 'python', 'javascript', 'typescript', 'php', 'react', 'react.js', 'node.js', 'laravel', 'c++', 'c#', 'spring boot', 'flutter', 'android', 'html', 'html5', 'css', 'css3', 'sql', 'mysql', 'postgresql', 'restful apis', 'rest api', 'git', 'github'],
-        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial reporting', 'general ledger', 'journal entries', 'bank reconciliation', 'taxation', 'quickbooks', 'sap business one', 'tally', 'excel', 'pivot-tables', 'vlookup'],
-        'Digital Marketing': ['digital marketing', 'seo', 'sem', 'social media marketing', 'google ads', 'meta ads manager', 'copywriting', 'content marketing', 'lead generation', 'google analytics 4', 'email marketing'],
-        'HR & Administration': ['human resources', 'hr', 'recruitment', 'talent acquisition', 'payroll', 'onboarding', 'attendance', 'leave administration', 'employee relations', 'hr documentation'],
-        'Sales & Business Development': ['sales', 'b2b sales', 'business development', 'key account management', 'client relationship', 'sales strategy']
+        'Software Engineering & IT': [
+            'java', 'python', 'javascript', 'typescript', 'php', 'react', 'react.js', 'node.js', 'laravel', 'c++', 'c#', 'c',
+            'spring boot', 'flutter', 'android', 'html', 'html5', 'css', 'css3', 'sql', 'mysql', 'postgresql', 'restful apis', 'rest api',
+            'git', 'github', 'linux', 'aws', 'docker', 'networking', 'network', 'tcp/ip', 'dns', 'dhcp', 'firewall', 'cisco', 'ccna',
+            'system administration', 'it support', 'troubleshooting', 'active directory', 'windows server', 'lan / wan', 'lan/wan',
+            'hardware troubleshooting', 'software troubleshooting', 'database design', 'quality assurance', 'unit testing'
+        ],
+        'Accounting & Finance': [
+            'accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial reporting', 'general ledger',
+            'journal entries', 'bank reconciliation', 'taxation', 'quickbooks', 'sap business one', 'tally', 'excel', 'microsoft excel',
+            'pivot-tables', 'vlookup', 'audit schedules', 'variance analysis', 'month-end closing', 'expense analysis', 'invoice processing',
+            'petty cash', 'management reports'
+        ],
+        'Digital Marketing': [
+            'digital marketing', 'seo', 'sem', 'social media marketing', 'google ads', 'meta ads manager', 'copywriting',
+            'content marketing', 'lead generation', 'google analytics 4', 'email marketing', 'google search console', 'semrush',
+            'ahrefs', 'campaign planning', 'a/b testing', 'retargeting'
+        ],
+        'HR & Administration': [
+            'human resources', 'hr', 'recruitment', 'talent acquisition', 'payroll', 'onboarding', 'attendance',
+            'leave administration', 'employee relations', 'hr documentation', 'office administration', 'staffing'
+        ],
+        'Sales & Business Development': [
+            'sales', 'b2b sales', 'business development', 'key account management', 'client relationship', 'sales strategy',
+            'lead generation', 'cold calling', 'crm', 'negotiation'
+        ]
     };
 
     const targetCoreSkills = targetDomain ? (coreDomainRelevantSkills[targetDomain] || []) : [];
 
+    // Dynamic Skill Categorization Rule:
+    // 1. Relevant Skills: Skills matching Job Description / Requirements / Required Skills (directly in Job Details)
+    // 2. Related Skills: Skills not in Job Description, but related to Job Domain / Industry
+    // 3. Additional Skills: Other general / extra skills
     skills.forEach(s => {
         const sLower = s.skill.toLowerCase().trim();
         if (!sLower) return;
 
+        // 1. RELEVANT SKILLS: Candidate CV skills that directly match the specific Job Details
         let isDirectJobMatch = false;
 
         if (fullJobContextText && sLower.length >= 2) {
             if (sLower === 'c') {
                 isDirectJobMatch = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|\bC\+\+\b)/i.test(fullJobContextText);
+            } else if (sLower.length <= 3) {
+                isDirectJobMatch = safeMatchInText(sLower, fullJobContextText);
             } else {
-                const escaped = sLower.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                isDirectJobMatch = new RegExp(`\\b${escaped}\\b`, 'i').test(fullJobContextText);
+                if (safeMatchInText(sLower, fullJobContextText) || fullJobContextText.includes(sLower)) {
+                    isDirectJobMatch = true;
+                } else {
+                    const words = sLower
+                        .replace(/[^a-z0-9+#]/g, ' ')
+                        .split(/\s+/)
+                        .filter(w => w.length >= 3 && !['and', 'for', 'the', 'with', 'via', 'all'].includes(w));
+                    if (words.length >= 2) {
+                        isDirectJobMatch = words.every(w => {
+                            const root = w.replace(/(ing|tion|ment|ed|s)$/, '');
+                            return fullJobContextText.includes(root.length >= 3 ? root : w);
+                        });
+                    } else if (words.length === 1 && words[0].length >= 5) {
+                        const root = words[0].replace(/(ing|tion|ment|ed|s)$/, '');
+                        if (root.length >= 4 && fullJobContextText.includes(root)) {
+                            isDirectJobMatch = true;
+                        }
+                    }
+                }
             }
-        }
-
-        if (!isDirectJobMatch && targetCoreSkills.length > 0) {
-            isDirectJobMatch = targetCoreSkills.some(cs => sLower === cs || (cs.length > 3 && (sLower.includes(cs) || cs.includes(sLower))));
         }
 
         if (isDirectJobMatch) {
             s.category = 'Relevant Skills';
         } else {
+            // 2. RELATED SKILLS: Skills not in Job Details, but related to the Job Field / Career Domain / Industry
             let isDomainRelated = false;
-            if (targetDomainKeywords && targetDomainKeywords.length > 0) {
+
+            if (targetCoreSkills.length > 0) {
+                isDomainRelated = targetCoreSkills.some(cs => {
+                    if (sLower === cs) return true;
+                    if (cs.length > 3 && (sLower.includes(cs) || cs.includes(sLower))) return true;
+                    return false;
+                });
+            }
+
+            if (!isDomainRelated && targetDomainKeywords.length > 0) {
                 isDomainRelated = targetDomainKeywords.some(k => {
                     const kLower = k.toLowerCase();
                     if (kLower.length <= 3) return sLower === kLower;
@@ -466,6 +548,7 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
             if (isDomainRelated) {
                 s.category = 'Related Skills';
             } else {
+                // 3. ADDITIONAL SKILLS: Other general tools, extra skills, soft skills, or unrelated competencies
                 s.category = 'Additional Skills';
             }
         }
@@ -494,7 +577,7 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
                 if (k.length <= 3) {
                     return sName === k.toLowerCase();
                 }
-                return sName === k.toLowerCase() || new RegExp(`\\b${k.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i').test(sName);
+                return sName === k.toLowerCase() || safeMatchInText(k, sName);
             });
         });
     }
@@ -502,14 +585,25 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const sortedDomains = Object.keys(cvScores).sort((a, b) => cvScores[b] - cvScores[a]);
     const cvActualDomain = cvScores[sortedDomains[0]] > 0 ? sortedDomains[0] : 'General';
 
-    let isMismatch = false;
-    let mismatchReason = '';
+    // Check if Gemini AI or metadata already identified a job mismatch
+    const aiMismatch = (
+        parsedReport?.is_job_mismatch === true ||
+        dataFromMetadata?.is_job_mismatch === true ||
+        dataFromExtracted?.is_job_mismatch === true ||
+        candidateObj?.is_job_mismatch === true
+    );
+    const aiMismatchReason = (
+        parsedReport?.mismatch_reason ||
+        dataFromMetadata?.mismatch_reason ||
+        dataFromExtracted?.mismatch_reason ||
+        candidateObj?.mismatch_reason || ''
+    );
 
-    if (!isUnextracted && (targetDomain || candidateJob)) {
-        // Rigid Mismatch Rule:
-        // 1. If candidate has ZERO relevant skills for the target role -> MISMATCH
-        // 2. If candidate's background belongs to a different domain and has fewer than 2 relevant skills -> MISMATCH
-        if (relevantSkillsFound.length === 0) {
+    let isMismatch = aiMismatch;
+    let mismatchReason = aiMismatchReason;
+
+    if (!isMismatch && !isUnextracted && (targetDomain || candidateJob)) {
+        if (scoreVal < minMed || relevantSkillsFound.length === 0) {
             isMismatch = true;
             mismatchReason = cvActualDomain !== 'General' && cvActualDomain !== targetDomain
                 ? `Background focus (${cvActualDomain}) differs from target role (${candidateJob}).`
@@ -622,9 +716,7 @@ const getMatchBreakdown = (app) => {
                     salary = bd.salary_match_score;
                 }
                 if (typeof bd.experience_match_score === 'number') {
-                    experience = (app.overall_experience === '0 years' || app.relevant_experience === '0 years') && bd.experience_match_score > 35
-                        ? 25
-                        : bd.experience_match_score;
+                    experience = bd.experience_match_score;
                 }
                 if (typeof bd.qualification_match_score === 'number') qualification = bd.qualification_match_score;
                 if (typeof bd.skills_match_score === 'number') skills = bd.skills_match_score;
@@ -633,11 +725,8 @@ const getMatchBreakdown = (app) => {
         } catch (e) {}
     }
 
-    if (app.overall_experience === '0 years' || app.relevant_experience === '0 years') {
-        experience = Math.min(experience, 25);
-    }
-
     const jdSkills = skills > 0 ? skills : (jdAlignment > 0 ? jdAlignment : 0);
+    const mismatchReason = extractCandidateMismatchReason(app, res);
 
     return {
         overall: score,
@@ -646,8 +735,139 @@ const getMatchBreakdown = (app) => {
         qualification,
         skills,
         jdAlignment,
-        jdSkills
+        jdSkills,
+        mismatchReason
     };
+};
+
+const cleanDisplayCvText = (text) => {
+    if (!text || typeof text !== 'string') return '';
+    let s = text;
+    if (/(?:[a-zA-Z]AM[a-zA-Z]){2,}/.test(s) || s.includes('AMACAM') || s.includes('AMfiESENT')) {
+        s = s.replace(/AMACAMfiESENT/gi, ' - PRESENT');
+        s = s.replace(/AMACAM/gi, ' - ');
+        s = s.replace(/AMAC/gi, ' - ');
+        s = s.replace(/ACAM/gi, ' - ');
+        s = s.replace(/(?<=[a-zA-Z0-9])AC(?=[a-zA-Z0-9])/g, '-');
+        s = s.replace(/(?<=[a-zA-Z0-9])Ad(?=[a-zA-Z0-9\s])/g, ', ');
+        s = s.replace(/(?<=[a-zA-Z0-9])AW(?=[a-zA-Z0-9\s])/g, '. ');
+        s = s.replace(/A`gmaiq/gi, '@gmail');
+        s = s.replace(/(?<=[a-zA-Z0-9])AM(?=[a-zA-Z0-9])/g, ' ');
+        s = s.replace(/\bAM\b/g, ' ');
+        s = s.replace(/AAM/g, ' ');
+        s = s.replace(/AMA/g, ' ');
+        s = s.replace(/\s{2,}/g, ' ');
+    }
+    return s.trim();
+};
+
+const generateAiParsedCvText = (candidate, skills = [], parsedReport = null, extData = null) => {
+    if (!candidate) return '';
+
+    if (extData?.extracted_full_text && typeof extData.extracted_full_text === 'string' && extData.extracted_full_text.trim().length > 30) {
+        return extData.extracted_full_text.trim();
+    }
+
+    const sections = [];
+
+    // 1. Candidate Info & Contact Details
+    const fullName = [extData?.first_name || candidate.first_name, extData?.last_name || candidate.last_name].filter(Boolean).join(' ').trim();
+    const email = extData?.email || candidate.email || '';
+    const phone = extData?.contact_number || candidate.contact_number || '';
+    const location = candidate.location || extData?.address || '';
+    const jobTitle = candidate.vacancy_title || candidate.applied_vacancy || '';
+    const salary = candidate.salary_expectation || extData?.salary_expectation || '';
+
+    const contactLines = [];
+    if (fullName) contactLines.push(`• Name: ${fullName}`);
+    if (email) contactLines.push(`• Email: ${email}`);
+    if (phone) contactLines.push(`• Phone: ${phone}`);
+    if (location) contactLines.push(`• Location / Address: ${location}`);
+    if (jobTitle) contactLines.push(`• Target Position: ${jobTitle}`);
+    if (salary) contactLines.push(`• Salary Expectation: LKR ${salary}`);
+
+    if (contactLines.length > 0) {
+        sections.push(`CONTACT INFORMATION\n${contactLines.join('\n')}`);
+    }
+
+    // 2. Profile Summary
+    const summary = extData?.profile_summary || candidate.profile_summary || parsedReport?.experience_summary;
+    if (summary && summary.trim()) {
+        sections.push(`PROFILE SUMMARY\n${summary.trim()}`);
+    }
+
+    // 3. Education & Academic Qualifications
+    const qualSet = new Set();
+    if (candidate.qualification) qualSet.add(candidate.qualification);
+    if (Array.isArray(extData?.qualifications_found)) {
+        extData.qualifications_found.forEach(q => { if (q && typeof q === 'string') qualSet.add(q.trim()); });
+    }
+    if (Array.isArray(parsedReport?.qualifications_found)) {
+        parsedReport.qualifications_found.forEach(q => { if (q && typeof q === 'string') qualSet.add(q.trim()); });
+    }
+    if (qualSet.size > 0) {
+        sections.push(`EDUCATION & QUALIFICATIONS\n${Array.from(qualSet).map(q => `• ${q}`).join('\n')}`);
+    }
+
+    // 4. Experience & Work History
+    const expLines = [];
+    if (candidate.overall_experience) expLines.push(`• Overall Experience: ${candidate.overall_experience}`);
+    if (candidate.relevant_experience) expLines.push(`• Relevant Experience: ${candidate.relevant_experience}`);
+    const expSummary = parsedReport?.experience_summary || extData?.experience_summary;
+    if (expSummary && expSummary !== summary) {
+        expLines.push(`• Experience Overview: ${expSummary}`);
+    }
+    if (expLines.length > 0) {
+        sections.push(`WORK EXPERIENCE\n${expLines.join('\n')}`);
+    }
+
+    // 5. Skills by Category
+    const relSkills = (skills || []).filter(s => s.category === 'Relevant Skills').map(s => s.skill);
+    const relatedSkills = (skills || []).filter(s => s.category === 'Related Skills').map(s => s.skill);
+    const addSkills = (skills || []).filter(s => s.category === 'Additional Skills').map(s => s.skill);
+
+    const skillCategoryLines = [];
+    if (relSkills.length > 0) {
+        skillCategoryLines.push(`• Relevant Skills (Direct Job Match):\n  ${relSkills.join(', ')}`);
+    }
+    if (relatedSkills.length > 0) {
+        skillCategoryLines.push(`• Related Skills (Field Competencies):\n  ${relatedSkills.join(', ')}`);
+    }
+    if (addSkills.length > 0) {
+        skillCategoryLines.push(`• Additional Skills (Tools & General):\n  ${addSkills.join(', ')}`);
+    }
+    if (skillCategoryLines.length > 0) {
+        sections.push(`VERIFIED SKILLS\n${skillCategoryLines.join('\n\n')}`);
+    }
+
+    // 6. Certifications & Accreditations
+    const certSet = new Set();
+    if (Array.isArray(extData?.certifications_found)) {
+        extData.certifications_found.forEach(c => { if (c && typeof c === 'string') certSet.add(c.trim()); });
+    }
+    if (Array.isArray(parsedReport?.certifications_found)) {
+        parsedReport.certifications_found.forEach(c => { if (c && typeof c === 'string') certSet.add(c.trim()); });
+    }
+    if (certSet.size > 0) {
+        sections.push(`CERTIFICATIONS & LICENSES\n${Array.from(certSet).map(c => `• ${c}`).join('\n')}`);
+    }
+
+    // 7. Steuart AI Evaluation & Recruiter Insights
+    const insightLines = [];
+    if (parsedReport?.ai_match_score || extData?.ai_match_score) {
+        insightLines.push(`• AI Match Score: ${parsedReport?.ai_match_score || extData?.ai_match_score}%`);
+    }
+    if (parsedReport?.ai_match_reason || extData?.ai_match_reason) {
+        insightLines.push(`• Recruiter Evaluation: ${parsedReport?.ai_match_reason || extData?.ai_match_reason}`);
+    }
+    if (Array.isArray(parsedReport?.recruiter_insights) && parsedReport.recruiter_insights.length > 0) {
+        insightLines.push(`• Recruiter Insights:\n${parsedReport.recruiter_insights.map(i => `  - ${i}`).join('\n')}`);
+    }
+    if (insightLines.length > 0) {
+        sections.push(`AI RECRUITER ASSESSMENT\n${insightLines.join('\n')}`);
+    }
+
+    return sections.join('\n\n');
 };
 
 function CvExtractionsPage({ admin }) {
@@ -675,6 +895,7 @@ function CvExtractionsPage({ admin }) {
     const [showModal, setShowModal] = useState(false);
     const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
     const [showScoringTooltip, setShowScoringTooltip] = useState(false);
+    const [cvTextViewMode, setCvTextViewMode] = useState('ai');
 
     const fetchExtractionsData = useCallback(async () => {
         setLoading(true);
@@ -737,6 +958,7 @@ function CvExtractionsPage({ admin }) {
                     ...prev,
                     ...resData,
                     extraction_status: 'extracted',
+                    is_manual_extracted: 1,
                     extracted_data: resData.extracted_data,
                     skills_metadata: resData.skills_metadata,
                     tags: resData.tags,
@@ -790,6 +1012,7 @@ function CvExtractionsPage({ admin }) {
     const openCandidateModal = (candidate) => {
         setSelectedCandidate(candidate);
         setShowModal(true);
+        setCvTextViewMode('ai');
     };
 
     const handleCopyText = async (text) => {
@@ -1100,7 +1323,7 @@ function CvExtractionsPage({ admin }) {
                                                     <div className="cve-vacancy-title">{item.vacancy_title}</div>
                                                     <div className="cve-company-sub">{item.company_name}</div>
                                                 </td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                <td style={{ minWidth: '200px' }}>
                                                     <div className="cve-match-cell">
                                                         <span className={`cve-match-pill ${matchClass}`}>
                                                             <span className="cve-match-dot" />
@@ -1414,6 +1637,7 @@ function CvExtractionsPage({ admin }) {
                                     Candidate Skills &amp; AI Recruiter Evaluation
                                 </div>
                                 {(() => {
+                                    const mScore = calculateMatchScore(selectedCandidate);
                                     const { skills, parsedReport } = getNormalizedSkills(
                                         selectedCandidate.skills_metadata,
                                         selectedCandidate.tags,
@@ -1456,17 +1680,17 @@ function CvExtractionsPage({ admin }) {
                                                 </div>
                                             )}
 
-                                            {parsedReport && !parsedReport.is_unextracted && parsedReport.is_job_mismatch && (
+                                            {parsedReport && !parsedReport.is_unextracted && (parsedReport.is_job_mismatch || mScore < minMediumScore) && (
                                                 <div className="job-mismatch-banner" style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b' }}>
                                                     <FiAlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
                                                     <div style={{ flex: 1 }}>
                                                         <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#b91c1c', display: 'block', margin: 0 }}>⚠️ Job &amp; CV Mismatch Warning</span>
-                                                        <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements.`}</span>
+                                                        <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements for "${selectedCandidate.vacancy_title || selectedCandidate.applied_vacancy}".`}</span>
                                                     </div>
                                                 </div>
                                             )}
 
-                                            {parsedReport && !parsedReport.is_unextracted && !parsedReport.is_job_mismatch && (selectedCandidate.vacancy_title || selectedCandidate.applied_vacancy) && (
+                                            {parsedReport && !parsedReport.is_unextracted && !parsedReport.is_job_mismatch && mScore >= minMediumScore && (selectedCandidate.vacancy_title || selectedCandidate.applied_vacancy) && (
                                                 <div className="job-match-banner">
                                                     <FiCheckCircle size={20} className="match-icon" />
                                                     <div>
@@ -1665,23 +1889,121 @@ function CvExtractionsPage({ admin }) {
                                 const isManualCand = selectedCandidate.is_manual_extracted == 1 || selectedCandidate.is_manual_extracted === '1' || selectedCandidate.is_manual_extracted === true;
                                 const isExtractedCand = isManualCand || (selectedCandidate.extraction_status === 'extracted' && !isLowMatchCand);
 
-                                if (isExtractedCand && selectedCandidate.cv_text) {
+                                if (isExtractedCand) {
+                                    const { skills, parsedReport } = getNormalizedSkills(
+                                        selectedCandidate.skills_metadata,
+                                        selectedCandidate.tags,
+                                        selectedCandidate.extracted_data,
+                                        selectedCandidate,
+                                        minMediumScore
+                                    );
+
+                                    let extData = null;
+                                    try {
+                                        extData = typeof selectedCandidate.extracted_data === 'string'
+                                            ? JSON.parse(selectedCandidate.extracted_data)
+                                            : (selectedCandidate.extracted_data || null);
+                                    } catch (e) {
+                                        extData = null;
+                                    }
+
+                                    const rawCleanText = cleanDisplayCvText(selectedCandidate.cv_text || '');
+
+                                    let aiParsedFullText = '';
+                                    if (extData?.extracted_full_text && typeof extData.extracted_full_text === 'string' && extData.extracted_full_text.trim().length > 20) {
+                                        aiParsedFullText = extData.extracted_full_text.trim();
+                                    } else if (selectedCandidate.cv_text && 
+                                               !/(?:[a-zA-Z]AM[a-zA-Z]){2,}/.test(selectedCandidate.cv_text) && 
+                                               !selectedCandidate.cv_text.includes('AMACAM') && 
+                                               !selectedCandidate.cv_text.includes('AMfiESENT') && 
+                                               (selectedCandidate.cv_text.includes('Profile Summary:') || selectedCandidate.cv_text.includes('Education:') || selectedCandidate.cv_text.includes('SKILLS') || selectedCandidate.cv_text.includes('CONTACT'))) {
+                                        aiParsedFullText = selectedCandidate.cv_text.trim();
+                                    } else {
+                                        aiParsedFullText = generateAiParsedCvText(selectedCandidate, skills, parsedReport, extData);
+                                    }
+
+                                    const displayedText = (cvTextViewMode === 'raw')
+                                        ? (rawCleanText || selectedCandidate.cv_text || 'No raw stream text available.')
+                                        : (aiParsedFullText || rawCleanText || 'No AI parsed text available.');
+
                                     return (
-                                        <div style={{ marginTop: '1.5rem' }}>
-                                            <div className="cve-text-header">
-                                                <h3 style={{ fontSize: '0.98rem', fontWeight: '800', color: '#7A1228', margin: 0 }}>
-                                                    Extracted CV Text Content
-                                                </h3>
+                                        <div className="cve-cv-text-container" style={{ marginTop: '1.5rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' }}>
+                                            <div className="cve-cv-text-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                    <h3 style={{ fontSize: '0.98rem', fontWeight: '800', color: '#7A1228', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <FiFileText size={16} /> Extracted CV Text Content
+                                                    </h3>
+                                                    {/* View Mode Toggle */}
+                                                    <div style={{ display: 'inline-flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #e2e8f0' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setCvTextViewMode('ai')}
+                                                            style={{
+                                                                border: 'none',
+                                                                background: cvTextViewMode === 'ai' ? 'linear-gradient(135deg, #7A1228, #9b1c37)' : 'transparent',
+                                                                color: cvTextViewMode === 'ai' ? '#ffffff' : '#64748b',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 700,
+                                                                padding: '4px 12px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                boxShadow: cvTextViewMode === 'ai' ? '0 1px 3px rgba(122,18,40,0.25)' : 'none',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            ✨ AI Parsed Text
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setCvTextViewMode('raw')}
+                                                            style={{
+                                                                border: 'none',
+                                                                background: cvTextViewMode === 'raw' ? 'linear-gradient(135deg, #7A1228, #9b1c37)' : 'transparent',
+                                                                color: cvTextViewMode === 'raw' ? '#ffffff' : '#64748b',
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 700,
+                                                                padding: '4px 12px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                boxShadow: cvTextViewMode === 'raw' ? '0 1px 3px rgba(122,18,40,0.25)' : 'none',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            📄 Raw Stream
+                                                        </button>
+                                                    </div>
+                                                </div>
                                                 <button
                                                     className="cve-btn-icon"
-                                                    style={{ width: 'auto', padding: '0.35rem 0.75rem', fontSize: '0.8rem', gap: '4px' }}
-                                                    onClick={() => handleCopyText(selectedCandidate.cv_text)}
+                                                    style={{ width: 'auto', padding: '0.35rem 0.85rem', fontSize: '0.8rem', gap: '5px' }}
+                                                    onClick={() => handleCopyText(displayedText)}
                                                 >
-                                                    <FiCopy /> Copy Text
+                                                    <FiCopy /> Copy {cvTextViewMode === 'ai' ? 'AI Text' : 'Raw Text'}
                                                 </button>
                                             </div>
-                                            <div className="cve-text-box">
-                                                {selectedCandidate.cv_text}
+                                            <div 
+                                                className="cve-text-box"
+                                                style={{
+                                                    whiteSpace: 'pre-wrap',
+                                                    lineHeight: '1.65',
+                                                    fontSize: '0.86rem',
+                                                    color: '#1e293b',
+                                                    fontFamily: cvTextViewMode === 'ai' ? 'inherit' : 'Consolas, Monaco, monospace',
+                                                    background: cvTextViewMode === 'ai' ? '#fcfcfd' : '#f8fafc',
+                                                    border: cvTextViewMode === 'ai' ? '1.5px solid #fed7aa' : '1px solid #e2e8f0',
+                                                    borderRadius: '10px',
+                                                    padding: '16px 20px',
+                                                    maxHeight: '400px',
+                                                    overflowY: 'auto'
+                                                }}
+                                            >
+                                                {displayedText}
                                             </div>
                                         </div>
                                     );

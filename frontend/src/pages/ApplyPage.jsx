@@ -385,6 +385,52 @@ function ApplyPage() {
         console.log("George Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
     }, []);
 
+    const deSpaceSpacedOutText = (str) => {
+        if (!str || typeof str !== 'string') return '';
+        const trimmed = str.trim();
+        const tokens = trimmed.split(/\s+/).filter(Boolean);
+        if (tokens.length < 3) return trimmed;
+
+        const singleLetterTokens = tokens.filter(t => t.length === 1 && /[a-zA-Z]/.test(t));
+        if (singleLetterTokens.length / tokens.length < 0.6) {
+            return trimmed;
+        }
+
+        // Insert word break where a lowercase letter is followed by an uppercase letter (e.g. 'a W')
+        let s = trimmed.replace(/([a-z])\s+([A-Z])/g, '$1   $2');
+
+        // Split on 2+ spaces as word boundaries
+        if (/[ \t]{2,}/.test(s)) {
+            const parts = s.split(/[ \t]{2,}/).map(p => p.replace(/\s+/g, '')).filter(Boolean);
+            if (parts.length >= 1) {
+                return parts.join(' ');
+            }
+        }
+
+        // If purely 1-space separated throughout:
+        let words = [];
+        let currentWord = '';
+        for (let i = 0; i < tokens.length; i++) {
+            const t = tokens[i];
+            if (t.length === 1 && /[a-zA-Z]/.test(t)) {
+                if (currentWord.length > 0 && /[A-Z]/.test(t) && /[a-z]/.test(currentWord[currentWord.length - 1])) {
+                    words.push(currentWord);
+                    currentWord = t;
+                } else {
+                    currentWord += t;
+                }
+            } else {
+                if (currentWord) {
+                    words.push(currentWord);
+                    currentWord = '';
+                }
+                words.push(t);
+            }
+        }
+        if (currentWord) words.push(currentWord);
+        return words.join(' ');
+    };
+
     const extractTextFromPdf = async (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -408,19 +454,19 @@ function ApplyPage() {
                         for (const item of textContent.items) {
                             const y = item.transform ? item.transform[5] : null;
                             if (lastY !== null && y !== null && Math.abs(lastY - y) > 4) {
-                                if (currentLine.trim()) pageLines.push(currentLine.trim());
+                                if (currentLine.trim()) pageLines.push(deSpaceSpacedOutText(currentLine.trim()));
                                 currentLine = item.str;
                             } else {
                                 currentLine += (currentLine ? " " : "") + item.str;
                             }
                             if (y !== null) lastY = y;
                             if (item.hasEOL) {
-                                if (currentLine.trim()) pageLines.push(currentLine.trim());
+                                if (currentLine.trim()) pageLines.push(deSpaceSpacedOutText(currentLine.trim()));
                                 currentLine = "";
                                 lastY = null;
                             }
                         }
-                        if (currentLine.trim()) pageLines.push(currentLine.trim());
+                        if (currentLine.trim()) pageLines.push(deSpaceSpacedOutText(currentLine.trim()));
                         fullText += pageLines.join("\n") + "\n";
                     }
                     resolve(fullText);
@@ -436,44 +482,62 @@ function ApplyPage() {
     const extractPhoneNumberFromText = (text) => {
         if (!text) return '';
 
-        // 1. Exclude REFERENCES / REFEREES section so referee contacts are NEVER extracted as candidate phone!
-        const textWithoutRefs = text.split(/(?:^|\n)\s*(?:REFERENCES|REFEREES)\b/i)[0] || text;
-        const lines = textWithoutRefs.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const headerLines = lines.slice(0, 35).join('\n');
+        // Flexible Sri Lankan phone regex matching (+94) 076-37 77 834, +94 77 123 4567, 077-1234567, 011-2089919
+        const slRegex = /(?:\(?\+94\)?[\s\-\.]*\(?0?\)?)?[\s\-\.]*\(?0?(?:7[0-9]|11|[2-9][0-9])\)?(?:[\s\-\.]*\d){7,8}/g;
 
-        // 2. High-priority: Candidate header Sri Lankan mobile/landline regex
-        const slMatchesHeader = headerLines.match(/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/g);
+        // 1. Check for phone number in CONTACT section first
+        const contactSectionMatch = text.match(/(?:^|\n)\s*(?:CONTACT|CONTACT\s+INFORMATION|CONTACT\s+DETAILS)\s*[:\-]?\s*\n?([\s\S]{1,400})/i);
+        if (contactSectionMatch) {
+            const contactSnippet = contactSectionMatch[1].split(/(?:^|\n)\s*(?:SKILLS|LANGUAGES|EDUCATION|EXPERIENCE|PROFILE|REFERENCE|REFEREES)\b/i)[0];
+            const slInContact = contactSnippet.match(slRegex);
+            if (slInContact && slInContact.length > 0) {
+                for (const p of slInContact) {
+                    const cleanDigits = p.replace(/\D/g, '').replace(/^940/, '94');
+                    if (cleanDigits.length >= 9 && cleanDigits.length <= 12) {
+                        return p.trim();
+                    }
+                }
+            }
+        }
+
+        // 2. Exclude REFERENCES / REFEREES section so referee contacts are NEVER extracted as candidate phone
+        const textWithoutRefs = text.split(/(?:^|\n)\s*(?:REFERENCES|REFERENCE|REFEREES)\b/i)[0] || text;
+        const lines = textWithoutRefs.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const headerLines = lines.slice(0, 45).join('\n');
+
+        // 3. High-priority: Candidate header Sri Lankan mobile/landline
+        const slMatchesHeader = headerLines.match(slRegex);
         if (slMatchesHeader && slMatchesHeader.length > 0) {
             for (const m of slMatchesHeader) {
-                const cleanDigits = m.replace(/\D/g, '');
-                if (cleanDigits.length === 9 || cleanDigits.length === 10 || cleanDigits.length === 11) {
+                const cleanDigits = m.replace(/\D/g, '').replace(/^940/, '94');
+                if (cleanDigits.length >= 9 && cleanDigits.length <= 12) {
                     return m.trim();
                 }
             }
         }
 
-        // 3. Check for labeled phone number before references section
-        const labeled = textWithoutRefs.match(/(?:phone|tel|mobile|contact|cell)(?:\s*(?:no|number|#)?)?\s*[:\-]?\s*(\(?\+?[0-9]{1,4}\)?[\s\-\.]*\(?[0-9]{1,4}\)?[\s\-\.]*[0-9]{3,4}[\s\-\.]*[0-9]{3,4})/i);
+        // 4. Check for labeled phone number
+        const labeled = textWithoutRefs.match(/(?:phone|tel|mobile|contact|cell)(?:\s*(?:no|number|#)?)?\s*[:\-]?\s*(\(?\+?[0-9]{1,4}\)?[\s\-\.]*\(?[0-9]{1,4}\)?[\s\-\.]*[0-9]{2,4}[\s\-\.]*[0-9]{3,4})/i);
         if (labeled) {
             const raw = labeled[1].trim();
-            const digits = raw.replace(/\D/g, '');
+            const digits = raw.replace(/\D/g, '').replace(/^940/, '94');
             if (digits.length >= 9 && digits.length <= 15 && !/(?:student|index|id|reg|cert)/i.test(labeled[0])) {
                 return raw;
             }
         }
 
-        // 4. Any Sri Lankan mobile/landline regex in non-reference body
-        const slMatches = textWithoutRefs.match(/(?:(?:\(?\+94\)?|\b0)[\s\-\.]*\(?(?:7[0-9]|11|[2-9][0-9])\)?[\s\-\.]*\d{3}[\s\-\.]*\d{4}|\b07[0-9]{8}\b|\b\+947[0-9]{8}\b)/g);
+        // 5. Any Sri Lankan mobile/landline in non-reference text
+        const slMatches = textWithoutRefs.match(slRegex);
         if (slMatches && slMatches.length > 0) {
             for (const m of slMatches) {
-                const cleanDigits = m.replace(/\D/g, '');
-                if (cleanDigits.length === 9 || cleanDigits.length === 10 || cleanDigits.length === 11) {
+                const cleanDigits = m.replace(/\D/g, '').replace(/^940/, '94');
+                if (cleanDigits.length >= 9 && cleanDigits.length <= 12) {
                     return m.trim();
                 }
             }
         }
 
-        // 5. International format with explicit country code (+...)
+        // 6. International format (+...)
         const intlMatches = textWithoutRefs.match(/\+\d{1,4}[\s\-\.]*\(?\d{2,4}\)?[\s\-\.]*\d{3,4}[\s\-\.]*\d{3,4}/g);
         if (intlMatches && intlMatches.length > 0) {
             for (const m of intlMatches) {
@@ -485,122 +549,491 @@ function ApplyPage() {
         return '';
     };
 
+    const deriveNameFromEmailAndFilename = (email, fileName) => {
+        if (!email && !fileName) return { firstName: '', lastName: '' };
+
+        const toTitleCase = (w) => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '';
+
+        const stopPrefixWords = new Set([
+            'cv', 'resume', 'pdf', 'doc', 'docx', 'new', 'final', 'latest', 'updated', 'draft',
+            'it', 'assistant', 'associate', 'developer', 'engineer', 'trainee', 'intern', 'manager', 'specialist'
+        ]);
+
+        let cleanFn = (fileName || '')
+            .replace(/\.(?:pdf|docx?|txt)$/gi, '')
+            .replace(/\.(?:pdf|docx?|txt)$/gi, '')
+            .replace(/[_]/g, ' ')
+            .replace(/[-]/g, ' ')
+            .replace(/[0-9]/g, ' ')
+            .trim();
+
+        const fnParts = cleanFn.split(/\s+/).filter(Boolean);
+        const validFnWords = [];
+        for (const part of fnParts) {
+            let p = part.toLowerCase();
+            for (const stop of stopPrefixWords) {
+                if (p.startsWith(stop) && p.length > stop.length) {
+                    p = p.slice(stop.length);
+                }
+            }
+            p = p.replace(/[^a-z]/g, '');
+            if (p.length >= 3 && !stopPrefixWords.has(p)) {
+                validFnWords.push(p);
+            }
+        }
+
+        const emailRaw = (email || '').split('@')[0].toLowerCase();
+        
+        // Explicit email separators
+        const emailParts = emailRaw.split(/[._\-]/).filter(p => {
+            const c = p.replace(/[^a-z]/g, '');
+            return c.length >= 2;
+        });
+
+        if (emailParts.length >= 2) {
+            const f = emailParts[0].replace(/[^a-z]/g, '');
+            const l = emailParts.slice(1).map(p => p.replace(/[^a-z]/g, '')).join(' ');
+            if (f.length >= 2 && l.length >= 2) {
+                return { firstName: toTitleCase(f), lastName: toTitleCase(l) };
+            }
+        }
+
+        const emailAlpha = emailRaw.replace(/[^a-z]/g, '');
+
+        // Match filename word with email prefix
+        for (const fnW of validFnWords) {
+            if (emailAlpha.startsWith(fnW) && emailAlpha.length > fnW.length + 2) {
+                let remainder = emailAlpha.slice(fnW.length).replace(/[0-9x]+$/i, '');
+                if (remainder.length >= 2) {
+                    return { firstName: toTitleCase(fnW), lastName: toTitleCase(remainder) };
+                }
+            }
+        }
+
+        // Multiple valid words in filename
+        if (validFnWords.length >= 2) {
+            return { firstName: toTitleCase(validFnWords[0]), lastName: validFnWords.slice(1).map(toTitleCase).join(' ') };
+        }
+
+        // Common Sri Lankan & International name splitting in emailAlpha
+        const commonNames = [
+            'tharusha', 'dusantha', 'waruna', 'ravindu', 'keshan', 'nethmini', 'kasun', 'ashan', 'kavindi',
+            'chamath', 'dinuka', 'sahan', 'isuru', 'chathura', 'lahiru', 'pramod', 'malith', 'sachin', 'nuwan',
+            'supun', 'kamal', 'nimal', 'sunil', 'dilshan', 'yasiru', 'mihiranga', 'sampath', 'akalanka',
+            'hasanga', 'wijesinghe', 'bandara', 'perera', 'silva', 'fernando', 'jayasinghe', 'wickramasinghe',
+            'senanayake', 'herath', 'gunasekara', 'ratnayake', 'imesh', 'umesh', 'janith', 'nadun', 'nadumi',
+            'shehan', 'praneeth', 'praveen', 'anuradha', 'dhanushka', 'chathuranga', 'tharindu', 'sandun'
+        ];
+
+        for (const cn of commonNames) {
+            if (emailAlpha.startsWith(cn) && emailAlpha.length >= cn.length + 3) {
+                let rem = emailAlpha.slice(cn.length).replace(/[0-9x]+$/i, '');
+                if (rem.length >= 2) {
+                    return { firstName: toTitleCase(cn), lastName: toTitleCase(rem) };
+                }
+            }
+        }
+
+        if (validFnWords.length === 1) {
+            return { firstName: toTitleCase(validFnWords[0]), lastName: '' };
+        }
+
+        if (emailAlpha.length >= 3) {
+            return { firstName: toTitleCase(emailAlpha), lastName: '' };
+        }
+
+        return { firstName: '', lastName: '' };
+    };
+
     const fastExtractProfileFromText = (text, fileName = '') => {
         if (!text && !fileName) return {};
-        const emailMatch = text ? text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) : null;
-        const email = emailMatch ? emailMatch[0] : '';
-        const contact_number = extractPhoneNumberFromText(text);
+
+        // 1. Unwrap emails wrapped across lines (e.g. "warunaakalank0103@gmail.\ncom")
+        const cleanText = (text || '')
+            .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.)\s*\r?\n\s*([a-zA-Z]{2,6})\b/g, '$1$2')
+            .replace(/([a-zA-Z0-9._%+-]+@)\s*\r?\n\s*([a-zA-Z0-9.-]+\.[a-zA-Z]{2,6})\b/g, '$1$2');
+
+        // 2. Extract Email (Prioritize candidate personal webmail or pre-referee email)
+        const allEmails = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+        let email = '';
+        for (const em of allEmails) {
+            const lowerEm = em.toLowerCase();
+            if (lowerEm.includes('gmail') || lowerEm.includes('yahoo') || lowerEm.includes('outlook') || lowerEm.includes('hotmail') || lowerEm.includes('icloud')) {
+                email = em;
+                break;
+            }
+        }
+        if (!email && allEmails.length > 0) email = allEmails[0];
+
+        const contact_number = extractPhoneNumberFromText(cleanText);
 
         let first_name = '';
         let last_name = '';
 
-        const stopWords = [
-            'software', 'developer', 'engineer', 'full-stack', 'it', 'professional', 'page', 'summary',
-            'curriculum', 'resume', 'cv', 'profile', 'contact', 'email', 'tel', 'phone', 'manager',
-            'assistant', 'executive', 'officer', 'lead', 'digital', 'marketing', 'seo', 'performance',
-            'designer', 'analyst', 'consultant', 'specialist', 'head', 'director', 'intern', 'trainee',
-            'associate', 'admin', 'accountant', 'finance', 'hr', 'sales', 'business', 'development',
-            'career', 'objective', 'education', 'skills', 'experience', 'projects', 'work'
-        ];
+        const stopWords = new Set([
+            // Core CV Headings & Form Labels
+            'software', 'developer', 'engineer', 'engineering', 'full-stack', 'fullstack', 'frontend', 'backend',
+            'it', 'professional', 'page', 'summary', 'curriculum', 'curriculam', 'vitae', 'resume', 'cv',
+            'profile', 'contact', 'contacts', 'email', 'tel', 'phone', 'telephone', 'mobile', 'address',
+            'career', 'objective', 'education', 'skills', 'skill', 'experience', 'projects', 'project', 'work',
+            'personal', 'details', 'information', 'bio', 'data', 'biodata', 'declaration', 'references', 'reference',
+            'referees', 'referee', 'additional', 'qualifications', 'qualification', 'examination', 'school', 'attended',
+            'academic', 'background', 'activities', 'activity', 'sports', 'competencies', 'birth', 'date', 'signature',
+            'particulars', 'furnished', 'knowledge', 'hereby', 'declare', 'true', 'correct', 'best',
+            'gender', 'civil', 'status', 'religion', 'nationality', 'district', 'male', 'female', 'single', 'married',
+            'buddhist', 'christian', 'hindu', 'islam', 'sri', 'lankan', 'about', 'me',
 
-        if (text) {
-            const lines = text.split('\n')
-                .map(l => l.trim())
-                .filter(l => l.length > 1 && 
-                    !l.toLowerCase().includes('curriculum') && 
-                    !l.toLowerCase().includes('resume') &&
-                    !l.toLowerCase().includes('page ') &&
-                    !/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(l) &&
-                    !/(?:\+94|0)?7[0-9]{8}/.test(l));
+            // Job Roles & Titles
+            'manager', 'assistant', 'executive', 'officer', 'lead', 'leader', 'director', 'intern', 'trainee',
+            'associate', 'admin', 'administrator', 'administration', 'accountant', 'finance', 'hr', 'sales',
+            'business', 'development', 'designer', 'analyst', 'consultant', 'specialist', 'head', 'coordinator',
+            'lecturer', 'professor', 'instructor', 'teacher', 'supervisor', 'senior', 'junior', 'fresher',
+            'graduate', 'student', 'undergraduate', 'postgraduate',
 
-            // Search top 5 candidate lines for valid name
-            for (const line of lines.slice(0, 5)) {
-                const firstSegment = line.split(/[—\-\|:\/\n,]/)[0].trim();
-                const rawWords = firstSegment.split(/\s+/);
-                let lineNameWords = [];
+            // IT & Technical Operations & Infrastructure (Prevents "Server Configuration", "Diagnosing System Issues")
+            'server', 'servers', 'configuration', 'configure', 'configured', 'diagnosing', 'diagnosis', 'diagnostic',
+            'system', 'systems', 'issues', 'issue', 'network', 'networking', 'networks', 'support', 'operations',
+            'infrastructure', 'database', 'databases', 'hardware', 'cloud', 'architecture', 'architectures',
+            'deployment', 'deploy', 'monitoring', 'security', 'troubleshooting', 'troubleshoot', 'maintenance',
+            'maintain', 'installation', 'install', 'integration', 'integrate', 'analysis', 'testing', 'tester',
+            'applications', 'application', 'storage', 'services', 'service', 'computing', 'orchestration',
+            'optimization', 'optimize', 'migration', 'migrate', 'automation', 'automate', 'incident', 'handling',
+            'backup', 'recovery', 'routing', 'switching', 'firewall', 'firewalls', 'protocol', 'protocols',
+            'framework', 'tools', 'technologies', 'technical', 'exposure', 'languages', 'language',
 
-                for (const w of rawWords) {
-                    const lw = w.toLowerCase().replace(/[^a-z]/g, '');
-                    if (!lw) continue;
-                    if (stopWords.includes(lw) || /[@0-9]/.test(w)) {
-                        lineNameWords = []; // discard line if it contains a stopWord
+            // Institutes & Corporate Suffixes
+            'university', 'institute', 'faculty', 'department', 'campus', 'college', 'school', 'academy',
+            'company', 'pvt', 'ltd', 'limited', 'inc', 'corp', 'authority', 'ministry', 'board', 'council',
+            'centre', 'center', 'division', 'group', 'solutions', 'technologies', 'enterprises',
+
+            // General Soft Skills & Resume Buzzwords
+            'dynamic', 'seeking', 'role', 'enthusiastic', 'passionate', 'experienced', 'motivated', 'results',
+            'driven', 'dedicated', 'hardworking', 'proven', 'track', 'record', 'looking', 'opportunity',
+            'relations', 'teamwork', 'communication', 'thinking', 'solving', 'creativity', 'creative',
+            'document', 'documentation', 'equipment', 'marine', 'environment', 'protection', 'national',
+            'english', 'sinhala', 'tamil', 'fluent', 'intermediate', 'basic', 'native'
+        ]);
+
+        const toTitleCase = (w) => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : '';
+
+        // Clean filename words for matching
+        let cleanFn = (fileName || '')
+            .replace(/\.(?:pdf|docx?|txt)$/gi, '')
+            .replace(/\.(?:pdf|docx?|txt)$/gi, '')
+            .replace(/[_]/g, ' ')
+            .replace(/[-]/g, ' ')
+            .replace(/\b(new|final|latest|updated|draft|pdf|doc|docx|cv|resume)\b/gi, '')
+            .trim();
+        const fnWords = cleanFn.split(/\s+/).filter(w => {
+            const c = w.replace(/[^a-zA-Z]/g, '');
+            return c.length >= 2 && !stopWords.has(c.toLowerCase());
+        });
+
+        if (cleanText) {
+            const lines = cleanText.split(/\r?\n/).map(l => deSpaceSpacedOutText(l.trim())).filter(Boolean);
+
+            // ── PRIORITY 1: Explicit labeled name field (e.g. "Name in full : Namadewa Vithanage Keshan Hasanga")
+            for (const line of lines) {
+                const m = line.match(/^(?:[•\-\*\s◦\.]*)?(?:name\s+in\s+full|full\s+name|name\s+with\s+initials|applicant(?:\'s)?\s+name|candidate\s+name|candidate)\s*[:\-]\s*([a-zA-Z\s\.\-]{3,60})$/i);
+                if (m) {
+                    const nameStr = m[1].trim()
+                        .replace(/\b[A-Za-z]\b\.?/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+
+                    const words = nameStr.split(/\s+/).filter(w => {
+                        const c = w.replace(/[^a-zA-Z]/g, '');
+                        return c.length >= 2 && !stopWords.has(c.toLowerCase());
+                    });
+
+                    if (words.length >= 2) {
+                        if (fnWords.length >= 2) {
+                            const fnLower = fnWords.map(w => w.toLowerCase());
+                            const matchedFn = words.filter(w => fnLower.includes(w.toLowerCase()));
+                            if (matchedFn.length >= 2) {
+                                first_name = toTitleCase(matchedFn[0]);
+                                last_name = matchedFn.slice(1).map(toTitleCase).join(' ');
+                                break;
+                            }
+                        }
+                        if (words.length >= 4) {
+                            first_name = toTitleCase(words[words.length - 2]);
+                            last_name = toTitleCase(words[words.length - 1]);
+                        } else if (words.length === 3) {
+                            first_name = toTitleCase(words[0]);
+                            last_name = words.slice(1).map(toTitleCase).join(' ');
+                        } else {
+                            first_name = toTitleCase(words[0]);
+                            last_name = toTitleCase(words[1]);
+                        }
                         break;
                     }
-                    lineNameWords.push(w.replace(/[^a-zA-Z\s]/g, ''));
+                }
+            }
+
+            // ── PRIORITY 2: High-confidence verified line search across lines 0 to 50 (MUST have score >= 50!)
+            if (!first_name) {
+                const emailPrefix = (email || '').split('@')[0].toLowerCase().replace(/[^a-z]/g, '');
+                const lowerFn = cleanFn.toLowerCase();
+                const candidates = [];
+
+                for (let i = 0; i < Math.min(lines.length, 50); i++) {
+                    const line = lines[i];
+                    if (/[@0-9]/.test(line) || /https?:\/\//i.test(line)) continue;
+
+                    let clean = line.replace(/^[•\-\*\s◦\.]+/g, '').trim();
+                    clean = clean.split(/\s*[\u2013\u2014—–|:\/\n,]\s*|\s+-\s+/)[0].trim();
+                    clean = clean.replace(/^(?:[A-Za-z]\.\s*)+/g, '').trim();
+
+                    const rawWords = clean.split(/\s+/).filter(Boolean);
+                    // Name MUST be between 2 and 4 words — NEVER single words!
+                    if (rawWords.length < 2 || rawWords.length > 4) continue;
+                    if (rawWords.some(w => stopWords.has(w.toLowerCase().replace(/[^a-z]/g, '')))) continue;
+                    if (!rawWords.every(w => /^[a-zA-Z\s\.\-]{2,}$/.test(w))) continue;
+
+                    let score = 10;
+                    // Email prefix match gives massive boost
+                    const matchedEmailWords = rawWords.filter(w => {
+                        const cleanW = w.toLowerCase().replace(/[^a-z]/g, '');
+                        return cleanW.length >= 3 && emailPrefix.includes(cleanW);
+                    });
+                    if (matchedEmailWords.length > 0) score += 100 * matchedEmailWords.length;
+
+                    // Filename match gives high boost
+                    const matchedFnWords = rawWords.filter(w => {
+                        const cleanW = w.toLowerCase().replace(/[^a-z]/g, '');
+                        return cleanW.length >= 3 && lowerFn.includes(cleanW);
+                    });
+                    if (matchedFnWords.length > 0) score += 80 * matchedFnWords.length;
+
+                    // Adjacency to major headers
+                    const prevLine = i > 0 ? lines[i - 1] : '';
+                    const nextLine = i < lines.length - 1 ? lines[i + 1] : '';
+                    if (/^(?:CURRICULUM|RESUME|CV|PROFILE|SUMMARY|WORK|EDUCATION|CONTACT|ABOUT)\b/i.test(prevLine) ||
+                        /^(?:CURRICULUM|RESUME|CV|PROFILE|SUMMARY|WORK|EDUCATION|CONTACT|ABOUT)\b/i.test(nextLine)) {
+                        score += 30;
+                    }
+
+                    if (clean === clean.toUpperCase()) score += 15;
+
+                    // Only accept lines that have high identity confidence (score >= 50)
+                    if (score >= 50) {
+                        candidates.push({ name: clean, words: rawWords, score });
+                    }
                 }
 
-                if (lineNameWords.length >= 2) {
-                    first_name = lineNameWords[0];
-                    last_name = lineNameWords.slice(1, 3).join(' ');
-                    break;
-                } else if (lineNameWords.length === 1 && lineNameWords[0].length > 2) {
-                    first_name = lineNameWords[0];
-                    break;
+                candidates.sort((a, b) => b.score - a.score);
+                if (candidates.length > 0) {
+                    first_name = toTitleCase(candidates[0].words[0]);
+                    last_name = candidates[0].words.slice(1).map(toTitleCase).join(' ');
+                }
+            }
+
+            // ── PRIORITY 3: Derive from email and filename (Guarantees candidates get real names when header is image/graphic/styled!)
+            if (!first_name || !last_name) {
+                const derived = deriveNameFromEmailAndFilename(email, fileName);
+                if (derived.firstName && derived.lastName) {
+                    first_name = derived.firstName;
+                    last_name = derived.lastName;
+                } else if (derived.firstName && !first_name) {
+                    first_name = derived.firstName;
+                    if (derived.lastName) last_name = derived.lastName;
+                }
+            }
+
+            // ── PRIORITY 4: Bottom declaration/signature line (only for full CVs)
+            if (!first_name && lines.length >= 15) {
+                const lastLines = lines.slice(-8);
+                for (const l of lastLines) {
+                    if (/[@0-9]/.test(l) || /https?:\/\//i.test(l) || /^(?:date|place|signature|declared|address)\b/i.test(l.trim())) continue;
+                    const clean = l.replace(/^[•\-\*\s◦\.]+/g, '').replace(/[\.…]+.*$/, '').replace(/[,]/g, ' ').trim();
+                    const words = clean.split(/\s+/).filter(w => {
+                        const c = w.replace(/[^a-zA-Z]/g, '');
+                        return c.length >= 2 && !stopWords.has(c.toLowerCase());
+                    });
+                    if (words.length >= 2 && words.length <= 3) {
+                        first_name = toTitleCase(words[0].replace(/[^a-zA-Z]/g, ''));
+                        last_name = words.slice(1).map(w => toTitleCase(w.replace(/[^a-zA-Z]/g, ''))).join(' ');
+                        break;
+                    }
+                }
+            }
+
+            // ── PRIORITY 5: Check for explicit LinkedIn profile name
+            if (!first_name) {
+                const linkedInMatch = cleanText.match(/linkedin\s*[—\-\|:]\s*([a-zA-Z\s]{3,40})/i);
+                if (linkedInMatch) {
+                    const lWords = linkedInMatch[1].trim().split(/\s+/).filter(w => w.length >= 2 && !stopWords.has(w.toLowerCase()));
+                    if (lWords.length >= 2) {
+                        first_name = toTitleCase(lWords[0]);
+                        last_name = lWords.slice(1, 3).map(toTitleCase).join(' ');
+                    }
                 }
             }
         }
 
-        // Fallback to filename (e.g. CV_02_Dilshan_Fernando_Digital_Marketing.pdf)
-        if (!first_name && fileName) {
-            const cleanFn = fileName.replace(/\.[^/.]+$/, "").replace(/[_]/g, ' ').replace(/[-]/g, ' ');
-            const rawWords = cleanFn.split(/\s+/);
-            const fnNameWords = [];
-            for (const w of rawWords) {
-                const lw = w.toLowerCase().replace(/[^a-z]/g, '');
-                if (stopWords.includes(lw) || /[@0-9]/.test(w) || w.length <= 1) {
-                    continue;
-                }
-                const formatted = w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-                fnNameWords.push(formatted);
-            }
-            if (fnNameWords.length >= 2) {
-                first_name = fnNameWords[0];
-                last_name = fnNameWords.slice(1, 3).join(' ');
-            } else if (fnNameWords.length === 1) {
-                first_name = fnNameWords[0];
+        // ── PRIORITY 6: Filename fallback
+        if ((!first_name || !last_name) && fnWords.length >= 2) {
+            first_name = toTitleCase(fnWords[0]);
+            last_name = fnWords.slice(1).map(toTitleCase).join(' ');
+        } else if (!first_name && fnWords.length === 1) {
+            first_name = toTitleCase(fnWords[0]);
+        }
+
+        // ── PRIORITY 7: Email prefix fallback
+        if ((!first_name || first_name.length <= 1) && email) {
+            const emailPrefix = email.split('@')[0].replace(/[0-9_.-]/g, '');
+            if (emailPrefix.length >= 4) {
+                first_name = toTitleCase(emailPrefix);
             }
         }
 
-        let qualification = 'Bachelors Degree';
-        const lower = (text || '').toLowerCase();
-        
-        // Exact academic regex checks (avoid false positives like 'iMaster', 'scrum master', etc.)
-        const isMaster = /\b(?:master(?:'s)?(?:\s+degree)?|master\s+of\s+[a-z]+|m\.?sc|m\.?b\.?a|m\.?phil|m\.?tech|m\.?eng|postgraduate\s+degree)\b/i.test(text) &&
-            !/(?:\bimaster\b|\bscrum\s+master\b|\btask\s*master\b|\bwebmaster\b)/i.test(text);
+        // ── QUALIFICATION EXTRACTION (Strict Academic Hierarchy)
+        let qualification = '';
+        if (text) {
+            // CRITICAL: Exclude REFERENCES section first so referee degrees (e.g. Dr., PhD, Lecturer) are NEVER extracted!
+            const textWithoutRefs = text.split(/(?:^|\n)\s*(?:REFERENCES|REFERENCE|REFEREES|REFEREE)\b/im)[0] || text;
 
-        const isBachelor = /\b(?:bachelor(?:'s)?(?:\s+degree)?|b\.?sc|b\.?i\.?t|bit(?:\(hons\))?|b\.?i\.?c\.?t|bict|b\.?eng|b\.?tech|b\.?b\.?a|b\.?com|b\.?a|undergraduate\s+degree|degree)\b/i.test(text);
+            // 1. Locate the EDUCATION section specifically
+            const eduSectionMatch = textWithoutRefs.split(/(?:^|\n)\s*(?:EDUCATION|EDUCATIONAL\s+QUALIFICATIONS|ACADEMIC\s+QUALIFICATIONS|ACADEMIC\s+BACKGROUND|EDUCATION\s*&\s*QUALIFICATIONS|HIGHER\s+EDUCATION|EDUCATION\s+AND\s+TRAINING)\s*(?:\n|$|:)/im);
+            let eduText = '';
+            if (eduSectionMatch.length > 1) {
+                const afterEdu = eduSectionMatch[1];
+                eduText = afterEdu.split(/(?:^|\n)\s*(?:WORK\s+EXPERIENCE|PROFESSIONAL\s+EXPERIENCE|EXPERIENCE|EMPLOYMENT|TECHNICAL\s+EXPOSURE|TECHNICAL\s+SKILLS|SKILLS|PROJECTS|RESEARCH|ACHIEVEMENTS|CERTIFICATIONS|CERTIFICATES|PERSONALITY|LANGUAGES|REFERENCES|DECLARATION)\b/im)[0];
+            }
 
-        const isPhD = /\b(?:ph\.?d|doctorate|doctor\s+of\s+philosophy)\b/i.test(text);
-        const isDiploma = /\b(?:national\s+diploma|higher\s+national\s+diploma|hnd|diploma|nvq\s+level\s*[456]|pg\s+diploma)\b/i.test(text);
-        const isProfCert = /\b(?:cima|acca|aat|ca\s+sri\s+lanka|pmp|cisco\s+certified|ccna)\b/i.test(text);
-        const isAL = /\b(?:g\.?c\.?e\.?\s*)?(?:advanced\s+level|advance\s+level|a\/l)\b/i.test(text);
-        const isOL = /\b(?:g\.?c\.?e\.?\s*)?(?:ordinary\s+level|o\/l)\b/i.test(text);
+            const evalQual = (targetText) => {
+                if (!targetText) return null;
 
-        if (isPhD) qualification = 'PhD';
-        else if (isMaster && !isBachelor) qualification = 'Masters Degree';
-        else if (isMaster && isBachelor) qualification = 'Masters Degree';
-        else if (isBachelor) qualification = 'Bachelors Degree';
-        else if (isDiploma) qualification = 'Diploma';
-        else if (isProfCert) qualification = 'Professional Certification';
-        else if (isAL) qualification = 'A/L';
-        else if (isOL) qualification = 'O/L';
+                // Clean out non-academic "master" false-positives
+                const cleanForMaster = targetText.replace(/\b(?:maze\s+master|scrum\s+master|task\s*master|webmaster|toastmaster|master\s+card|master\s+class|mastered)\b/gi, '');
+
+                const isPhD = /\b(?:ph\.?d|doctorate|doctor\s+of\s+philosophy|d\.?phil)\s+(?:in|of|holder|degree|graduate)\b/i.test(targetText) ||
+                              /\b(?:candidate|pursuing|reading\s+for|completed)\s+(?:ph\.?d|doctorate)\b/i.test(targetText);
+
+                // Masters: MUST have academic context (degree, of, in, or specific acronyms like MSc, MBA, MEng, MPhil)
+                const isMaster = (
+                    /\bmasters?\s+(?:degree|of\s+[a-z]+|in\s+[a-z]+)/i.test(cleanForMaster) ||
+                    /\b(?:m\.?sc|m\.?b\.?a|m\.?phil|m\.?tech|m\.?eng|m\.?com|ll\.?m|postgraduate\s+degree|postgraduate\s+diploma)\b/i.test(cleanForMaster) ||
+                    /\bmaster(?:'s)?\s+degree\b/i.test(cleanForMaster)
+                );
+
+                // Bachelors: BSc, BEng, BTech, BBA, BCom, BIT, BICT, BA, BCA, LLB, Undergraduate degree
+                const isBachelor = (
+                    /\bbachelors?\s+(?:degree|of\s+[a-z]+|in\s+[a-z]+)/i.test(targetText) ||
+                    /\b(?:b\.?sc|b\.?eng|beng|b\.?tech|btech|b\.?b\.?a|bba|b\.?com|bcom|b\.?i\.?t|bit|b\.?i\.?c\.?t|bict|b\.?a|b\.?c\.?a|bca|ll\.?b)\b(?:\s*\(hons\))?/i.test(targetText) ||
+                    /\bundergraduate\s+degree\b/i.test(targetText) ||
+                    /\b(?:bachelor|b\.?sc|b\.?eng|b\.?tech|b\.?a)\s*\(\s*hons\s*\)/i.test(targetText)
+                );
+
+                // Diploma: Higher National Diploma, HND, National Diploma, Diploma, NVQ Level 4/5/6
+                const isDiploma = (
+                    /\b(?:higher\s+national\s+diploma|hnd)\b/i.test(targetText) ||
+                    /(?:national\s+diploma|diploma|nvq\s*level\s*[456]|advance(?:d)?\s+diploma|graduate\s+diploma)/i.test(targetText)
+                );
+
+                // Professional Certifications
+                const isProfCert = /\b(?:cima|acca|aat|ca\s+sri\s+lanka|chartered\s+accountant|pmp|cisco\s+certified|ccna|ccnp|aws\s+certified)\b/i.test(targetText);
+
+                // School Levels
+                const isAL = /\b(?:g\.?c\.?e\.?\s*)?(?:advanced\s+level|advance\s+level|a\/l)\b/i.test(targetText);
+                const isOL = /\b(?:g\.?c\.?e\.?\s*)?(?:ordinary\s+level|o\/l)\b/i.test(targetText);
+
+                if (isPhD) return 'PhD';
+                if (isMaster) return 'Masters Degree';
+                if (isBachelor) return 'Bachelors Degree';
+                if (isDiploma) return 'Diploma';
+                if (isProfCert) return 'Professional Certification';
+                if (isAL) return 'A/L';
+                if (isOL) return 'O/L';
+
+                return null;
+            };
+
+            // First check the isolated EDUCATION section
+            if (eduText && eduText.trim().length >= 10) {
+                const eduQual = evalQual(eduText);
+                if (eduQual) qualification = eduQual;
+            }
+
+            // Fallback to checking full text (without references)
+            if (!qualification) {
+                qualification = evalQual(textWithoutRefs) || '';
+            }
+        }
+
+
+
+        // ── EXPERIENCE CALCULATION
+        const mapYearsToRange = (y) => {
+            if (y >= 10) return '10+ years';
+            if (y >= 8) return '8-10 years';
+            if (y >= 5) return '5-7 years';
+            if (y >= 3) return '3-4 years';
+            if (y >= 1) return '1-2 years';
+            if (y > 0) return '0-1 years';
+            return '0 years';
+        };
 
         let overall_experience = '1-2 years';
         let relevant_experience = '1-2 years';
 
-        // Extract numeric years e.g. "3+ years", "5 years", "10+ yrs", "3-4 years"
-        const expMatch = lower.match(/(\d+)\s*\+?\s*(?:years?|yrs?)(?:\s+of\s+experience|\s+in|\s+working)?/i);
-        if (expMatch) {
-            const numY = parseInt(expMatch[1], 10);
-            if (numY >= 10) { overall_experience = '10+ years'; relevant_experience = '8-10 years'; }
-            else if (numY >= 8) { overall_experience = '8-10 years'; relevant_experience = '5-7 years'; }
-            else if (numY >= 5) { overall_experience = '5-7 years'; relevant_experience = '3-4 years'; }
-            else if (numY >= 3) { overall_experience = '3-4 years'; relevant_experience = '1-2 years'; }
-            else if (numY >= 1) { overall_experience = '1-2 years'; relevant_experience = '1-2 years'; }
-            else { overall_experience = '0 years'; relevant_experience = '0 years'; }
-        } else if (lower.includes('fresher') || lower.includes('trainee') || lower.includes('0 years')) {
-            overall_experience = '0 years';
-            relevant_experience = '0 years';
+        if (text) {
+            const lower = text.toLowerCase();
+
+            // 1. Check for explicit years of experience statement (bounded to 1-45 years)
+            const explicitMatch = lower.match(/(?:over\s+|more\s+than\s+|having\s+)?\b([1-4]?\d)\s*\+?\s*(?:years?|yrs?)\s+(?:of\s+)?(?:overall|relevant|working|work|professional|industry|practical|hands-on)?\s*experience/i);
+            if (explicitMatch) {
+                const numY = parseInt(explicitMatch[1], 10);
+                if (numY >= 1 && numY <= 45) {
+                    overall_experience = mapYearsToRange(numY);
+                    relevant_experience = mapYearsToRange(Math.max(1, Math.round(numY * 0.8)));
+                }
+            } else {
+                // 2. Scan work experience section for date ranges
+                const expSectionMatch = text.split(/(?:^|\n)\s*(?:PROFESSIONAL\s+EXPERIENCE|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|WORK\s+HISTORY|EXPERIENCE)\s*(?:\n|$|:)/im);
+                const isFresher = lower.includes('fresher') || lower.includes('fresh graduate') || lower.includes('seeking my first');
+
+                if (expSectionMatch.length > 1) {
+                    const afterExp = expSectionMatch[1];
+                    const expSection = afterExp.split(/(?:^|\n)\s*(?:EDUCATION|ACADEMIC|QUALIFICATIONS|SKILLS|REFERENCES|REFEREES|I\s+DO\s+HEREBY\s+DECLARE|DECLARATION)\b/im)[0];
+                    const years = (expSection.match(/\b(20[012]\d|19[89]\d)\b/g) || []).map(Number);
+                    
+                    if (years.length >= 1) {
+                        const currentYear = new Date().getFullYear();
+                        const minYear = Math.min(...years);
+                        const hasPresent = /(?:present|current|ongoing|since\s+[a-z]*\s*(?:20[012]\d)?|to\s+date)/i.test(expSection);
+                        const maxYear = hasPresent ? currentYear : Math.max(...years);
+                        const diff = Math.max(0, maxYear - minYear);
+                        
+                        if (diff >= 1) {
+                            overall_experience = mapYearsToRange(diff);
+                            relevant_experience = mapYearsToRange(Math.max(1, Math.round(diff * 0.75)));
+                        } else {
+                            overall_experience = '0-1 years';
+                            relevant_experience = '0-1 years';
+                        }
+                    } else if (/(?:months?|trainee|intern)/i.test(expSection)) {
+                        overall_experience = '0-1 years';
+                        relevant_experience = '0-1 years';
+                    }
+                } else if (isFresher) {
+                    overall_experience = '0 years';
+                    relevant_experience = '0 years';
+                }
+            }
+        }
+
+        // ── SALARY EXPECTATION EXTRACTION
+        let salary_expectation = '';
+        if (text) {
+            const salMatch = text.match(/(?:expected\s+(?:basic\s+)?salary|salary\s+expectation|expected\s+remuneration|expected\s+ctc|expected\s+salary)\s*[:\-]?\s*(?:lkr|rs\.?|inr|\$)?\s*([0-9]{2,3}(?:[,\s][0-9]{3})+|[0-9]{4,7})/i);
+            if (salMatch) {
+                const rawNum = parseInt(salMatch[1].replace(/[\s,]/g, ''), 10);
+                if (rawNum >= 15000 && rawNum <= 10000000) {
+                    salary_expectation = rawNum.toLocaleString('en-US');
+                }
+            }
         }
 
         return {
@@ -611,7 +1044,7 @@ function ApplyPage() {
             qualification,
             overall_experience,
             relevant_experience,
-            salary_expectation: ''
+            salary_expectation
         };
     };
 

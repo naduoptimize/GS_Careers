@@ -2150,6 +2150,42 @@
     opacity: 0.9;
 }
 
+/* Table Card AI Mismatch Banner Pill */
+.cve-mismatch-banner-pill {
+    width: 100%;
+    max-width: 195px;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 3px solid #e11d48;
+    border-radius: 7px;
+    padding: 5px 8px;
+    margin-top: 4px;
+    white-space: normal;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: 0 1px 3px rgba(225, 29, 72, 0.06);
+}
+
+.cve-mismatch-pill-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    color: #be123c;
+}
+
+.cve-mismatch-pill-body {
+    font-size: 0.69rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #881337;
+    word-break: break-word;
+}
+
 /* CV Extraction Status Badges */
 .cve-badge {
     display: inline-flex;

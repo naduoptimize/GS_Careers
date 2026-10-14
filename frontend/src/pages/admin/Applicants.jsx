@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import './Applicants.css';
 import PaginationFooter from '../../components/PaginationFooter';
-import { calculateCandidateMatchScore, calculateSalaryMatchScore, parseNumericSalary } from '../../utils/scoreCalculator';
+import { calculateCandidateMatchScore, calculateSalaryMatchScore, parseNumericSalary, extractCandidateMismatchReason } from '../../utils/scoreCalculator';
 
 // Helper to get today's local date as YYYY-MM-DD
 const getTodayDateString = () => {
@@ -513,34 +513,6 @@ const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
 };
 
 const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}) => {
-    const isUnextracted = (
-        candidateObj.extraction_status === 'unextracted' ||
-        (candidateObj.extraction_status !== 'extracted' && candidateObj.is_manual_extracted != 1) ||
-        candidateObj.is_extracted === 0 ||
-        candidateObj.is_extracted === false ||
-        candidateObj.is_extracted === '0' ||
-        (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
-    );
-
-    if (isUnextracted) {
-        return {
-            skills: [],
-            parsedReport: {
-                is_unextracted: true,
-                is_job_mismatch: true,
-                mismatch_reason: 'CV auto-extraction skipped because candidate match score is below minimum threshold (<50%).',
-                experience_summary: 'Extraction Skipped: Candidate match score is below 50% threshold. Admins can manually extract this CV.',
-                recruiter_insights: ['⚠️ Auto-extraction skipped (<50% Match Score). Manual extraction available.'],
-                fully_demonstrated_skills: [],
-                partially_demonstrated_skills: [],
-                requirements_without_evidence: [],
-                additional_skills: []
-            }
-        };
-    }
-
-    let parsedReport = null;
-
     const tryParse = (val) => {
         if (!val) return null;
         if (typeof val === 'object') return val;
@@ -551,8 +523,39 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
         }
     };
 
-    const dataFromMetadata = tryParse(skillsMetadataStr);
-    const dataFromExtracted = tryParse(extractedDataInput);
+    const dataFromMetadata = tryParse(skillsMetadataStr || candidateObj?.skills_metadata);
+    const dataFromExtracted = tryParse(extractedDataInput || candidateObj?.extracted_data);
+
+    const isUnextracted = (
+        candidateObj.extraction_status === 'unextracted' ||
+        (candidateObj.extraction_status !== 'extracted' && candidateObj.is_manual_extracted != 1) ||
+        candidateObj.is_extracted === 0 ||
+        candidateObj.is_extracted === false ||
+        candidateObj.is_extracted === '0' ||
+        (!candidateObj.cv_text && !candidateObj.extracted_data && (!candidateObj.skills_metadata || candidateObj.skills_metadata === '[]' || candidateObj.skills_metadata === '""'))
+    );
+
+    if (isUnextracted) {
+        const metaObj = dataFromMetadata || dataFromExtracted;
+        return {
+            skills: [],
+            parsedReport: {
+                is_unextracted: true,
+                is_job_mismatch: metaObj?.is_job_mismatch ?? false,
+                mismatch_reason: metaObj?.mismatch_reason || 'CV auto-extraction skipped because candidate match score is below minimum threshold (<50%).',
+                experience_summary: metaObj?.experience_summary || 'Extraction Skipped: Candidate match score is below 50% threshold. Admins can manually extract this CV.',
+                recruiter_insights: Array.isArray(metaObj?.recruiter_insights) && metaObj.recruiter_insights.length > 0 
+                    ? metaObj.recruiter_insights 
+                    : ['⚠️ Auto-extraction skipped (<50% Match Score). Manual extraction available.'],
+                fully_demonstrated_skills: [],
+                partially_demonstrated_skills: [],
+                requirements_without_evidence: [],
+                additional_skills: []
+            }
+        };
+    }
+
+    let parsedReport = null;
 
     let parsedData = null;
     if (dataFromMetadata && Array.isArray(dataFromMetadata.skills_analysis) && dataFromMetadata.skills_analysis.length > 0) {
@@ -746,65 +749,122 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const textLower = cvTextContent.toLowerCase();
 
     const domainKeywords = {
-        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial', 'reconciliation', 'ledger', 'quickbooks', 'sap', 'journal', 'audit', 'tax', 'petty cash', 'bookkeeper', 'invoicing', 'banking', 'finance'],
-        'Digital Marketing': ['marketing', 'digital marketing', 'seo', 'sem', 'social media', 'google ads', 'meta ads', 'content', 'copywriting', 'campaign', 'analytics', 'branding', 'advertising'],
-        'Software Engineering & IT': ['software', 'developer', 'engineer', 'javascript', 'python', 'php', 'react', 'html', 'css', 'sql', 'git', 'c++', 'java', 'node', 'code', 'programming', 'web', 'database', 'it', 'technical'],
+        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial', 'reconciliation', 'ledger', 'quickbooks', 'sap', 'journal', 'audit', 'tax', 'petty cash', 'bookkeeper', 'invoicing', 'banking', 'finance', 'cost accounting', 'tally', 'budgeting'],
+        'Digital Marketing': ['marketing', 'digital marketing', 'seo', 'sem', 'social media', 'google ads', 'meta ads', 'content', 'copywriting', 'campaign', 'analytics', 'branding', 'advertising', 'email marketing', 'google analytics'],
+        'Software Engineering & IT': ['software', 'developer', 'engineer', 'javascript', 'python', 'php', 'react', 'html', 'css', 'sql', 'git', 'c++', 'java', 'node', 'code', 'programming', 'web', 'database', 'it', 'technical', 'network', 'networking', 'hardware', 'lan', 'wan', 'troubleshoot', 'troubleshooting', 'system', 'infrastructure', 'cloud', 'devops', 'support', 'helpdesk', 'cybersecurity', 'active directory', 'windows server'],
         'HR & Administration': ['human resources', 'hr', 'recruitment', 'payroll', 'employee', 'admin', 'office manager', 'onboarding', 'attendance', 'leave', 'engagement', 'labor law', 'personnel', 'staffing', 'talent', 'hiring', 'interviews'],
         'Sales & Business Development': ['sales', 'business development', 'client', 'account manager', 'revenue', 'b2b', 'negotiation', 'leads', 'prospecting']
     };
 
+    const jobDescriptionText = (candidateObj.vacancy_description || candidateObj.description || candidateObj.v_description || '').toLowerCase();
+    const jobRequirementsText = (candidateObj.vacancy_requirements || candidateObj.requirements || candidateObj.v_requirements || '').toLowerCase();
+    const jobRequiredSkillsText = (candidateObj.vacancy_required_skills || candidateObj.required_skills || candidateObj.v_required_skills || '').toLowerCase();
+    const fullJobContextText = `${candidateJob.toLowerCase()} ${jobDescriptionText} ${jobRequirementsText} ${jobRequiredSkillsText}`.trim();
+
     let targetDomain = '';
     Object.entries(domainKeywords).forEach(([dName, kwList]) => {
-        if (!targetDomain && kwList.some(k => vLower.includes(k))) {
-            targetDomain = dName;
+        if (!targetDomain) {
+            const hasMatch = kwList.some(k => {
+                if (k.length <= 3) {
+                    return new RegExp(`\\b${k}\\b`, 'i').test(fullJobContextText);
+                }
+                return fullJobContextText.includes(k);
+            });
+            if (hasMatch) {
+                targetDomain = dName;
+            }
         }
     });
-
-    // Dynamic Skill Categorization Rule:
-    // 1. Relevant Skills: Skills matching Job Description / Requirements / Required Skills or Core Job Role Competencies
-    // 2. Related Skills: Skills not in Job Description, but related to Job Domain / Industry
-    // 3. Additional Skills: Other general / extra skills
-    const jobDescriptionText = (candidateObj.vacancy_description || candidateObj.description || '').toLowerCase();
-    const jobRequirementsText = (candidateObj.vacancy_requirements || candidateObj.requirements || '').toLowerCase();
-    const jobRequiredSkillsText = (candidateObj.vacancy_required_skills || candidateObj.required_skills || '').toLowerCase();
-    const fullJobContextText = `${candidateJob.toLowerCase()} ${jobDescriptionText} ${jobRequirementsText} ${jobRequiredSkillsText}`;
 
     const targetDomainKeywords = targetDomain ? (domainKeywords[targetDomain] || []) : [];
 
     const coreDomainRelevantSkills = {
-        'Software Engineering & IT': ['java', 'python', 'javascript', 'typescript', 'php', 'react', 'react.js', 'node.js', 'laravel', 'c++', 'c#', 'spring boot', 'flutter', 'android', 'html', 'html5', 'css', 'css3', 'sql', 'mysql', 'postgresql', 'restful apis', 'rest api', 'git', 'github'],
-        'Accounting & Finance': ['accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial reporting', 'general ledger', 'journal entries', 'bank reconciliation', 'taxation', 'quickbooks', 'sap business one', 'tally', 'excel', 'pivot-tables', 'vlookup'],
-        'Digital Marketing': ['digital marketing', 'seo', 'sem', 'social media marketing', 'google ads', 'meta ads manager', 'copywriting', 'content marketing', 'lead generation', 'google analytics 4', 'email marketing'],
-        'HR & Administration': ['human resources', 'hr', 'recruitment', 'talent acquisition', 'payroll', 'onboarding', 'attendance', 'leave administration', 'employee relations', 'hr documentation'],
-        'Sales & Business Development': ['sales', 'b2b sales', 'business development', 'key account management', 'client relationship', 'sales strategy']
+        'Software Engineering & IT': [
+            'java', 'python', 'javascript', 'typescript', 'php', 'react', 'react.js', 'node.js', 'laravel', 'c++', 'c#', 'c',
+            'spring boot', 'flutter', 'android', 'html', 'html5', 'css', 'css3', 'sql', 'mysql', 'postgresql', 'restful apis', 'rest api',
+            'git', 'github', 'linux', 'aws', 'docker', 'networking', 'network', 'tcp/ip', 'dns', 'dhcp', 'firewall', 'cisco', 'ccna',
+            'system administration', 'it support', 'troubleshooting', 'active directory', 'windows server', 'lan / wan', 'lan/wan',
+            'hardware troubleshooting', 'software troubleshooting', 'database design', 'quality assurance', 'unit testing'
+        ],
+        'Accounting & Finance': [
+            'accountant', 'accounting', 'accounts payable', 'accounts receivable', 'financial reporting', 'general ledger',
+            'journal entries', 'bank reconciliation', 'taxation', 'quickbooks', 'sap business one', 'tally', 'excel', 'microsoft excel',
+            'pivot-tables', 'vlookup', 'audit schedules', 'variance analysis', 'month-end closing', 'expense analysis', 'invoice processing',
+            'petty cash', 'management reports'
+        ],
+        'Digital Marketing': [
+            'digital marketing', 'seo', 'sem', 'social media marketing', 'google ads', 'meta ads manager', 'copywriting',
+            'content marketing', 'lead generation', 'google analytics 4', 'email marketing', 'google search console', 'semrush',
+            'ahrefs', 'campaign planning', 'a/b testing', 'retargeting'
+        ],
+        'HR & Administration': [
+            'human resources', 'hr', 'recruitment', 'talent acquisition', 'payroll', 'onboarding', 'attendance',
+            'leave administration', 'employee relations', 'hr documentation', 'office administration', 'staffing'
+        ],
+        'Sales & Business Development': [
+            'sales', 'b2b sales', 'business development', 'key account management', 'client relationship', 'sales strategy',
+            'lead generation', 'cold calling', 'crm', 'negotiation'
+        ]
     };
 
     const targetCoreSkills = targetDomain ? (coreDomainRelevantSkills[targetDomain] || []) : [];
 
+    // Dynamic Skill Categorization Rule:
+    // 1. Relevant Skills: Skills matching Job Description / Requirements / Required Skills (directly in Job Details)
+    // 2. Related Skills: Skills not in Job Description, but related to Job Domain / Industry
+    // 3. Additional Skills: Other general / extra skills
     skills.forEach(s => {
         const sLower = s.skill.toLowerCase().trim();
         if (!sLower) return;
 
+        // 1. RELEVANT SKILLS: Candidate CV skills that directly match the specific Job Details
         let isDirectJobMatch = false;
 
         if (fullJobContextText && sLower.length >= 2) {
             if (sLower === 'c') {
                 isDirectJobMatch = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|\bC\+\+\b)/i.test(fullJobContextText);
-            } else {
+            } else if (sLower.length <= 3) {
                 const escaped = sLower.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
                 isDirectJobMatch = new RegExp(`\\b${escaped}\\b`, 'i').test(fullJobContextText);
+            } else {
+                const escaped = sLower.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+                if (new RegExp(`\\b${escaped}\\b`, 'i').test(fullJobContextText) || fullJobContextText.includes(sLower)) {
+                    isDirectJobMatch = true;
+                } else {
+                    const words = sLower
+                        .replace(/[^a-z0-9+#]/g, ' ')
+                        .split(/\s+/)
+                        .filter(w => w.length >= 3 && !['and', 'for', 'the', 'with', 'via', 'all'].includes(w));
+                    if (words.length >= 2) {
+                        isDirectJobMatch = words.every(w => {
+                            const root = w.replace(/(ing|tion|ment|ed|s)$/, '');
+                            return fullJobContextText.includes(root.length >= 3 ? root : w);
+                        });
+                    } else if (words.length === 1 && words[0].length >= 5) {
+                        const root = words[0].replace(/(ing|tion|ment|ed|s)$/, '');
+                        if (root.length >= 4 && fullJobContextText.includes(root)) {
+                            isDirectJobMatch = true;
+                        }
+                    }
+                }
             }
-        }
-
-        if (!isDirectJobMatch && targetCoreSkills.length > 0) {
-            isDirectJobMatch = targetCoreSkills.some(cs => sLower === cs || (cs.length > 3 && (sLower.includes(cs) || cs.includes(sLower))));
         }
 
         if (isDirectJobMatch) {
             s.category = 'Relevant Skills';
         } else {
+            // 2. RELATED SKILLS: Skills not in Job Details, but related to the Job Field / Career Domain / Industry
             let isDomainRelated = false;
-            if (targetDomainKeywords && targetDomainKeywords.length > 0) {
+
+            if (targetCoreSkills.length > 0) {
+                isDomainRelated = targetCoreSkills.some(cs => {
+                    if (sLower === cs) return true;
+                    if (cs.length > 3 && (sLower.includes(cs) || cs.includes(sLower))) return true;
+                    return false;
+                });
+            }
+
+            if (!isDomainRelated && targetDomainKeywords.length > 0) {
                 isDomainRelated = targetDomainKeywords.some(k => {
                     const kLower = k.toLowerCase();
                     if (kLower.length <= 3) return sLower === kLower;
@@ -815,6 +875,7 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
             if (isDomainRelated) {
                 s.category = 'Related Skills';
             } else {
+                // 3. ADDITIONAL SKILLS: Other general tools, extra skills, soft skills, or unrelated competencies
                 s.category = 'Additional Skills';
             }
         }
@@ -851,11 +912,47 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
     const sortedDomains = Object.keys(cvScores).sort((a, b) => cvScores[b] - cvScores[a]);
     const cvActualDomain = cvScores[sortedDomains[0]] > 0 ? sortedDomains[0] : 'General';
 
-    let isMismatch = false;
-    let mismatchReason = '';
+    // Check if Gemini AI or metadata already identified a job mismatch
+    const aiMismatch = (
+        parsedReport?.is_job_mismatch === true ||
+        dataFromMetadata?.is_job_mismatch === true ||
+        dataFromExtracted?.is_job_mismatch === true ||
+        candidateObj?.is_job_mismatch === true
+    );
+    const aiMismatchReason = (
+        parsedReport?.mismatch_reason ||
+        dataFromMetadata?.mismatch_reason ||
+        dataFromExtracted?.mismatch_reason ||
+        candidateObj?.mismatch_reason || ''
+    );
 
-    if (!isUnextracted && (targetDomain || candidateJob)) {
-        if (relevantSkillsFound.length === 0) {
+    let isMismatch = aiMismatch;
+    let mismatchReason = aiMismatchReason;
+
+    let scoreVal = null;
+    if (candidateObj?.match_score != null && candidateObj.match_score !== '') {
+        scoreVal = parseInt(candidateObj.match_score, 10);
+    } else if (candidateObj?.score != null && candidateObj.score !== '') {
+        scoreVal = parseInt(candidateObj.score, 10);
+    } else if (dataFromMetadata?.ai_match_score != null && dataFromMetadata.ai_match_score !== '') {
+        scoreVal = parseInt(dataFromMetadata.ai_match_score, 10);
+    } else if (dataFromExtracted?.ai_match_score != null && dataFromExtracted.ai_match_score !== '') {
+        scoreVal = parseInt(dataFromExtracted.ai_match_score, 10);
+    } else if (candidateObj && (candidateObj.vacancy_id || candidateObj.applied_vacancy || candidateObj.vacancy_title)) {
+        try {
+            const sc = calculateCandidateMatchScore(candidateObj);
+            if (sc && typeof sc.score === 'number') {
+                scoreVal = sc.score;
+            }
+        } catch (e) {
+            scoreVal = null;
+        }
+    }
+
+    const minMed = Number(candidateObj?.min_medium_match_score) || 50;
+
+    if (!isMismatch && !isUnextracted && (targetDomain || candidateJob)) {
+        if ((scoreVal !== null && !isNaN(scoreVal) && scoreVal < minMed) || relevantSkillsFound.length === 0) {
             isMismatch = true;
             mismatchReason = cvActualDomain !== 'General' && cvActualDomain !== targetDomain
                 ? `Candidate CV background (${cvActualDomain}) does not align with target vacancy requirements for "${candidateJob}".`
@@ -2329,6 +2426,8 @@ function Applicants({ admin }) {
                                                     tierName = 'Medium Match';
                                                 }
 
+                                                const mismatchReason = extractCandidateMismatchReason(app, scoreData);
+
                                                 return (
                                                     <div className="cve-match-cell">
                                                         <span className={`cve-match-pill ${matchClass}`}>
@@ -2781,17 +2880,17 @@ function Applicants({ admin }) {
                                                     </div>
                                                 </div>
 
-                                                {parsedReport && !parsedReport.is_unextracted && parsedReport.is_job_mismatch && (
+                                                {parsedReport && !parsedReport.is_unextracted && (parsedReport.is_job_mismatch || (calculateCandidateMatchScore(showDetail, vacancies).score < minMediumScore)) && (
                                                     <div className="job-mismatch-banner" style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#991b1b' }}>
                                                         <FiAlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
                                                         <div style={{ flex: 1 }}>
                                                             <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#b91c1c', display: 'block', margin: 0 }}>⚠️ Job &amp; CV Mismatch Warning</span>
-                                                            <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements.`}</span>
+                                                            <span style={{ fontSize: '0.82rem', color: '#7f1d1d', marginTop: '2px', display: 'block' }}>{parsedReport.mismatch_reason || `Candidate profile background differs from target position requirements for "${showDetail.vacancy_title || showDetail.applied_vacancy}".`}</span>
                                                         </div>
                                                     </div>
                                                 )}
 
-                                                {parsedReport && !parsedReport.is_unextracted && !parsedReport.is_job_mismatch && (showDetail.vacancy_title || showDetail.applied_vacancy) && (
+                                                {parsedReport && !parsedReport.is_unextracted && !parsedReport.is_job_mismatch && (calculateCandidateMatchScore(showDetail, vacancies).score >= minMediumScore) && (showDetail.vacancy_title || showDetail.applied_vacancy) && (
                                                     <div className="job-match-banner" style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '12px', padding: '10px 16px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: '12px', color: '#166534' }}>
                                                         <FiCheckCircle size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
                                                         <div style={{ flex: 1 }}>

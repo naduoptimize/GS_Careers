@@ -439,9 +439,9 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
             ($keywordScore * ($wJd / $nonSalTotal));
     }
     if ($isJobMismatch) {
-        return min(22, max(12, round($finalScore)));
+        return min(30, max(10, round($finalScore)));
     }
-    return min(100, max(12, round($finalScore)));
+    return min(100, max(10, round($finalScore)));
 }
 
 function handleAiParseCv()
@@ -480,7 +480,7 @@ function handleAiParseCv()
     ];
 
     // Call AI model (with multi-provider fallback) to evaluate against the target job
-    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy ?: 'Open Position', $candData);
+    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy ?: 'Open Position', $candData, $tempPath);
 
     // Guarantee score and breakdown even if AI model failed
     if (!isset($parsedData['ai_match_score']) || !is_numeric($parsedData['ai_match_score'])) {
@@ -652,22 +652,16 @@ function handleApply()
     ];
 
     // 4. AI reads the CV and evaluates match score against Job Description (skills, experience, qualification, salary)
-    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy, $candData);
+    $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy, $candData, $cvPath);
 
     $aiScore = null;
     if (!empty($parsedData) && isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
-        $aiScore = min(100, max(12, (int)$parsedData['ai_match_score']));
+        $aiScore = min(100, max(0, (int)$parsedData['ai_match_score']));
     }
 
     // Fallback if AI was unavailable or did not return score
     if ($aiScore === null) {
         $aiScore = computeCandidateMatchScore($vacancy, $qualification, $overallExp, $relevantExp, $cvText, $tags, $skillsMetadata, $salaryExpectation);
-    }
-
-    // Enforce job mismatch penalty: if candidate background does not match the target job, cap score strictly below 25% (Low)
-    if (!empty($parsedData['is_job_mismatch'])) {
-        $aiScore = min(22, max(12, (int)($aiScore ?: 18)));
-        $parsedData['ai_match_score'] = $aiScore;
     }
 
     // 5. Evaluation Decision:
@@ -689,10 +683,17 @@ function handleApply()
             $qualification = $parsedData['qualification'];
         }
 
+        // If AI returned clean full text transcription, use it as cvText
+        if (!empty($parsedData['extracted_full_text']) && strlen(trim($parsedData['extracted_full_text'])) > 50) {
+            $cvText = $parsedData['extracted_full_text'];
+        }
+
         // Construct skills_metadata array from AI evaluation report
         $skillsMetadataArr = [
             'ai_match_score' => $aiScore,
             'ai_match_reason' => $parsedData['ai_match_reason'] ?? '',
+            'is_job_mismatch' => $parsedData['is_job_mismatch'] ?? false,
+            'mismatch_reason' => $parsedData['mismatch_reason'] ?? '',
             'ai_score_breakdown' => $parsedData['ai_score_breakdown'] ?? [],
             'skills_analysis' => $parsedData['skills_analysis'] ?? [],
             'fully_demonstrated_skills' => $parsedData['fully_demonstrated_skills'] ?? [],
@@ -1279,40 +1280,50 @@ function listApplications()
     require_once __DIR__ . '/../libs/PdfExtractor.php';
 
     foreach ($applications as &$item) {
-        $cvTextToUse = $item['cv_text'];
-        if ((empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) && !empty($item['cv_path'])) {
-            $fullPath = UPLOAD_DIR . $item['cv_path'];
-            if (file_exists($fullPath)) {
-                $extractedRaw = PdfExtractor::extractTextFromFile($fullPath);
-                if ($extractedRaw && !PdfExtractor::isGarbledText($extractedRaw)) {
-                    $cvTextToUse = $extractedRaw;
-                } else {
+        $extractedDataArr = !empty($item['extracted_data']) ? (is_array($item['extracted_data']) ? $item['extracted_data'] : json_decode($item['extracted_data'], true)) : null;
+        if (!empty($extractedDataArr['extracted_full_text'])) {
+            $cvTextToUse = $extractedDataArr['extracted_full_text'];
+        } else {
+            $cvTextToUse = $item['cv_text'];
+            if ((empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) && !empty($item['cv_path'])) {
+                $fullPath = UPLOAD_DIR . $item['cv_path'];
+                if (file_exists($fullPath)) {
+                    $extractedRaw = PdfExtractor::extractTextFromFile($fullPath);
+                    if ($extractedRaw && !PdfExtractor::isGarbledText($extractedRaw)) {
+                        $cvTextToUse = $extractedRaw;
+                    } else {
+                        $cvTextToUse = "Candidate resume text extracted from document.";
+                    }
+                }
+            } else if (!empty($cvTextToUse)) {
+                $cvTextToUse = PdfExtractor::cleanExtractedCvText($cvTextToUse);
+                if (empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) {
                     $cvTextToUse = "Candidate resume text extracted from document.";
                 }
-            }
-        } else if (!empty($cvTextToUse)) {
-            $cvTextToUse = PdfExtractor::cleanExtractedCvText($cvTextToUse);
-            if (empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) {
-                $cvTextToUse = "Candidate resume text extracted from document.";
             }
         }
         $item['cv_text'] = $cvTextToUse;
 
-        $calculatedScore = computeCandidateMatchScore(
-            $item,
-            $item['qualification'],
-            $item['overall_experience'],
-            $item['relevant_experience'],
-            $cvTextToUse,
-            $item['tags'],
-            $item['skills_metadata'],
-            $item['salary_expectation']
-        );
-        $item['match_score'] = $calculatedScore;
-        $item['score'] = $calculatedScore;
+        $meta = !empty($item['skills_metadata']) ? (is_array($item['skills_metadata']) ? $item['skills_metadata'] : json_decode($item['skills_metadata'], true)) : null;
+        if (!empty($meta) && isset($meta['ai_match_score']) && is_numeric($meta['ai_match_score'])) {
+            $effectiveScore = (int)$meta['ai_match_score'];
+        } else {
+            $effectiveScore = computeCandidateMatchScore(
+                $item,
+                $item['qualification'],
+                $item['overall_experience'],
+                $item['relevant_experience'],
+                $cvTextToUse,
+                $item['tags'],
+                $item['skills_metadata'],
+                $item['salary_expectation']
+            );
+        }
+        $item['match_score'] = $effectiveScore;
+        $item['score'] = $effectiveScore;
 
         $isManual = (isset($item['is_manual_extracted']) && ($item['is_manual_extracted'] == 1 || $item['is_manual_extracted'] === '1'));
-        $isLowMatch = ($calculatedScore < $minMedium);
+        $isLowMatch = ($effectiveScore < $minMedium);
 
         if ($isManual) {
             $effectiveStatus = 'extracted';
@@ -2385,21 +2396,26 @@ function handleListExtractions()
     $unextractedCount = 0;
 
     foreach ($allCandidateItems as $item) {
-        $cvTextToUse = $item['cv_text'];
-        if ((empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) && !empty($item['cv_path'])) {
-            $fullPath = UPLOAD_DIR . $item['cv_path'];
-            if (file_exists($fullPath)) {
-                $extractedRaw = PdfExtractor::extractTextFromFile($fullPath);
-                if ($extractedRaw && !PdfExtractor::isGarbledText($extractedRaw)) {
-                    $cvTextToUse = $extractedRaw;
-                } else {
+        $extractedDataArr = !empty($item['extracted_data']) ? (is_array($item['extracted_data']) ? $item['extracted_data'] : json_decode($item['extracted_data'], true)) : null;
+        if (!empty($extractedDataArr['extracted_full_text'])) {
+            $cvTextToUse = $extractedDataArr['extracted_full_text'];
+        } else {
+            $cvTextToUse = $item['cv_text'];
+            if ((empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) && !empty($item['cv_path'])) {
+                $fullPath = UPLOAD_DIR . $item['cv_path'];
+                if (file_exists($fullPath)) {
+                    $extractedRaw = PdfExtractor::extractTextFromFile($fullPath);
+                    if ($extractedRaw && !PdfExtractor::isGarbledText($extractedRaw)) {
+                        $cvTextToUse = $extractedRaw;
+                    } else {
+                        $cvTextToUse = "Candidate resume text extracted from document.";
+                    }
+                }
+            } else if (!empty($cvTextToUse)) {
+                $cvTextToUse = PdfExtractor::cleanExtractedCvText($cvTextToUse);
+                if (empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) {
                     $cvTextToUse = "Candidate resume text extracted from document.";
                 }
-            }
-        } else if (!empty($cvTextToUse)) {
-            $cvTextToUse = PdfExtractor::cleanExtractedCvText($cvTextToUse);
-            if (empty($cvTextToUse) || PdfExtractor::isGarbledText($cvTextToUse)) {
-                $cvTextToUse = "Candidate resume text extracted from document.";
             }
         }
         $item['cv_text'] = $cvTextToUse;
@@ -2414,11 +2430,26 @@ function handleListExtractions()
             $item['skills_metadata'],
             $item['salary_expectation']
         );
-        $item['match_score'] = $calculatedScore;
-        $item['score'] = $calculatedScore;
+        $meta = !empty($item['skills_metadata']) ? (is_array($item['skills_metadata']) ? $item['skills_metadata'] : json_decode($item['skills_metadata'], true)) : null;
+        if (!empty($meta) && isset($meta['ai_match_score']) && is_numeric($meta['ai_match_score'])) {
+            $effectiveScore = (int)$meta['ai_match_score'];
+        } else {
+            $effectiveScore = computeCandidateMatchScore(
+                $item,
+                $item['qualification'],
+                $item['overall_experience'],
+                $item['relevant_experience'],
+                $cvTextToUse,
+                $item['tags'],
+                $item['skills_metadata'],
+                $item['salary_expectation']
+            );
+        }
+        $item['match_score'] = $effectiveScore;
+        $item['score'] = $effectiveScore;
 
         $isManual = (isset($item['is_manual_extracted']) && ($item['is_manual_extracted'] == 1 || $item['is_manual_extracted'] === '1'));
-        $isLowMatch = ($calculatedScore < $minMedium);
+        $isLowMatch = ($effectiveScore < $minMedium);
 
         if ($isManual) {
             $effectiveStatus = 'extracted';
@@ -2434,12 +2465,14 @@ function handleListExtractions()
                 $cvFilePath = UPLOAD_DIR . $item['cv_path'];
                 if (file_exists($cvFilePath)) {
                     $extractedCvText = PdfExtractor::extractTextFromFile($cvFilePath) ?: "CV text content extracted.";
-                    $parsedData = PdfExtractor::parseCvDataWithAI($extractedCvText, $item, $item);
+                    $parsedData = PdfExtractor::parseCvDataWithAI($extractedCvText, $item, $item, $cvFilePath);
                     $jsonExtractedData = json_encode($parsedData);
 
                     $skillsMetadataArr = [
                         'ai_match_score' => $parsedData['ai_match_score'] ?? $calculatedScore,
                         'ai_match_reason' => $parsedData['ai_match_reason'] ?? '',
+                        'is_job_mismatch' => $parsedData['is_job_mismatch'] ?? false,
+                        'mismatch_reason' => $parsedData['mismatch_reason'] ?? '',
                         'ai_score_breakdown' => $parsedData['ai_score_breakdown'] ?? [],
                         'skills_analysis' => $parsedData['skills_analysis'] ?? [],
                         'fully_demonstrated_skills' => $parsedData['fully_demonstrated_skills'] ?? [],
@@ -2461,10 +2494,11 @@ function handleListExtractions()
                     }
                     $tagsStr = implode(', ', array_unique($allSkillsList));
 
+                    $cvTextToSave = !empty($parsedData['extracted_full_text']) ? $parsedData['extracted_full_text'] : $extractedCvText;
                     $upd = $db->prepare("UPDATE applications SET cv_text = ?, extraction_status = 'extracted', extracted_at = NOW(), extracted_data = ?, skills_metadata = ?, tags = CASE WHEN ? != '' THEN ? ELSE tags END WHERE id = ?");
-                    $upd->execute([$extractedCvText, $jsonExtractedData, $jsonSkillsMetadata, $tagsStr, $tagsStr, $item['id']]);
+                    $upd->execute([$cvTextToSave, $jsonExtractedData, $jsonSkillsMetadata, $tagsStr, $tagsStr, $item['id']]);
 
-                    $item['cv_text'] = $extractedCvText;
+                    $item['cv_text'] = $cvTextToSave;
                     $item['extracted_data'] = json_decode($jsonExtractedData, true);
                     $item['skills_metadata'] = $jsonSkillsMetadata;
                     $item['tags'] = $tagsStr ?: $item['tags'];
@@ -2477,7 +2511,7 @@ function handleListExtractions()
         if ($effectiveStatus === 'unextracted' && !$isManual) {
             $item['cv_text'] = null;
             $item['extracted_data'] = null;
-            $item['skills_metadata'] = null;
+            // Retain $item['skills_metadata'] so that Gemini AI match score, breakdown, and mismatch reasons are accessible to frontend
             $item['tags'] = '';
         }
 
@@ -2546,13 +2580,13 @@ function handleExtractCV()
     foreach ($ids as $id) {
         if ($id <= 0) continue;
 
-        $stmt = $db->prepare("SELECT a.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
+        $stmt = $db->prepare("SELECT a.*, v.*, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation FROM applications a JOIN vacancies v ON a.vacancy_id = v.id WHERE a.id = ?");
         $stmt->execute([$id]);
         $app = $stmt->fetch();
         if (!$app) continue;
 
-        $cvFilePath = UPLOAD_DIR . $app['cv_path'];
-        $cvText = PdfExtractor::extractTextFromFile($cvFilePath);
+        $cvFilePath = (!empty($app['cv_path']) && file_exists(UPLOAD_DIR . $app['cv_path'])) ? (UPLOAD_DIR . $app['cv_path']) : null;
+        $cvText = $cvFilePath ? PdfExtractor::extractTextFromFile($cvFilePath) : '';
         if (!$cvText || strlen(trim($cvText)) < 30 || PdfExtractor::isGarbledText($cvText)) {
             $cvText = "CANDIDATE RESUME PROFILE\n"
                     . "Name: " . trim(($app['first_name'] ?? '') . " " . ($app['last_name'] ?? '')) . "\n"
@@ -2561,17 +2595,57 @@ function handleExtractCV()
                     . "Qualification: " . ($app['qualification'] ?? '') . "\n"
                     . "Overall Experience: " . ($app['overall_experience'] ?? '') . "\n"
                     . "Relevant Experience: " . ($app['relevant_experience'] ?? '') . "\n"
-                    . "Target Vacancy: " . ($app['vacancy_title'] ?? 'Position') . "\n"
+                    . "Target Vacancy: " . ($app['vacancy_title'] ?? ($app['title'] ?? 'Position')) . "\n"
                     . "Salary Expectation: " . (!empty($app['salary_expectation']) ? "LKR {$app['salary_expectation']}" : 'Not specified');
         }
 
-        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $app, $app);
+        $vacancyData = [
+            'id' => $app['vacancy_id'],
+            'title' => $app['vacancy_title'] ?: ($app['title'] ?? 'Open Position'),
+            'vacancy_title' => $app['vacancy_title'] ?: ($app['title'] ?? 'Open Position'),
+            'designation' => $app['designation'] ?? '',
+            'min_experience' => $app['min_experience'] ?? '0 years',
+            'min_relevant_experience' => $app['min_relevant_experience'] ?? '0 years',
+            'min_salary' => $app['min_salary'] ?? '',
+            'max_salary' => $app['max_salary'] ?? '',
+            'required_skills' => $app['vacancy_required_skills'] ?: ($app['required_skills'] ?? ''),
+            'description' => $app['vacancy_description'] ?: ($app['description'] ?? ''),
+            'requirements' => $app['vacancy_requirements'] ?: ($app['requirements'] ?? '')
+        ];
+
+        $candData = [
+            'salary_expectation' => $app['salary_expectation'] ?? '',
+            'overall_experience' => $app['overall_experience'] ?? '',
+            'relevant_experience' => $app['relevant_experience'] ?? '',
+            'qualification' => $app['qualification'] ?? ''
+        ];
+
+        // Trigger Google Gemini AI model to evaluate candidate against target vacancy
+        $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancyData, $candData, $cvFilePath);
         $jsonExtractedData = json_encode($parsedData);
 
-        // Construct skills_metadata array from AI evaluation report
+        // Derive authoritative AI Match Score and breakdown
+        $aiScore = null;
+        if (!empty($parsedData) && isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
+            $aiScore = min(100, max(0, (int)$parsedData['ai_match_score']));
+        }
+        if ($aiScore === null && !empty($app['skills_metadata'])) {
+            $prevMeta = is_array($app['skills_metadata']) ? $app['skills_metadata'] : json_decode($app['skills_metadata'], true);
+            if (!empty($prevMeta['ai_match_score']) && is_numeric($prevMeta['ai_match_score'])) {
+                $aiScore = (int)$prevMeta['ai_match_score'];
+            }
+        }
+        if ($aiScore === null) {
+            $aiScore = computeCandidateMatchScore($vacancyData, $app['qualification'], $app['overall_experience'], $app['relevant_experience'], $cvText, $app['tags'], null, $app['salary_expectation']);
+        }
+
+        // Construct skills_metadata array from Gemini AI evaluation report
         $skillsMetadataArr = [
-            'ai_match_score' => $parsedData['ai_match_score'] ?? null,
+            'ai_match_score' => $aiScore,
             'ai_match_reason' => $parsedData['ai_match_reason'] ?? '',
+            'is_unextracted' => false,
+            'is_job_mismatch' => $parsedData['is_job_mismatch'] ?? false,
+            'mismatch_reason' => $parsedData['mismatch_reason'] ?? '',
             'ai_score_breakdown' => $parsedData['ai_score_breakdown'] ?? [],
             'skills_analysis' => $parsedData['skills_analysis'] ?? [],
             'fully_demonstrated_skills' => $parsedData['fully_demonstrated_skills'] ?? [],
@@ -2618,8 +2692,9 @@ function handleExtractCV()
             relevant_experience = CASE WHEN ? != '' THEN ? ELSE relevant_experience END
             WHERE id = ?");
 
+        $fullParsedText = !empty($parsedData['extracted_full_text']) ? $parsedData['extracted_full_text'] : $cvText;
         $updateStmt->execute([
-            $cvText,
+            $fullParsedText,
             $jsonExtractedData,
             $jsonSkillsMetadata,
             $tagsStr, $tagsStr,
@@ -2644,7 +2719,10 @@ function handleExtractCV()
             'is_manual_extracted' => 1,
             'extracted_data' => $parsedData,
             'skills_metadata' => $jsonSkillsMetadata,
-            'tags' => $tagsStr
+            'tags' => $tagsStr,
+            'cv_text' => $fullParsedText,
+            'match_score' => $aiScore,
+            'score' => $aiScore
         ]);
     }
 
