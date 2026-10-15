@@ -410,7 +410,8 @@ const extractFullQualificationsFromCVText = (cvText, fallbackQual, existingQuals
     if (Array.isArray(existingQuals) && existingQuals.length > 0) {
         existingQuals.forEach(q => {
             if (q && typeof q === 'string') {
-                const trimmed = q.trim();
+                let trimmed = q.trim();
+                trimmed = trimmed.replace(/^[\s,.:| -]+|[\s,.:| -]+$/g, '');
                 const lw = trimmed.toLowerCase();
                 if (trimmed.length > 8 && !['master', 'bachelor', 'diploma', 'hnd', 'msc', 'bsc', 'phd', 'mba'].includes(lw)) {
                     result.push(trimmed);
@@ -422,25 +423,27 @@ const extractFullQualificationsFromCVText = (cvText, fallbackQual, existingQuals
     if (cvText && typeof cvText === 'string') {
         const lines = cvText.split('\n');
         const qualPatterns = [
-            /(?:Bachelor[s]?|B\.?Sc\.?|B\.?A\.?|B\.?Com\.?|B\.?B\.?A\.?|B\.?I\.?C\.?T\.?|B\.?Tech\.?)(?:\s*\(Hons\))?(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
-            /(?:Master[s]?|M\.?Sc\.?|M\.?A\.?|M\.?B\.?A\.?|M\.?Com\.?|M\.?Tech\.?)(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
-            /(?:Diploma|Higher National Diploma|HND|Post\s*Graduate\s*Diploma|PG\s*Diploma|Advanced\s*Diploma)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
-            /(?:Doctorate|Ph\.?D\.?)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
-            /(?:CIMA|ACCA|AAT|CA\s+Sri\s+Lanka|ICASL|CMA\s+Sri\s+Lanka)(?:\s+(?:Passed\s+Finalist|Finalist|Member|Affiliate|Strategic\s+Level|Operational\s+Level|Executive\s+Level|Passed|Qualified))?/i,
+            /\b(?:Bachelor[s]?|B\.?Sc\.?|B\.?A\.?|B\.?Com\.?|B\.?B\.?A\.?|B\.?I\.?T\.?|BIT|B\.?I\.?C\.?T\.?|B\.?Tech\.?)(?:\s*\(Hons\))?(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /\b(?:Master[s]?|M\.?Sc\.?|M\.?A\.?|M\.?B\.?A\.?|M\.?Com\.?|M\.?Tech\.?)(?:\s+of|\s+in)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /\b(?:Higher National Diploma|HND|Post\s*Graduate\s*Diploma|PG\s*Diploma|Advanced\s*Diploma|National\s*Diploma|Diploma)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /\b(?:Doctorate|Ph\.?D\.?)(?:\s+in|\s+of)?\s+[A-Za-z0-9\s&().,'"-]{3,60}/i,
+            /\b(?:CIMA|ACCA|AAT|CA\s+Sri\s+Lanka|ICASL|CMA\s+Sri\s+Lanka)(?:\s+(?:Passed\s+Finalist|Finalist|Member|Affiliate|Strategic\s+Level|Operational\s+Level|Executive\s+Level|Passed|Qualified))?/i,
         ];
 
         lines.forEach(line => {
             const trimmedLine = line.trim();
             if (!trimmedLine) return;
             if (/^(?:EDUCATIONAL|ACADEMIC|PROFESSIONAL)\s+(?:QUALIFICATIONS|BACKGROUND|EDUCATION)$/i.test(trimmedLine)) return;
+            if (/\b(?:graduate with|years of|practical experience|seeking|experienced in|proficient in)\b/i.test(trimmedLine)) return;
 
             qualPatterns.forEach(pattern => {
                 const match = trimmedLine.match(pattern);
                 if (match) {
                     let cleaned = match[0].trim();
+                    cleaned = cleaned.replace(/\s*\(\s*\d{4}(?:\s*[-–]\s*\d{4}|\s*[-–]\s*Present)?\s*\).*$/i, '');
+                    cleaned = cleaned.replace(/\s*[-–]\s*\d{4}(?:\s*[-–]\s*\d{4}|\s*[-–]\s*Present)?.*$/i, '');
                     cleaned = cleaned.replace(/\s*[-–|@,]\s*(?:University|Institute|College|Campus|Sri Lanka|UK|USA|\d{4}).*$/i, '');
-                    cleaned = cleaned.replace(/\s*\(\d{4}(?:\s*-\s*\d{4}|\s*-\s*Present)?\).*$/i, '');
-                    cleaned = cleaned.replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+                    cleaned = cleaned.replace(/^[\s,.:| -]+|[\s,.:| -]+$/g, '');
 
                     const lw = cleaned.toLowerCase();
                     if (lw === 'master') cleaned = "Master's Degree";
@@ -477,18 +480,21 @@ const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
     if (Array.isArray(existingCerts) && existingCerts.length > 0) {
         existingCerts.forEach(c => {
             if (c && typeof c === 'string' && c.trim().length >= 3) {
-                result.push(c.trim());
+                let cleaned = c.trim().replace(/^[\s,.:| -]+|[\s,.:| -]+$/g, '');
+                if (cleaned.length >= 3) result.push(cleaned);
             }
         });
     }
 
     if (cvText && typeof cvText === 'string') {
         const certPatterns = [
+            /(?:Following\s+)?(?:AZ-\d+|MS-\d+|SC-\d+)(?:\s*[\/&,]\s*(?:Following\s+)?(?:AZ-\d+|MS-\d+|SC-\d+))*/gi,
+            /(?:Following\s+)?(?:CCNA|CCNP|CCIE)(?:\s+[0-9]{3}-[0-9]{3})?/gi,
             /(?:AWS|Amazon Web Services)\s+(?:Certified\s+)?[A-Za-z0-9\s-]{3,40}/gi,
             /(?:PMP|Project Management Professional)/gi,
             /(?:Certified Scrum Master|Scrum Master|CSM)/gi,
-            /(?:Microsoft Certified|MCSE|MCSA|AZ-\d+|MS-\d+)[A-Za-z0-9\s-]{0,30}/gi,
-            /(?:Cisco Certified|CCNA|CCNP|CCIE)/gi,
+            /(?:Microsoft Certified|MCSE|MCSA)[A-Za-z0-9\s-]{0,30}/gi,
+            /(?:Cisco Certified)/gi,
             /(?:ITIL(?:\s+Foundation)?)/gi,
             /(?:Google Analytics Certified|Google Ads Certified)/gi,
             /(?:ISO \d+(?:\s*Lead Auditor)?|HACCP|GMP)/gi,
@@ -500,7 +506,7 @@ const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
             const matches = cvText.match(pat);
             if (matches) {
                 matches.forEach(m => {
-                    let cleaned = m.trim().replace(/^[\s,.-|:]+|[\s,.-|:]+$/g, '');
+                    let cleaned = m.trim().replace(/^[\s,.:| -]+|[\s,.:| -]+$/g, '');
                     if (cleaned.length >= 3 && !result.some(r => r.toLowerCase() === cleaned.toLowerCase())) {
                         result.push(cleaned);
                     }
@@ -1440,7 +1446,22 @@ function Applicants({ admin }) {
             if (filters.sortBy === 'matchScore') {
                 const aScore = calculateMatchScore(a).score;
                 const bScore = calculateMatchScore(b).score;
-                return bScore - aScore;
+                if (bScore !== aScore) {
+                    return bScore - aScore;
+                }
+                const expMap = {
+                    '10+ years': 7, '8-10 years': 6, '5-7 years': 5,
+                    '3-4 years': 4, '1-2 years': 3, '0-1 years': 2, '0 years': 1
+                };
+                const aRel = expMap[a.relevant_experience] || 0;
+                const bRel = expMap[b.relevant_experience] || 0;
+                if (bRel !== aRel) return bRel - aRel;
+
+                const aExp = expMap[a.overall_experience] || 0;
+                const bExp = expMap[b.overall_experience] || 0;
+                if (bExp !== aExp) return bExp - aExp;
+
+                return new Date(b.applied_at) - new Date(a.applied_at);
             }
 
             if (filters.sortBy === 'highExperience' || filters.sortBy === 'lowExperience') {
@@ -1551,6 +1572,34 @@ function Applicants({ admin }) {
                                     <FiX size={14} />
                                 </button>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Position Filter Dropdown next to Search */}
+                    <div className="filter-position-wrapper">
+                        <div className={`top-position-box ${filters.vacancy_id ? 'has-selected' : ''}`}>
+                            <FiBriefcase className="top-position-icon" />
+                            <select
+                                id="top_vacancy_filter"
+                                name="top_vacancy_id"
+                                aria-label="Filter by position"
+                                value={filters.vacancy_id}
+                                onChange={(e) => {
+                                    const newVacId = e.target.value;
+                                    setFilters(prev => ({
+                                        ...prev,
+                                        vacancy_id: newVacId,
+                                        sortBy: newVacId ? 'matchScore' : 'highExperience'
+                                    }));
+                                }}
+                            >
+                                <option value="">All Positions ({vacancies.length})</option>
+                                {vacancies.map(v => (
+                                    <option key={v.id} value={v.id}>
+                                        {v.title} {v.company_name ? `(${v.company_name})` : ''}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

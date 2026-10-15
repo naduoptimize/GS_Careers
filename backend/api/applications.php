@@ -450,13 +450,17 @@ function handleAiParseCv()
 
     $vacancyId = (int)($_POST['vacancy_id'] ?? ($_GET['vacancy_id'] ?? 0));
     $cvText = $_POST['cv_text'] ?? '';
+    $fileName = $_POST['file_name'] ?? '';
+    $tempPath = null;
 
     // If a CV file is uploaded in this request:
     if (isset($_FILES['cv']) && $_FILES['cv']['error'] === UPLOAD_ERR_OK) {
         $tempPath = $_FILES['cv']['tmp_name'];
-        $extractedFromFile = PdfExtractor::extractTextFromFile($tempPath);
-        if (!empty($extractedFromFile) && strlen(trim($extractedFromFile)) >= 20) {
-            $cvText = $extractedFromFile;
+        if (empty(trim($cvText))) {
+            $extractedFromFile = PdfExtractor::extractTextFromFile($tempPath);
+            if (!empty($extractedFromFile) && strlen(trim($extractedFromFile)) >= 20) {
+                $cvText = $extractedFromFile;
+            }
         }
     }
 
@@ -476,7 +480,8 @@ function handleAiParseCv()
         'salary_expectation' => $_POST['salary_expectation'] ?? null,
         'overall_experience' => $_POST['overall_experience'] ?? null,
         'relevant_experience' => $_POST['relevant_experience'] ?? null,
-        'qualification' => $_POST['qualification'] ?? null
+        'qualification' => $_POST['qualification'] ?? null,
+        'file_name' => $fileName
     ];
 
     // Call AI model (with multi-provider fallback) to evaluate against the target job

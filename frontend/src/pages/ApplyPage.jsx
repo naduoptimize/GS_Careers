@@ -380,6 +380,8 @@ function ApplyPage() {
 
     const [parsing, setParsing] = useState(false);
     const [parsingProgress, setParsingProgress] = useState(0);
+    const [isAiRefining, setIsAiRefining] = useState(false);
+    const [aiVerified, setAiVerified] = useState(false);
 
     useEffect(() => {
         console.log("George Steuart AI PDFJS Integration Status:", !!window.pdfjsLib);
@@ -1048,9 +1050,38 @@ function ApplyPage() {
         };
     };
 
+    const normalizeQualificationOption = (val) => {
+        if (!val) return '';
+        const s = val.toLowerCase().trim();
+        if (s.includes('phd') || s.includes('doctorate') || s.includes('doctor of')) return 'PhD';
+        if (s.includes('master') || s.includes('msc') || s.includes('mba') || s.includes('mphil') || s.includes('postgraduate')) return 'Masters Degree';
+        if (s.includes('bachelor') || s.includes('bsc') || s.includes('beng') || s.includes('btech') || s.includes('bba') || s.includes('bcom') || s.includes('bit') || s.includes('bict') || s.includes('undergraduate') || s.includes('degree')) return 'Bachelors Degree';
+        if (s.includes('diploma') || s.includes('hnd') || s.includes('nvq')) return 'Diploma';
+        if (s.includes('cima') || s.includes('acca') || s.includes('aat') || s.includes('chartered') || s.includes('certification') || s.includes('certified') || s.includes('ccna') || s.includes('pmp')) return 'Professional Certification';
+        if (s.includes('advanced level') || s.includes('a/l') || s.includes('advance level')) return 'A/L';
+        if (s.includes('ordinary level') || s.includes('o/l')) return 'O/L';
+        const match = QUALIFICATION_OPTIONS.find(q => q.toLowerCase() === s);
+        return match || '';
+    };
+
+    const normalizeExperienceOption = (val) => {
+        if (!val) return '';
+        const s = val.toLowerCase().trim();
+        const match = OVERALL_EXPERIENCE_OPTIONS.find(o => o.toLowerCase() === s);
+        if (match) return match;
+        if (s.includes('10+') || s.includes('over 10') || s.includes('more than 10')) return '10+ years';
+        if (s.includes('8') || s.includes('9') || s.includes('10')) return '8-10 years';
+        if (s.includes('5') || s.includes('6') || s.includes('7')) return '5-7 years';
+        if (s.includes('3') || s.includes('4')) return '3-4 years';
+        if (s.includes('1') || s.includes('2')) return '1-2 years';
+        if (s.includes('0-1') || s.includes('months') || s.includes('intern') || s.includes('trainee')) return '0-1 years';
+        if (s.includes('0') || s.includes('fresher') || s.includes('none')) return '0 years';
+        return '';
+    };
+
     const parseResumeWithAI = async (file) => {
-        setParsing(true);
-        setParsingProgress(50);
+        setIsAiRefining(true);
+        setAiVerified(false);
 
         try {
             const text = await extractTextFromPdf(file);
@@ -1059,7 +1090,9 @@ function ApplyPage() {
             }
             setRawCvText(text);
 
-            // Fast instant local extraction (completes in < 0.2s!)
+            // 1. FAST INSTANT LOCAL EXTRACTION (<0.1s):
+            // Populates First Name, Last Name, Email, Phone, Draft Qual/Exp IMMEDIATELY into the form inputs!
+            // Candidate sees their details right away without ANY blocking screen!
             const extracted = fastExtractProfileFromText(text, file ? file.name : '');
 
             setForm(prev => ({
@@ -1068,9 +1101,9 @@ function ApplyPage() {
                 last_name: extracted.last_name || prev.last_name || '',
                 email: extracted.email || prev.email || '',
                 contact_number: extracted.contact_number || prev.contact_number || '',
-                qualification: extracted.qualification || prev.qualification || '',
-                overall_experience: extracted.overall_experience || prev.overall_experience || '',
-                relevant_experience: extracted.relevant_experience || prev.relevant_experience || '',
+                qualification: '',
+                overall_experience: '',
+                relevant_experience: '',
                 salary_expectation: extracted.salary_expectation || prev.salary_expectation || ''
             }));
 
@@ -1082,13 +1115,70 @@ function ApplyPage() {
                 setUserSkills(matched);
             }
 
-            setParsingProgress(100);
-            toast.success("✨ Personal Information & Professional Profile extracted instantly! Please review your details.", { autoClose: 3500 });
+            // 2. Authoritative Gemini AI Extraction in the background (takes ~1-2s):
+            // Refines and locks in Qualifications, Total Experience, Relevant Experience, and Verified Skills!
+            try {
+                const aiFormData = new FormData();
+                aiFormData.append('cv_text', text);
+                aiFormData.append('file_name', file ? file.name : '');
+                aiFormData.append('vacancy_id', id);
+                if (file) aiFormData.append('cv', file);
+
+                const aiResponse = await aiParseCv(aiFormData);
+                const aiData = aiResponse.data?.data || aiResponse.data;
+
+                if (aiData) {
+                    const normQual = normalizeQualificationOption(aiData.qualification) || normalizeQualificationOption(extracted.qualification);
+                    const normOverallExp = normalizeExperienceOption(aiData.overall_experience) || normalizeExperienceOption(extracted.overall_experience);
+                    const normRelExp = normalizeExperienceOption(aiData.relevant_experience) || normalizeExperienceOption(extracted.relevant_experience);
+
+                    setForm(prev => ({
+                        ...prev,
+                        first_name: aiData.first_name || prev.first_name,
+                        last_name: aiData.last_name || prev.last_name,
+                        email: aiData.email || prev.email,
+                        contact_number: aiData.contact_number || prev.contact_number,
+                        qualification: normQual || prev.qualification,
+                        overall_experience: normOverallExp || prev.overall_experience,
+                        relevant_experience: normRelExp || prev.relevant_experience,
+                        salary_expectation: (aiData.salary_expectation && aiData.salary_expectation !== 'Not specified')
+                            ? aiData.salary_expectation
+                            : prev.salary_expectation
+                    }));
+
+                    // Update skills from Gemini AI analysis
+                    if (aiData.skills_analysis && Array.isArray(aiData.skills_analysis)) {
+                        setSkillsMetadata(normalizeSkills(aiData.skills_analysis));
+                        const relevantFromAi = aiData.skills_analysis
+                            .filter(s => s.category === 'Relevant Skills' || s.verified)
+                            .map(s => s.skill);
+                        if (relevantFromAi.length > 0) {
+                            setMatchedSkills(prev => Array.from(new Set([...prev, ...relevantFromAi])));
+                            setUserSkills(prev => Array.from(new Set([...prev, ...relevantFromAi])));
+                        }
+                    }
+
+                    if (aiData.ai_match_score) {
+                        setAiAnalysis(aiData);
+                    }
+                    setAiVerified(true);
+                }
+            } catch (aiErr) {
+                console.warn("Gemini AI refinement notice (used local fallback):", aiErr);
+                setForm(prev => ({
+                    ...prev,
+                    qualification: prev.qualification || normalizeQualificationOption(extracted.qualification),
+                    overall_experience: prev.overall_experience || normalizeExperienceOption(extracted.overall_experience),
+                    relevant_experience: prev.relevant_experience || normalizeExperienceOption(extracted.relevant_experience)
+                }));
+            }
+
+            toast.success("✨ Details pre-filled instantly! Verified with Steuart AI.", { autoClose: 3500 });
         } catch (err) {
             console.error("CV parsing error:", err);
             toast.info("CV uploaded! Please review and complete your details.");
         } finally {
-            setParsing(false);
+            setIsAiRefining(false);
         }
     };
 
@@ -1970,65 +2060,89 @@ function ApplyPage() {
                             <div className="apb-card">
                                 <h2 className="apb-card-title">Your Application</h2>
 
-                                <form onSubmit={handleReview} className={parsing ? "apb-form-parsing-active" : ""}>
-
+                                <form onSubmit={handleReview}>
 
                                     {/* CV Upload at the TOP */}
                                     <div className="apb-fieldset-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                                         <span>Quick Apply: Upload Your CV</span>
                                         <span style={{ fontSize: '0.75rem', color: 'var(--gold-accent)', fontWeight: 'bold', background: 'rgba(200, 169, 81, 0.08)', padding: '3px 10px', borderRadius: '100px', border: '1px solid rgba(200,169,81,0.15)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-                                            ✨ Ollama AI Auto-Fill Enabled
+                                            ✨ Steuart AI Auto-Fill Enabled
                                         </span>
                                     </div>
-                                    <div className="apb-upload" style={{ position: 'relative', border: parsing ? '2px dashed var(--gold-accent)' : '2px dashed var(--border-light)', cursor: parsing ? 'not-allowed' : 'pointer' }} onClick={() => !parsing && document.getElementById('cv-file').click()}>
+                                    <div className="apb-upload" style={{ position: 'relative', border: form.cv ? '2px solid #bbf7d0' : '2px dashed var(--border-light)', cursor: 'pointer', background: form.cv ? '#f8fafc' : 'transparent' }} onClick={() => document.getElementById('cv-file').click()}>
                                         <input id="cv-file" type="file" accept=".pdf"
-                                            style={{ display: 'none' }} onChange={handleFileChange} disabled={parsing} />
+                                            style={{ display: 'none' }} onChange={handleFileChange} />
 
-                                        {parsing ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '100%', padding: '4px 0' }}>
-                                                <div className="spinner-small" style={{ flexShrink: 0 }}></div>
-                                                <div style={{ textAlign: 'left' }}>
-                                                    <div className="apb-upload-text" style={{ color: 'var(--gold-accent)', fontWeight: 800 }}>George Steuart AI is parsing your resume... ({parsingProgress}%)</div>
-                                                    <div className="apb-upload-hint">Extracting contact details, qualifications, experience and skill matches. Please wait.</div>
-                                                </div>
+                                        <div className={`apb-upload-icon ${form.cv ? 'has-file' : ''}`}>
+                                            {form.cv ? <FiCheck size={22} /> : <FiUpload size={22} />}
+                                        </div>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <div className="apb-upload-text">
+                                                {form.cv ? form.cv.name : 'Click here to upload your PDF CV'}
                                             </div>
-                                        ) : (
-                                            <>
-                                                <div className={`apb-upload-icon ${form.cv ? 'has-file' : ''}`}>
-                                                    {form.cv ? <FiCheck size={22} /> : <FiUpload size={22} />}
-                                                </div>
-                                                <div style={{ textAlign: 'left' }}>
-                                                    <div className="apb-upload-text">{form.cv ? form.cv.name : 'Click here to upload your PDF CV'}</div>
-                                                    <div className="apb-upload-hint">Upload a PDF resume to instantly pre-fill all form details in a single click!</div>
-                                                </div>
-                                            </>
-                                        )}
+                                            <div className="apb-upload-hint">{form.cv ? 'CV uploaded. Form pre-filled automatically! You can review or edit below.' : 'Upload a PDF resume to instantly pre-fill all form details in a single click!'}</div>
+                                        </div>
                                     </div>
 
-                                    <div style={{ display: parsing ? 'none' : 'block' }}>
-                                        {/* Personal Info */}
-                                        <div className="apb-fieldset-label">Personal Information</div>
+                                    {/* Personal Info */}
+                                    <div className="apb-fieldset-label">Personal Information</div>
                                         <div className="apb-grid2">
                                             <div className="apb-field">
-                                                <label>First Name <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiUser className="apb-ico" />
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>First Name <span className="req">*</span></span>
+                                                    {isAiRefining && !form.first_name && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
+                                                    <FiUser className="apb-ico" />
                                                     <input type="text" name="first_name" className="apb-input"
                                                         value={form.first_name} onChange={handleChange}
-                                                        placeholder="First name" required />
+                                                        placeholder={isAiRefining && !form.first_name ? 'Detecting from CV...' : 'First name'} required />
+                                                    {isAiRefining && !form.first_name && (
+                                                        <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="apb-field">
-                                                <label>Last Name <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiUser className="apb-ico" />
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Last Name <span className="req">*</span></span>
+                                                    {isAiRefining && !form.last_name && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
+                                                    <FiUser className="apb-ico" />
                                                     <input type="text" name="last_name" className="apb-input"
                                                         value={form.last_name} onChange={handleChange}
-                                                        placeholder="Last name" required />
+                                                        placeholder={isAiRefining && !form.last_name ? 'Detecting from CV...' : 'Last name'} required />
+                                                    {isAiRefining && !form.last_name && (
+                                                        <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="apb-field">
-                                                <label>Email <span className="req">*</span></label>
-                                                <div className="apb-iw">
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Email <span className="req">*</span></span>
+                                                    {isAiRefining && !form.email && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
                                                     <FiMail className="apb-ico" style={fieldErrors.email ? { color: '#ef4444' } : {}} />
                                                     <input 
                                                         type="email" 
@@ -2041,9 +2155,14 @@ function ApplyPage() {
                                                             setTouched(prev => ({ ...prev, email: true }));
                                                             setFieldErrors(prev => ({ ...prev, email: validateEmail(form.email) }));
                                                         }}
-                                                        placeholder="you@example.com" 
+                                                        placeholder={isAiRefining && !form.email ? 'Detecting from CV...' : 'you@example.com'} 
                                                         required 
                                                     />
+                                                    {isAiRefining && !form.email && (
+                                                        <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {fieldErrors.email && (
                                                     <span style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
@@ -2052,8 +2171,16 @@ function ApplyPage() {
                                                 )}
                                             </div>
                                             <div className="apb-field">
-                                                <label>Contact Number <span className="req">*</span></label>
-                                                <div className="apb-iw">
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Contact Number <span className="req">*</span></span>
+                                                    {isAiRefining && !form.contact_number && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
                                                     <FiPhone className="apb-ico" style={fieldErrors.contact_number ? { color: '#ef4444' } : {}} />
                                                     <input 
                                                         type="tel" 
@@ -2066,9 +2193,14 @@ function ApplyPage() {
                                                             setTouched(prev => ({ ...prev, contact_number: true }));
                                                             setFieldErrors(prev => ({ ...prev, contact_number: validateContactNumber(form.contact_number) }));
                                                         }}
-                                                        placeholder="+94 77 123 4567" 
+                                                        placeholder={isAiRefining && !form.contact_number ? 'Detecting from CV...' : '+94 77 123 4567'} 
                                                         required 
                                                     />
+                                                    {isAiRefining && !form.contact_number && (
+                                                        <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {fieldErrors.contact_number && (
                                                     <span style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
@@ -2082,13 +2214,27 @@ function ApplyPage() {
                                         <div className="apb-fieldset-label">Professional Profile</div>
                                         <div className="apb-grid2">
                                             <div className="apb-field">
-                                                <label>Highest Qualification <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiBookOpen className="apb-ico" />
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Highest Qualification <span className="req">*</span></span>
+                                                    {isAiRefining && !form.qualification && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
+                                                    <FiBookOpen className="apb-ico" />
                                                     <select name="qualification" className="apb-input apb-sel"
                                                         value={form.qualification} onChange={handleChange} required>
-                                                        <option value="">Select</option>
+                                                        <option value="">{isAiRefining && !form.qualification ? 'Loading...' : 'Select'}</option>
                                                         {QUALIFICATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                                                     </select>
+                                                    {isAiRefining && !form.qualification && (
+                                                        <div style={{ position: 'absolute', right: '36px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="apb-field">
@@ -2106,11 +2252,20 @@ function ApplyPage() {
                                                 </div>
                                             </div>
                                             <div className="apb-field">
-                                                <label>Total Experience <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiClock className="apb-ico" />
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Total Experience <span className="req">*</span></span>
+                                                    {isAiRefining && !form.overall_experience && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
+                                                    <FiClock className="apb-ico" />
                                                     <select name="overall_experience" className="apb-input apb-sel"
                                                         value={form.overall_experience} onChange={handleChange} required>
-                                                        <option value="">Select</option>
+                                                        <option value="">{isAiRefining && !form.overall_experience ? 'Loading...' : 'Select'}</option>
                                                         <option value="0 years">0 years (Fresher)</option>
                                                         <option value="0-1 years">0–1 years</option>
                                                         <option value="1-2 years">1–2 years</option>
@@ -2119,14 +2274,28 @@ function ApplyPage() {
                                                         <option value="8-10 years">8–10 years</option>
                                                         <option value="10+ years">10+ years</option>
                                                     </select>
+                                                    {isAiRefining && !form.overall_experience && (
+                                                        <div style={{ position: 'absolute', right: '36px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="apb-field">
-                                                <label>Relevant Experience <span className="req">*</span></label>
-                                                <div className="apb-iw"><FiClock className="apb-ico" />
+                                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>Relevant Experience <span className="req">*</span></span>
+                                                    {isAiRefining && !form.relevant_experience && (
+                                                        <span style={{ fontSize: '0.72rem', color: 'var(--crimson, #8b1a2b)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ width: '10px', height: '10px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                            Loading...
+                                                        </span>
+                                                    )}
+                                                </label>
+                                                <div className="apb-iw" style={{ position: 'relative' }}>
+                                                    <FiClock className="apb-ico" />
                                                     <select name="relevant_experience" className="apb-input apb-sel"
                                                         value={form.relevant_experience} onChange={handleChange} required>
-                                                        <option value="">Select</option>
+                                                        <option value="">{isAiRefining && !form.relevant_experience ? 'Loading...' : 'Select'}</option>
                                                         <option value="0 years">0 years (Fresher)</option>
                                                         <option value="0-1 years">0–1 years</option>
                                                         <option value="1-2 years">1–2 years</option>
@@ -2135,6 +2304,11 @@ function ApplyPage() {
                                                         <option value="8-10 years">8–10 years</option>
                                                         <option value="10+ years">10+ years</option>
                                                     </select>
+                                                    {isAiRefining && !form.relevant_experience && (
+                                                        <div style={{ position: 'absolute', right: '36px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                                                            <span style={{ width: '13px', height: '13px', border: '2px solid rgba(139,26,43,0.25)', borderTopColor: '#8b1a2b', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }}></span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -2168,7 +2342,6 @@ function ApplyPage() {
                                         >
                                             Review Application <FiChevronRight />
                                         </button>
-                                    </div>
                                 </form>
                             </div>
                         )}
@@ -2216,135 +2389,6 @@ function ApplyPage() {
                                         </span>
                                     </div>
                                 </div>
-
-                                {skillsMetadata.length > 0 && (
-                                    <div className="apb-review-block">
-                                        <div
-                                            className="apb-rev-section"
-                                            onClick={() => setReviewSkillsExpanded(v => !v)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                cursor: 'pointer',
-                                                userSelect: 'none'
-                                            }}
-                                        >
-                                            <span>AI Skills Analysis Portfolio</span>
-                                            <span style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center' }}>
-                                                {reviewSkillsExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-                                            </span>
-                                        </div>
-                                        {reviewSkillsExpanded && (
-                                            <div className="review-categorized-skills" style={{ display: 'grid', gap: '16px', marginTop: '16px' }}>
-                                                {/* Step 2 Review Tab System */}
-                                                <div className="apb-skills-tabs" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '8px', gap: '16px', flexWrap: 'wrap' }}>
-                                                    {['Relevant Skills', 'Related Skills', 'Additional Skills'].map(tabName => {
-                                                        const count = skillsMetadata.filter(item => item.category === tabName).length;
-
-                                                        const emoji = tabName === 'Relevant Skills' ? '🟢' : tabName === 'Related Skills' ? '🟡' : '🔵';
-
-                                                        return (
-                                                            <button
-                                                                key={tabName}
-                                                                type="button"
-                                                                className={`apb-tab-btn ${activeReviewTab === tabName ? 'active' : ''}`}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation(); // Prevent toggling the collapsible block
-                                                                    setActiveReviewTab(tabName);
-                                                                }}
-                                                                style={{
-                                                                    padding: '8px 12px',
-                                                                    background: 'none',
-                                                                    border: 'none',
-                                                                    borderBottom: activeReviewTab === tabName ? '3px solid var(--crimson, #8b1a2b)' : '3px solid transparent',
-                                                                    color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                    fontWeight: 700,
-                                                                    fontSize: '0.82rem',
-                                                                    cursor: 'pointer',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '6px',
-                                                                    transition: 'all 0.2s ease',
-                                                                    marginBottom: '-2px'
-                                                                }}
-                                                            >
-                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                    {emoji} {tabName}
-                                                                    <span className="apb-tooltip" onClick={(e) => {
-                                                                        e.stopPropagation(); // Prevent tab switch
-                                                                    }}>
-                                                                        ?
-                                                                        <span className="apb-tooltip-text">
-                                                                            {tabName === 'Relevant Skills' && 'Core skills directly required in the job description or essential for performing this role.'}
-                                                                            {tabName === 'Related Skills' && 'Supporting skills from the same industry/domain that add value to your profile.'}
-                                                                            {tabName === 'Additional Skills' && 'Other skills from different domains or general abilities found in your CV.'}
-                                                                        </span>
-                                                                    </span>
-                                                                </span>
-                                                                <span style={{
-                                                                    fontSize: '0.68rem',
-                                                                    background: activeReviewTab === tabName ? 'rgba(139,26,43,0.1)' : '#f1f5f9',
-                                                                    color: activeReviewTab === tabName ? 'var(--crimson, #8b1a2b)' : '#64748b',
-                                                                    padding: '1px 6px',
-                                                                    borderRadius: '100px',
-                                                                    fontWeight: 800
-                                                                }}>
-                                                                    {count}
-                                                                </span>
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                {/* Step 2 Tab Content List */}
-                                                {(() => {
-                                                    const activeSkills = skillsMetadata.filter(item => item.category === activeReviewTab);
-
-                                                    if (activeSkills.length === 0) {
-                                                        return (
-                                                            <div style={{ padding: '20px 10px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                                                No skills classified under {activeReviewTab}.
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    return (
-                                                        <div className="review-category-group" style={{ padding: '12px 16px', background: '#fcfcfd', border: '1px solid #f1f5f9', borderRadius: '12px' }}>
-                                                            <div style={{ display: 'grid', gap: '10px' }}>
-                                                                {activeSkills.map((item, idx) => {
-                                                                    const isMatched = checkSkillInCvText(item.skill, rawCvText);
-                                                                    return (
-                                                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderBottom: idx < activeSkills.length - 1 ? '1px solid #f1f5f9' : 'none', paddingBottom: idx < activeSkills.length - 1 ? '10px' : '0', paddingTop: idx > 0 ? '10px' : '0' }}>
-                                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
-                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                                                                        {item.skill}
-                                                                                    </span>
-                                                                                    {rawCvText && (
-                                                                                        <span className={`skill-match-status-badge ${isMatched ? (item.category === 'Additional Skills' ? 'unrelated' : 'matched') : 'unmatched'}`}>
-                                                                                            {isMatched ? (item.category === 'Additional Skills' ? '✓ In CV (Unrelated)' : '✓ Verified in CV') : '⚠ Not found in CV'}
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-                                                                                {item.evidence_source && (
-                                                                                    <span className="skill-source-badge">
-                                                                                        via {item.evidence_source}
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: '1.45' }}>{item.context}</p>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
 
                                 <div className="apb-disclosure" style={{ fontWeight: 700, color: '#b8860b', background: 'rgba(184,134,11,0.08)', border: '1px solid rgba(184,134,11,0.3)', borderRadius: '8px', padding: '10px 14px' }}>
                                     <FiAlertCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle', color: '#b8860b' }} />
@@ -2404,32 +2448,7 @@ function ApplyPage() {
                 </div>
             </footer>
 
-            {parsing && (
-                <div className="parsing-overlay">
-                    <div className="parsing-popup">
-                        <div className="spinner-wrapper" style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 24px' }}>
-                            <div className="spinner-large" style={{ width: '80px', height: '80px', margin: 0, borderWidth: '5px' }}></div>
-                            <div className="spinner-percentage" style={{
-                                position: 'absolute',
-                                inset: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '1.2rem',
-                                fontWeight: '850',
-                                color: 'var(--crimson, #8b1a2b)',
-                                fontFamily: 'var(--font-body)'
-                            }}>
-                                {parsingProgress}%
-                            </div>
-                        </div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', fontFamily: 'var(--font-body)' }}>George Steuart AI is reading your CV...</h3>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.5', margin: 0 }}>
-                            Extracting contact details, qualifications, experience, and skill matches. Please wait.
-                        </p>
-                    </div>
-                </div>
-            )}
+
 
             {/* ── PDPA Consent Modal ── */}
             {showPdpaModal && (

@@ -61,70 +61,146 @@ class PdfExtractor {
 
         preg_match_all('/(\d+)\s+(\d+)\s+obj([\s\S]*?)endobj/i', $rawPdf, $objMatches, PREG_SET_ORDER);
 
+        $objects = [];
         $streamObjects = [];
-        $fontCMaps = [];
+        $fontCMapsByObj = [];
+        $fontToCMapObj = [];
+        $resourceFonts = [];
         $fontEncodings = [];
-        $globalCMap = [];
 
-        foreach ($objMatches as $match) {
-            $objId = (int)$match[1];
-            $objContent = $match[3];
+        foreach ($objMatches as $m) {
+            $objId = (int)$m[1];
+            $content = $m[3];
+            $objects[$objId] = $content;
 
+            if (preg_match('/\/ToUnicode\s+(\d+)\s+0\s+R/i', $content, $tuMatch)) {
+                $fontToCMapObj[$objId] = (int)$tuMatch[1];
+            }
+
+            if (preg_match('/\/Font\s*<<([\s\S]*?)>>/i', $content, $fDictMatch)) {
+                preg_match_all('/\/([A-Za-z0-9_]+)\s+(\d+)\s+0\s+R/', $fDictMatch[1], $fontRefs, PREG_SET_ORDER);
+                foreach ($fontRefs as $fr) {
+                    $resourceFonts[$fr[1]] = (int)$fr[2];
+                }
+            }
+
+            if (preg_match('/\/Differences\s*\[\s*(.*?)\s*\]/s', $content, $diffMatch)) {
+                $fontEncodings[$objId] = self::parseDifferencesArray($diffMatch[1]);
+            }
+        }
+
+        foreach ($objects as $objId => $objContent) {
             if (preg_match('/stream[\r\n]+([\s\S]*?)endstream/i', $objContent, $sMatch)) {
                 $rawStream = $sMatch[1];
                 $decompressed = self::decompressStream($rawStream, $objContent);
 
-                $isFontFile = (bool)preg_match('/\/FontFile[23]?\b/i', $objContent) || (bool)preg_match('/\/Subtype\s*\/Image\b/i', $objContent);
                 $isCMap = strpos($decompressed, 'begincmap') !== false || strpos($decompressed, 'CIDInit') !== false;
 
                 if ($isCMap) {
                     $cMapData = self::parseToUnicodeCMap($decompressed);
-                    $fontCMaps[$objId] = $cMapData;
-                    foreach ($cMapData['map'] as $k => $v) {
-                        $globalCMap[$k] = $v;
+                    $fontCMapsByObj[$objId] = $cMapData;
+                } else {
+                    $isFontFile = (bool)preg_match('/\/FontFile[23]?\b|\/Length1\b/i', $objContent)
+                        || (bool)preg_match('/\/Subtype\s*\/Image\b/i', $objContent)
+                        || (strlen($decompressed) > 4 && (substr($decompressed, 0, 4) === "\x00\x01\x00\x00" || substr($decompressed, 0, 4) === "OTTO" || substr($decompressed, 0, 4) === "true"))
+                        || (strpos($decompressed, 'glyf') !== false && strpos($decompressed, 'head') !== false);
+
+                    if (!$isFontFile) {
+                        $streamObjects[$objId] = [
+                            'header' => $objContent,
+                            'content' => $decompressed
+                        ];
                     }
-                } else if (!$isFontFile) {
-                    $streamObjects[$objId] = [
-                        'header' => $objContent,
-                        'content' => $decompressed
-                    ];
-                }
-            } else {
-                if (preg_match('/\/Differences\s*\[\s*(.*?)\s*\]/s', $objContent, $diffMatch)) {
-                    $fontEncodings[$objId] = self::parseDifferencesArray($diffMatch[1]);
                 }
             }
         }
 
-        $textStreams = [];
+        // Link named fonts directly to their ToUnicode CMaps
+        $namedFontCMaps = [];
+        $globalCMap = [];
+        foreach ($resourceFonts as $name => $fObjId) {
+            if (isset($fontToCMapObj[$fObjId]) && isset($fontCMapsByObj[$fontToCMapObj[$fObjId]])) {
+                $cData = $fontCMapsByObj[$fontToCMapObj[$fObjId]];
+                $namedFontCMaps[$name] = $cData;
+                if (preg_match('/^F(\d+)$/i', $name, $nm)) {
+                    $namedFontCMaps[(int)$nm[1]] = $cData;
+                }
+            }
+        }
+        foreach ($fontCMapsByObj as $objId => $cData) {
+            if (!isset($namedFontCMaps[$objId])) {
+                $namedFontCMaps[$objId] = $cData;
+            }
+            foreach ($cData['map'] as $k => $v) {
+                $globalCMap[$k] = $v;
+            }
+        }
+
+        $allExtractedLines = [];
+
         foreach ($streamObjects as $objId => $stream) {
             $c = $stream['content'];
-            if (strpos($c, 'BT') !== false || strpos($c, 'Tj') !== false || strpos($c, 'TJ') !== false) {
-                $textStreams[] = $c;
+            if (strpos($c, 'BT') === false && strpos($c, 'Tj') === false && strpos($c, 'TJ') === false) {
+                continue;
             }
-        }
 
-        $fullContent = implode("\n", $textStreams);
-        if (empty(trim($fullContent))) {
-            $fullContent = $rawPdf;
-        }
+            preg_match_all('/BT[\s\r\n][\s\S]*?[\s\r\n]ET/s', $c, $btBlocks);
+            if (empty($btBlocks[0])) continue;
 
-        $extractedLines = [];
+            $streamHasTm = (bool)preg_match('/Tm[\s\r\n]/', $c);
+            $streamLines = [];
+            $curLineText = "";
+            $lastY = null;
 
-        preg_match_all('/BT[\s\r\n][\s\S]*?[\s\r\n]ET/s', $fullContent, $btBlocks);
-        if (!empty($btBlocks[0])) {
             foreach ($btBlocks[0] as $block) {
-                $linesInBlock = self::parseBtBlock($block, $fontCMaps, $globalCMap, $fontEncodings);
-                foreach ($linesInBlock as $l) {
-                    $cleanedLine = trim($l);
-                    if (strlen($cleanedLine) > 0 && !self::isGarbledText($cleanedLine)) {
-                        $extractedLines[] = $cleanedLine;
+                $tmY = 0; $tdY = 0; $hasPos = false;
+                if (preg_match('/(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+(-?[\d\.]+)\s+Tm/', $block, $tmM)) {
+                    $tmY = (float)$tmM[6];
+                    $hasPos = true;
+                }
+                if (preg_match('/(-?[\d\.]+)\s+(-?[\d\.]+)\s+T[dD]/', $block, $tdM)) {
+                    $tdY = (float)$tdM[2];
+                    $hasPos = true;
+                }
+                $effY = round(-$tdY + $tmY, 2);
+
+                $linesInBlock = self::parseBtBlock($block, $namedFontCMaps, $globalCMap, $fontEncodings);
+                $blockStr = implode(" ", $linesInBlock);
+
+                if (trim($blockStr) === '') continue;
+
+                if ($streamHasTm && $hasPos) {
+                    if ($lastY !== null && abs($effY - $lastY) > 1.5) {
+                        if (trim($curLineText) !== '' && !self::isGarbledText($curLineText)) {
+                            $streamLines[] = trim($curLineText);
+                        }
+                        $curLineText = $blockStr;
+                    } else {
+                        if (strlen($curLineText) > 0 && substr($curLineText, -1) !== ' ' && substr($blockStr, 0, 1) !== ' ') {
+                            $curLineText .= ' ' . $blockStr;
+                        } else {
+                            $curLineText .= $blockStr;
+                        }
+                    }
+                    $lastY = $effY;
+                } else {
+                    foreach ($linesInBlock as $l) {
+                        $cl = trim($l);
+                        if (strlen($cl) > 0 && !self::isGarbledText($cl)) {
+                            $streamLines[] = $cl;
+                        }
                     }
                 }
             }
+
+            if (trim($curLineText) !== '' && !self::isGarbledText($curLineText)) {
+                $streamLines[] = trim($curLineText);
+            }
+
+            $allExtractedLines = array_merge($allExtractedLines, $streamLines);
         }
 
-        $text = self::cleanExtractedCvText(implode("\n", $extractedLines));
+        $text = self::cleanExtractedCvText(implode("\n", $allExtractedLines));
 
         if (trim($text) !== '' && strlen($text) >= 15 && !self::isGarbledText($text)) {
             return trim($text);
@@ -159,7 +235,10 @@ class PdfExtractor {
     private static function decompressStream($rawStream, $header) {
         $str = $rawStream;
 
-        if (strpos($rawStream, '~>') !== false || preg_match('/ASCII85Decode/i', $header)) {
+        // ONLY attempt ASCII85 decode if explicitly declared in the stream filter header
+        // or if it strictly starts with <~ and ends with ~> (standard PDF ASCII85 wrapper)
+        if (preg_match('/\/Filter\s*(\[[^\]]*\/ASCII85Decode|\/ASCII85Decode|\/A85\b)/i', $header) || 
+            (substr(ltrim($rawStream), 0, 2) === '<~' && substr(rtrim($rawStream), -2) === '~>')) {
             $asciiDec = self::decodeASCII85($rawStream);
             if (!empty($asciiDec)) $str = $asciiDec;
         }
@@ -189,6 +268,9 @@ class PdfExtractor {
                 if (isset($fontCMaps[$fNum])) {
                     $currentCMap = $fontCMaps[$fNum]['map'];
                     $currentCodeSize = $fontCMaps[$fNum]['code_size'];
+                } else if (isset($fontCMaps["F$fNum"])) {
+                    $currentCMap = $fontCMaps["F$fNum"]['map'];
+                    $currentCodeSize = $fontCMaps["F$fNum"]['code_size'];
                 } else if (isset($fontCMaps[$fNum * 2])) {
                     $currentCMap = $fontCMaps[$fNum * 2]['map'];
                     $currentCodeSize = $fontCMaps[$fNum * 2]['code_size'];
@@ -662,7 +744,7 @@ class PdfExtractor {
 
         // Call backend AI settings to parse structured data
         $db = getDB();
-        $stmt = $db->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('ai_provider', 'gemini_api_key', 'gemini_model', 'ollama_server', 'ollama_model', 'weight_skills', 'weight_experience', 'weight_qualification', 'weight_jd_alignment', 'weight_salary')");
+        $stmt = $db->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('ai_provider', 'gemini_api_key', 'gemini_api_key_backup', 'gemini_model', 'ollama_server', 'ollama_model', 'weight_skills', 'weight_experience', 'weight_qualification', 'weight_jd_alignment', 'weight_salary')");
         $stmt->execute();
         $settings = [];
         while ($row = $stmt->fetch(PDO::FETCH_NUM)) {
@@ -670,8 +752,9 @@ class PdfExtractor {
         }
 
         $aiProvider = $settings['ai_provider'] ?? 'gemini';
-        $geminiApiKey = !empty($settings['gemini_api_key']) ? $settings['gemini_api_key'] : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
-        $geminiModel = $settings['gemini_model'] ?? 'gemini-3.8-flash';
+        $geminiApiKey = !empty($settings['gemini_api_key']) ? trim($settings['gemini_api_key']) : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
+        $geminiApiKeyBackup = !empty($settings['gemini_api_key_backup']) ? trim($settings['gemini_api_key_backup']) : '';
+        $geminiModel = $settings['gemini_model'] ?? 'gemini-2.5-flash';
         $ollamaServer = !empty($settings['ollama_server']) ? $settings['ollama_server'] : (defined('OLLAMA_SERVER') ? OLLAMA_SERVER : 'http://172.16.7.21:11434');
         $ollamaModel = !empty($settings['ollama_model']) ? $settings['ollama_model'] : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : 'qwen2.5:3b');
 
@@ -724,6 +807,7 @@ EVALUATION METHODOLOGY (RATE EACH DIMENSION 0-100 BASED ON VERIFIED CV EVIDENCE)
 2. CATEGORY B: RELEVANT EXPERIENCE MATCH (Weight: {$wExp}%):
    - Evaluate candidate's total employment experience and relevant experience in the required domain against required minimums ({$minExp} / {$minRelExp}).
    - For Trainee, Intern, or Entry-Level positions that do not require prior experience: Do NOT penalize fresh graduates for 0 years of commercial experience if the role does not require it.
+   - CRITICAL RULE FOR RELEVANT SENIORITY: Candidates with prior relevant experience in the target job domain bring exceptional value and MUST be rewarded with high/maximum experience scores (95-100%). Never penalize, downgrade, or reduce scores for a candidate being 'overqualified' as long as their experience and skills are in the relevant domain!
    - For positions requiring experienced professionals: Evaluate actual job responsibilities, employment dates, full-time/part-time roles, and track record.
    - Do not assume missing dates means zero experience if employment responsibilities are demonstrated.
    - Avoid double-counting overlapping employment periods.
@@ -816,51 +900,72 @@ Return ONLY valid JSON matching this exact schema:
 
         $json = null;
 
-        // 1. Send plain CV text parameter and Job details to Gemini AI (Pure text prompt, no PDF binary overhead)
-        if ($aiProvider === 'gemini' && !empty($geminiApiKey)) {
-            $payload = [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $prompt]
+        // 1. Send plain CV text parameter and Job details to Gemini AI with Auto-Failover to Backup Key
+        if ($aiProvider === 'gemini') {
+            $apiKeysToTry = [];
+            if (!empty($geminiApiKey)) {
+                $apiKeysToTry[] = ['key' => $geminiApiKey, 'label' => 'Primary Key'];
+            }
+            if (!empty($geminiApiKeyBackup) && $geminiApiKeyBackup !== $geminiApiKey) {
+                $apiKeysToTry[] = ['key' => $geminiApiKeyBackup, 'label' => 'Backup Key'];
+            }
+
+            if (!empty($apiKeysToTry)) {
+                $payload = [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $prompt]
+                            ]
                         ]
+                    ],
+                    'generationConfig' => [
+                        'responseMimeType' => 'application/json',
+                        'temperature' => 0.2
                     ]
-                ],
-                'generationConfig' => [
-                    'responseMimeType' => 'application/json',
-                    'temperature' => 0.2
-                ]
-            ];
+                ];
 
-            $modelsToTry = array_unique([$geminiModel, 'gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash']);
-            foreach ($modelsToTry as $mTry) {
-                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$mTry}:generateContent?key={$geminiApiKey}";
-                $ch = curl_init($url);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($payload),
-                    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                    CURLOPT_TIMEOUT => 60
-                ]);
-                $res = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                curl_close($ch);
+                $modelsToTry = array_unique([$geminiModel, 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']);
+                
+                foreach ($apiKeysToTry as $kInfo) {
+                    $currKey = $kInfo['key'];
+                    $keyLabel = $kInfo['label'];
 
-                if ($res && $httpCode === 200) {
-                    self::recordGeminiApiCall();
-                    $arr = json_decode($res, true);
-                    $txt = $arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                    if ($txt) {
-                        $clean = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($txt));
-                        $parsed = json_decode($clean, true);
-                        if (is_array($parsed) && isset($parsed['ai_match_score'])) {
-                            $json = $parsed;
-                            break;
+                    foreach ($modelsToTry as $mTry) {
+                        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$mTry}:generateContent?key={$currKey}";
+                        $ch = curl_init($url);
+                        curl_setopt_array($ch, [
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_POST => true,
+                            CURLOPT_POSTFIELDS => json_encode($payload),
+                            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                            CURLOPT_TIMEOUT => 60
+                        ]);
+                        $res = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        curl_close($ch);
+
+                        if ($res && $httpCode === 200) {
+                            self::recordGeminiApiCall();
+                            $arr = json_decode($res, true);
+                            $txt = $arr['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                            if ($txt) {
+                                $clean = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($txt));
+                                $parsed = json_decode($clean, true);
+                                if (is_array($parsed) && isset($parsed['ai_match_score'])) {
+                                    $json = $parsed;
+                                    break 2; // Success! Break out of both models and keys
+                                }
+                            }
+                        } else {
+                            error_log("Gemini ({$keyLabel}) model {$mTry} returned HTTP {$httpCode}.");
+                            // If quota or rate limit exceeded (429), or 403 / 402, break model loop immediately to switch to Backup Key
+                            if ($httpCode === 429 || $httpCode === 403 || $httpCode === 402) {
+                                error_log("Gemini ({$keyLabel}) reached quota or rate limit (HTTP {$httpCode}). Auto-failing over to next key...");
+                                break;
+                            }
                         }
                     }
-                } else {
-                    error_log("Gemini model {$mTry} returned HTTP {$httpCode}. Trying next fallback...");
                 }
             }
         }
@@ -917,8 +1022,41 @@ Return ONLY valid JSON matching this exact schema:
             ];
         }
 
+        $noEvidenceSet = [];
+        if (!empty($json['requirements_without_evidence']) && is_array($json['requirements_without_evidence'])) {
+            foreach ($json['requirements_without_evidence'] as $ne) {
+                $noEvidenceSet[strtolower(trim($ne))] = true;
+            }
+        }
+
         if (empty($json['fully_demonstrated_skills']) || !is_array($json['fully_demonstrated_skills'])) {
-            $json['fully_demonstrated_skills'] = array_map(function($s) { return $s['skill']; }, array_slice($json['skills_analysis'], 0, 4));
+            $validSkills = [];
+            if (!empty($json['skills_analysis']) && is_array($json['skills_analysis']) && empty($json['is_job_mismatch'])) {
+                foreach ($json['skills_analysis'] as $s) {
+                    $sName = trim($s['skill'] ?? '');
+                    if (empty($sName)) continue;
+                    $sLower = strtolower($sName);
+                    if (isset($s['verified']) && $s['verified'] === false) continue;
+                    if (isset($noEvidenceSet[$sLower])) continue;
+                    $validSkills[] = $sName;
+                    if (count($validSkills) >= 4) break;
+                }
+            }
+            $json['fully_demonstrated_skills'] = $validSkills;
+        } else {
+            // Sanitize existing fully_demonstrated_skills against requirements_without_evidence and verified:false
+            $json['fully_demonstrated_skills'] = array_values(array_filter($json['fully_demonstrated_skills'], function($skill) use ($noEvidenceSet, $json) {
+                $sLower = strtolower(trim($skill));
+                if (isset($noEvidenceSet[$sLower])) return false;
+                if (!empty($json['skills_analysis']) && is_array($json['skills_analysis'])) {
+                    foreach ($json['skills_analysis'] as $sa) {
+                        if (strtolower(trim($sa['skill'] ?? '')) === $sLower && isset($sa['verified']) && $sa['verified'] === false) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }));
         }
 
         // Validate AI response against CV text and sanitize hallucinations
@@ -982,7 +1120,57 @@ Return ONLY valid JSON matching this exact schema:
             }
         }
 
+        // Standardize qualification, overall_experience, and relevant_experience to portal option values
+        if (!empty($json['qualification'])) {
+            $json['qualification_verbatim'] = $json['qualification'];
+            $normTier = self::normalizeQualificationTier($json['qualification']);
+            if (!empty($normTier)) {
+                $json['qualification'] = $normTier;
+            }
+        }
+        if (!empty($json['overall_experience'])) {
+            $json['overall_experience'] = self::normalizeExperienceTier($json['overall_experience']);
+        }
+        if (!empty($json['relevant_experience'])) {
+            $json['relevant_experience'] = self::normalizeExperienceTier($json['relevant_experience']);
+        }
+
         return $json;
+    }
+
+    public static function normalizeQualificationTier($val) {
+        if (!$val) return null;
+        $s = strtolower(trim((string)$val));
+        if (preg_match('/\b(?:ph\.?d|doctorate|doctor\s+of\s+philosophy|d\.?phil)\b/i', $s)) return 'PhD';
+        if (preg_match('/\b(?:master|m\.?sc|m\.?b\.?a|m\.?phil|m\.?tech|m\.?eng|m\.?com|postgraduate)\b/i', $s)) return 'Masters Degree';
+        if (preg_match('/\b(?:bachelor|b\.?sc|b\.?eng|b\.?tech|b\.?b\.?a|b\.?com|b\.?i\.?t|bit|bict|degree|undergraduate)\b/i', $s)) return 'Bachelors Degree';
+        if (preg_match('/\b(?:diploma|hnd|higher\s+national\s+diploma|national\s+diploma|nvq)\b/i', $s)) return 'Diploma';
+        if (preg_match('/\b(?:cima|acca|aat|casl|chartered|certification|certified|ccna|pmp)\b/i', $s)) return 'Professional Certification';
+        if (preg_match('/\b(?:advanced\s+level|advance\s+level|a\/l)\b/i', $s)) return 'A/L';
+        if (preg_match('/\b(?:ordinary\s+level|o\/l)\b/i', $s)) return 'O/L';
+
+        $valid = ['PhD', 'Masters Degree', 'Bachelors Degree', 'Diploma', 'Professional Certification', 'A/L', 'O/L'];
+        foreach ($valid as $v) {
+            if (strcasecmp($v, trim((string)$val)) === 0) return $v;
+        }
+        return null;
+    }
+
+    public static function normalizeExperienceTier($val) {
+        if (!$val) return '0-1 years';
+        $valid = ['0 years', '0-1 years', '1-2 years', '3-4 years', '5-7 years', '8-10 years', '10+ years'];
+        foreach ($valid as $v) {
+            if (strcasecmp($v, trim((string)$val)) === 0) return $v;
+        }
+        $s = strtolower(trim((string)$val));
+        if (preg_match('/(?:10\+|over\s+10|more\s+than\s+10)/i', $s)) return '10+ years';
+        if (preg_match('/(?:8|9|10)/', $s)) return '8-10 years';
+        if (preg_match('/(?:5|6|7)/', $s)) return '5-7 years';
+        if (preg_match('/(?:3|4)/', $s)) return '3-4 years';
+        if (preg_match('/(?:1|2)/', $s)) return '1-2 years';
+        if (preg_match('/(?:0-1|months|intern|trainee|fresher)/i', $s)) return '0-1 years';
+        if (preg_match('/(?:0|none|no)/i', $s)) return '0 years';
+        return '0-1 years';
     }
 
     public static function computeSalaryMatchScore($salaryExpectation, $minSalary, $maxSalary) {

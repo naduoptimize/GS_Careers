@@ -53,6 +53,7 @@ function SettingsPage({ admin }) {
         // AI Settings
         ai_provider: 'ollama',
         gemini_api_key: '',
+        gemini_api_key_backup: '',
         gemini_model: 'gemini-2.5-flash',
         ollama_server: 'http://172.16.7.21:11434',
         ollama_model: 'qwen2.5:3b',
@@ -77,6 +78,8 @@ function SettingsPage({ admin }) {
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [showBackupPassword, setShowBackupPassword] = useState(false);
+    const [backupQuotaData, setBackupQuotaData] = useState(null);
     const [testRecipient, setTestRecipient] = useState('');
     const [testResult, setTestResult] = useState(null); // { success: boolean, message: string, debug: string }
     const [showDebug, setShowDebug] = useState(false);
@@ -121,11 +124,22 @@ function SettingsPage({ admin }) {
             if (res.data?.data) {
                 setQuotaData(res.data.data);
                 if (res.data.data.status === 'healthy') {
-                    toast.success('🟢 Gemini API Key is active & healthy!');
+                    toast.success('🟢 Primary Gemini API Key is active & healthy!');
                 } else if (res.data.data.is_exhausted) {
-                    toast.error(`🔴 ${res.data.data.message}`);
+                    toast.error(`🔴 Primary Key: ${res.data.data.message}`);
                 } else {
-                    toast.warning(`⚠️ ${res.data.data.message}`);
+                    toast.warning(`⚠️ Primary Key: ${res.data.data.message}`);
+                }
+            }
+
+            if (settings.gemini_api_key_backup) {
+                try {
+                    const resB = await checkGeminiQuota({ apiKey: settings.gemini_api_key_backup });
+                    if (resB.data?.data) {
+                        setBackupQuotaData(resB.data.data);
+                    }
+                } catch (bErr) {
+                    console.error('Backup quota check error:', bErr);
                 }
             }
         } catch (err) {
@@ -177,6 +191,7 @@ function SettingsPage({ admin }) {
                 
                 ai_provider: data.ai_provider || 'ollama',
                 gemini_api_key: data.gemini_api_key || '',
+                gemini_api_key_backup: data.gemini_api_key_backup || '',
                 gemini_model: data.gemini_model || 'gemini-2.5-flash',
                 ollama_server: data.ollama_server || 'http://172.16.7.21:11434',
                 ollama_model: data.ollama_model || 'qwen2.5:3b',
@@ -314,6 +329,7 @@ function SettingsPage({ admin }) {
                 email_template_vacancy_rejected_body: settings.email_template_vacancy_rejected_body,
                 ai_provider: settings.ai_provider,
                 gemini_api_key: settings.gemini_api_key,
+                gemini_api_key_backup: settings.gemini_api_key_backup,
                 gemini_model: settings.gemini_model,
                 ollama_server: settings.ollama_server,
                 ollama_model: settings.ollama_model
@@ -916,7 +932,7 @@ function SettingsPage({ admin }) {
                                             </div>
                                         </div>
                                         <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                                            Composite candidate match scores (0 – 100%) are evaluated dynamically by AI across the following 5 weighted recruitment dimensions:
+                                            Composite candidate match scores (0 – 100%) are evaluated dynamically across the following 5 weighted recruitment dimensions by the AI extraction pipeline &amp; rule calculation engine:
                                         </p>
 
                                         {/* Validation Alert when total != 100% in edit mode */}
@@ -966,7 +982,7 @@ function SettingsPage({ admin }) {
                                                     <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_skills || 0))}%`, background: '#7A1228', transition: 'width 0.2s' }}></div>
                                                 </div>
                                                 <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Overlap of candidate skills against mandatory &amp; optional vacancy criteria.
+                                                    Mandatory &amp; core skills verified against vacancy specifications with semantic synonym recognition (e.g. React.js = React, PostgreSQL = Postgres).
                                                 </span>
                                                 {isEditing && (
                                                     <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
@@ -1020,7 +1036,7 @@ function SettingsPage({ admin }) {
                                                     <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_experience || 0))}%`, background: '#0f172a', transition: 'width 0.2s' }}></div>
                                                 </div>
                                                 <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Relevant domain work history years vs minimum position requirements.
+                                                    Relevant domain work history evaluated against role seniority. Prior relevant experience is rewarded with top ranking (95–100%) for entry/trainee positions — never penalized for overqualification.
                                                 </span>
                                                 {isEditing && (
                                                     <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
@@ -1074,7 +1090,7 @@ function SettingsPage({ admin }) {
                                                     <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_qualification || 0))}%`, background: '#4f46e5', transition: 'width 0.2s' }}></div>
                                                 </div>
                                                 <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Degree level (Bachelors/Masters/PhD) &amp; relevant field specialization.
+                                                    Verified academic degree level (Bachelors/Masters/PhD), diplomas, or professional certifications (CIMA/ACCA/BIT) aligned to the job domain.
                                                 </span>
                                                 {isEditing && (
                                                     <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
@@ -1128,7 +1144,7 @@ function SettingsPage({ admin }) {
                                                     <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_jd_alignment || 0))}%`, background: '#d97706', transition: 'width 0.2s' }}></div>
                                                 </div>
                                                 <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Alignment of CV responsibilities with core role duties &amp; projects.
+                                                    Substantive semantic alignment between candidate's demonstrated project duties, daily responsibilities, and specific vacancy duties.
                                                 </span>
                                                 {isEditing && (
                                                     <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
@@ -1182,7 +1198,7 @@ function SettingsPage({ admin }) {
                                                     <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_salary || 0))}%`, background: '#16a34a', transition: 'width 0.2s' }}></div>
                                                 </div>
                                                 <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Candidate salary expectations vs allocated job vacancy budget range.
+                                                    Candidate salary expectations vs allocated job vacancy budget range (automatically redistributed across core factors if no budget is specified).
                                                 </span>
                                                 {isEditing && (
                                                     <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
@@ -1228,82 +1244,140 @@ function SettingsPage({ admin }) {
                             })()}
 
                             {/* OVERALL SCORE CALCULATION FORMULA & ENGINE CARD */}
-                            <div style={{
-                                background: '#ffffff',
-                                padding: '24px',
-                                borderRadius: '16px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
-                            }}>
-                                <h4 style={{ margin: '0 0 6px 0', fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <FiZap style={{ color: '#7A1228' }} /> Overall Score Formula &amp; Generation Pipeline
-                                </h4>
-                                <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                                    How final candidate match scores (12% – 100%) are synthesized, weighted, and calculated dynamically by the system:
-                                </p>
+                            {(() => {
+                                const wSkills = parseInt(settings.weight_skills, 10) || 35;
+                                const wExp = parseInt(settings.weight_experience, 10) || 30;
+                                const wQual = parseInt(settings.weight_qualification, 10) || 20;
+                                const wJd = parseInt(settings.weight_jd_alignment, 10) || 10;
+                                const wSal = parseInt(settings.weight_salary, 10) || 5;
 
-                                {/* MATHEMATICAL FORMULA BANNER */}
-                                <div style={{
-                                    background: '#0f172a',
-                                    color: '#f8fafc',
-                                    borderRadius: '14px',
-                                    padding: '16px 20px',
-                                    marginBottom: '16px',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.84rem',
-                                    lineHeight: '1.6',
-                                    borderLeft: '4px solid #7A1228',
-                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)'
-                                }}>
-                                    <div style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.04em' }}>
-                                        🧮 SYSTEM OVERALL SCORE FORMULA (DYNAMIC WEIGHTS)
-                                    </div>
-                                    <div style={{ color: '#38bdf8', fontWeight: 700, wordBreak: 'break-word' }}>
-                                        Overall Score = <span style={{ color: '#f43f5e' }}>(Skills Match × {settings.weight_skills}%)</span> + <span style={{ color: '#fbbf24' }}>(Experience × {settings.weight_experience}%)</span> + <span style={{ color: '#818cf8' }}>(Qualification × {settings.weight_qualification}%)</span> + <span style={{ color: '#fb923c' }}>(JD Alignment × {settings.weight_jd_alignment}%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × {settings.weight_salary}%)</span>
-                                    </div>
-                                </div>
+                                const isOllama = settings.ai_provider === 'ollama';
 
-                                {/* DUAL EVALUATION PIPELINES */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
-                                    
-                                    {/* Pipeline 1: Cloud Gemini AI */}
-                                    <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                            <span style={{ background: 'rgba(122, 18, 40, 0.1)', color: '#7A1228', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
-                                                PRIMARY ENGINE
-                                            </span>
-                                            <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Cloud Gemini AI Generation</strong>
-                                        </div>
-                                        <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
-                                            Performs deep semantic LLM analysis across full CV text, comparing candidate domain background against vacancy duties, identifying penalizable domain mismatches, and returning a normalized 0-100% composite score.
+                                return (
+                                    <div style={{
+                                        background: '#ffffff',
+                                        padding: '24px',
+                                        borderRadius: '16px',
+                                        border: '1px solid #e2e8f0',
+                                        boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
+                                    }}>
+                                        <h4 style={{ margin: '0 0 6px 0', fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <FiZap style={{ color: '#7A1228' }} /> Overall Score Formula &amp; Generation Pipeline
+                                        </h4>
+                                        <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
+                                            How final candidate match scores (0% – 100%) are synthesized, weighted, and calculated dynamically by the system:
                                         </p>
-                                    </div>
 
-                                    {/* Pipeline 2: Rule-Based Fallback */}
-                                    <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                            <span style={{ background: '#e2e8f0', color: '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
-                                                FALLBACK ENGINE
-                                            </span>
-                                            <strong style={{ fontSize: '0.88rem', color: '#0f172a' }}>Algorithmic Rule Calculation</strong>
+                                        {/* MATHEMATICAL FORMULA BANNER */}
+                                        <div style={{
+                                            background: '#0f172a',
+                                            color: '#f8fafc',
+                                            borderRadius: '14px',
+                                            padding: '18px 22px',
+                                            marginBottom: '16px',
+                                            fontFamily: 'monospace',
+                                            fontSize: '0.84rem',
+                                            lineHeight: '1.6',
+                                            borderLeft: '4px solid #7A1228',
+                                            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
+                                                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                    🧮 SYSTEM OVERALL SCORE FORMULA
+                                                </span>
+                                                <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
+                                                    TOTAL 100%
+                                                </span>
+                                            </div>
+
+                                            <div style={{ color: '#38bdf8', fontWeight: 700, wordBreak: 'break-word', fontSize: '0.86rem' }}>
+                                                Overall Score = <span style={{ color: '#f43f5e' }}>(Skills Match × {wSkills}%)</span> + <span style={{ color: '#fbbf24' }}>(Experience × {wExp}%)</span> + <span style={{ color: '#818cf8' }}>(Qualification × {wQual}%)</span> + <span style={{ color: '#fb923c' }}>(JD Alignment × {wJd}%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × {wSal}%)</span>
+                                            </div>
                                         </div>
-                                        <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
-                                            Calculates ratio of extracted mandatory skills, applies a 75% heavy weight on relevant work history, evaluates qualification field alignment factor (0.25 - 1.0), and computes salary expectation fit.
-                                        </p>
-                                    </div>
 
-                                </div>
+                                        {/* DUAL EVALUATION PIPELINES */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                            
+                                            {/* Pipeline 1: Primary AI Generation */}
+                                            <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ background: 'rgba(122, 18, 40, 0.1)', color: '#7A1228', padding: '4px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                                        PRIMARY ENGINE ({isOllama ? 'LOCAL OLLAMA' : 'CLOUD GEMINI'})
+                                                    </span>
+                                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 800 }}>
+                                                        ACTIVE
+                                                    </span>
+                                                </div>
+                                                <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
+                                                    {isOllama 
+                                                        ? `Executes on-premises private LLM inference via your local Ollama instance (${settings.ollama_server || 'http://172.16.7.21:11434'}). Semantically extracts verified skills, analyzes work history against job domain, detects role mismatches, and outputs a 0–100% composite score.`
+                                                        : 'Performs deep semantic LLM analysis across full CV text, comparing candidate domain background against vacancy duties, identifying penalizable domain mismatches, and returning an authoritative 0–100% composite score.'
+                                                    }
+                                                </p>
+                                            </div>
 
-                                {/* DOMAIN MISMATCH & CLAMPING RULES */}
-                                <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '16px', fontSize: '0.76rem', color: '#64748b' }}>
-                                    <div>
-                                        <strong>⚠️ Domain Mismatch Guard:</strong> Candidates applying outside their primary domain (e.g., HR applying for IT) automatically receive a domain conflict penalty.
+                                            {/* Pipeline 2: Redundant Backup AI Engine (Auto-Failover) */}
+                                            <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                                        AUTO-FAILOVER ENGINE (BACKUP AI KEY)
+                                                    </span>
+                                                    <span style={{ 
+                                                        background: settings.gemini_api_key_backup ? '#dcfce7' : '#f1f5f9', 
+                                                        color: settings.gemini_api_key_backup ? '#15803d' : '#64748b', 
+                                                        padding: '2px 7px', 
+                                                        borderRadius: '6px', 
+                                                        fontSize: '0.68rem', 
+                                                        fontWeight: 800 
+                                                    }}>
+                                                        {settings.gemini_api_key_backup ? 'STANDBY / READY' : 'OPTIONAL CONFIGURE'}
+                                                    </span>
+                                                </div>
+                                                <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
+                                                    High-availability redundancy. If the primary API key encounters token limits or Google rate limits (HTTP 429), CV evaluations automatically route through the backup key seamlessly to guarantee 100% pure AI score extraction.
+                                                </p>
+                                            </div>
+
+                                        </div>
+
+                                        {/* RECRUITMENT INTELLIGENCE & BUSINESS RULES */}
+                                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                                            
+                                            {/* Rule 1: Seniority & Overqualification */}
+                                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px' }}>
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    ⭐ Seniority &amp; Overqualification Merit
+                                                </div>
+                                                <div style={{ fontSize: '0.74rem', color: '#15803d', lineHeight: '1.4' }}>
+                                                    For entry-level and trainee roles, candidates with prior relevant experience or higher degrees in the target field are rewarded with top priority (95% – 100%). Overqualification in the matching domain is never penalized.
+                                                </div>
+                                            </div>
+
+                                            {/* Rule 2: Domain Conflict Guard */}
+                                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px' }}>
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#92400e', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    ⚠️ Domain Conflict Guard
+                                                </div>
+                                                <div style={{ fontSize: '0.74rem', color: '#b45309', lineHeight: '1.4' }}>
+                                                    Candidates applying outside their primary professional domain (e.g., HR background applying for Software Developer roles) are automatically flagged with a mismatch warning and receive a domain conflict penalty.
+                                                </div>
+                                            </div>
+
+                                            {/* Rule 3: Clamping & Normalization */}
+                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px' }}>
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    🔒 Score Normalization (0% – 100%)
+                                                </div>
+                                                <div style={{ fontSize: '0.74rem', color: '#475569', lineHeight: '1.4' }}>
+                                                    All composite match scores strictly range from <strong>0% to 100%</strong> based on verified document evidence, with anti-prompt-injection security safeguards.
+                                                </div>
+                                            </div>
+
+                                        </div>
+
                                     </div>
-                                    <div>
-                                        <strong>🔒 Clamping Limits:</strong> All composite scores are normalized between a minimum floor of <strong>12%</strong> and a maximum of <strong>100%</strong>.
-                                    </div>
-                                </div>
-                            </div>
+                                );
+                            })()}
 
                         </div>
                     )}
@@ -2019,9 +2093,10 @@ function SettingsPage({ admin }) {
                                         )}
                                     </div>
 
+                                    {/* Primary Key Input */}
                                     <div>
                                         <label htmlFor="gemini_api_key" style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
-                                            Google Gemini API Key
+                                            Google Gemini Primary API Key
                                         </label>
                                         <div style={{ position: 'relative' }}>
                                             <input
@@ -2041,6 +2116,41 @@ function SettingsPage({ admin }) {
                                                 style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
                                             >
                                                 {showPassword ? <FiEyeOff /> : <FiEye />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Backup / Secondary Key Input (Auto-Failover) */}
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <label htmlFor="gemini_api_key_backup" style={{ fontWeight: 700, fontSize: '0.82rem', color: '#334155' }}>
+                                                Google Gemini Backup API Key (Secondary / Auto-Failover)
+                                            </label>
+                                            <span style={{ fontSize: '0.68rem', fontWeight: 800, color: settings.gemini_api_key_backup ? '#15803d' : '#94a3b8', background: settings.gemini_api_key_backup ? '#dcfce7' : '#f1f5f9', padding: '2px 6px', borderRadius: '6px' }}>
+                                                {settings.gemini_api_key_backup ? 'AUTO-FAILOVER READY' : 'OPTIONAL'}
+                                            </span>
+                                        </div>
+                                        <span style={{ display: 'block', fontSize: '0.74rem', color: '#64748b', marginBottom: '6px' }}>
+                                            Automatically activated if the Primary Key hits daily limits or rate exhaustion (HTTP 429).
+                                        </span>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                id="gemini_api_key_backup"
+                                                name="gemini_api_key_backup"
+                                                type={showBackupPassword ? 'text' : 'password'}
+                                                value={settings.gemini_api_key_backup}
+                                                onChange={handleChange}
+                                                disabled={!isEditing}
+                                                placeholder="••••••••"
+                                                style={{ width: '100%', padding: '10px 42px 10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0', background: isEditing ? '#ffffff' : '#f8fafc', fontSize: '0.9rem' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowBackupPassword(!showBackupPassword)}
+                                                disabled={!isEditing}
+                                                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
+                                            >
+                                                {showBackupPassword ? <FiEyeOff /> : <FiEye />}
                                             </button>
                                         </div>
                                     </div>
@@ -2120,17 +2230,23 @@ function SettingsPage({ admin }) {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
                                                     <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Key Health</span>
+                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Primary Key</span>
                                                         <span style={{ display: 'block', marginTop: '2px', fontSize: '0.75rem', fontWeight: 800, color: quotaData.status === 'healthy' ? '#16a34a' : '#dc2626' }}>
                                                             {quotaData.status === 'healthy' ? '🟢 Active' : '🔴 429 Limit'}
                                                         </span>
                                                     </div>
                                                     <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                                                        <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Backup Key</span>
+                                                        <span style={{ display: 'block', marginTop: '2px', fontSize: '0.75rem', fontWeight: 800, color: settings.gemini_api_key_backup ? (backupQuotaData?.status === 'healthy' ? '#16a34a' : (backupQuotaData?.is_exhausted ? '#dc2626' : '#0284c7')) : '#94a3b8' }}>
+                                                            {settings.gemini_api_key_backup ? (backupQuotaData ? (backupQuotaData.status === 'healthy' ? '🟢 Standby' : '🔴 Limit') : '🟢 Standby') : '⚪ Not Set'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
                                                         <span style={{ display: 'block', fontSize: '0.62rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Remaining</span>
                                                         <span style={{ display: 'block', marginTop: '2px', fontSize: '0.78rem', fontWeight: 800, color: '#1e293b' }}>
-                                                            {quotaData.remaining_today} reqs
+                                                             {quotaData.remaining_today} reqs
                                                         </span>
                                                     </div>
                                                     <div style={{ background: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>

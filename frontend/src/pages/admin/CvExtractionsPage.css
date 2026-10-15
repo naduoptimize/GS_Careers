@@ -379,6 +379,73 @@ input:checked + .cve-slider:before {
     width: 100%;
 }
 
+/* Job Vacancy Filter Dropdown */
+.cve-position-filter {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 220px;
+    max-width: 320px;
+}
+
+.cve-position-icon {
+    position: absolute;
+    left: 12px;
+    color: #7A1228;
+    font-size: 0.95rem;
+    pointer-events: none;
+    opacity: 0.85;
+    z-index: 2;
+    transition: all 0.2s ease;
+}
+
+.cve-position-select {
+    width: 100%;
+    height: 38px;
+    padding: 0 32px 0 36px;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 13px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.cve-position-select:hover {
+    border-color: #94a3b8;
+}
+
+.cve-position-select:focus {
+    outline: none;
+    border-color: #7A1228;
+    box-shadow: 0 0 0 3px rgba(122, 18, 40, 0.1);
+}
+
+.cve-position-filter.has-selected .cve-position-select {
+    background-color: #fff7f8;
+    border-color: rgba(122, 18, 40, 0.35);
+    color: #7A1228;
+    font-weight: 700;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%237A1228'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+}
+
+.cve-position-filter.has-selected .cve-position-icon {
+    color: #7A1228;
+    opacity: 1;
+}
+
 .cve-btn-primary {
     background: linear-gradient(135deg, #7A1228, #941732);
     color: #ffffff;
@@ -805,6 +872,48 @@ input:checked + .cve-slider:before {
     gap: 1.15rem;
 }
 
+/* Candidate Modal Header Card & Avatar */
+.cve-candidate-modal-header-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.1rem 1.35rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.cve-candidate-modal-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #7A1228, #9b1d38);
+    color: #ffffff;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 10px rgba(122, 18, 40, 0.2);
+    flex-shrink: 0;
+}
+
+.cve-field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem 1.15rem;
+}
+
+@media (max-width: 640px) {
+    .cve-field-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .cve-detail-box {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
@@ -1055,8 +1164,8 @@ input:checked + .cve-slider:before {
 }
 
 .recruiter-report-summary {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 12px;
 }
 
@@ -1626,132 +1735,245 @@ input:checked + .cve-slider:before {
     word-break: break-word;
 }
 
-/* Modal Pre-Extraction Assessment Card */
-.cve-match-assessment-card {
-    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+/* =========================================================
+   Modal Dual-Card Assessment Layout (Left & Right Split)
+   ========================================================= */
+.cve-assessment-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.15rem;
+    margin-bottom: 1.25rem;
+    align-items: stretch;
+}
+
+@media (max-width: 860px) {
+    .cve-assessment-two-col {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cve-assessment-card {
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-left: 4px solid #7A1228;
     border-radius: 14px;
     padding: 1.1rem 1.25rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
+    transition: all 0.22s ease;
+}
+
+.cve-assessment-left {
+    border-left: 4px solid #7A1228;
+    background: linear-gradient(135deg, #fcfcfd 0%, #ffffff 100%);
+}
+
+.cve-assessment-right.is-mismatch {
+    border: 1px solid #fecdd3;
+    border-left: 4px solid #e11d48;
+    background: linear-gradient(135deg, #fff8f8 0%, #ffffff 100%);
+    box-shadow: 0 4px 15px -3px rgba(225, 29, 72, 0.05);
+}
+
+.cve-assessment-right.is-matched {
+    border: 1px solid #bbf7d0;
+    border-left: 4px solid #10b981;
+    background: linear-gradient(135deg, #f6fef9 0%, #ffffff 100%);
+    box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.05);
 }
 
 .cve-assessment-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
+    align-items: flex-start;
+    margin-bottom: 0.85rem;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.65rem;
 }
 
 .cve-overall-score-badge {
     background: rgba(122, 18, 40, 0.08);
     color: #7A1228;
     border: 1px solid rgba(122, 18, 40, 0.2);
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 20px;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 700;
+    white-space: nowrap;
 }
 
-.cve-assessment-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+/* Category Metric List (No color bars, clean text + score badge, hover reveals detail) */
+.cve-metric-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+    flex: 1;
 }
 
-@media (max-width: 640px) {
-    .cve-assessment-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.cve-metric-box {
+.cve-metric-item {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 0.85rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    padding: 0.65rem 0.85rem;
+    transition: all 0.22s ease;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-.cve-metric-title {
+.cve-metric-item:hover,
+.cve-metric-item.is-active {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.cve-metric-item-main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.82rem;
+}
+
+.cve-metric-item-label {
+    font-size: 0.83rem;
     font-weight: 700;
-    color: #334155;
-    margin-bottom: 6px;
-}
-
-.cve-progress-bg {
-    height: 7px;
-    background: #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 6px;
-}
-
-.cve-progress-bar {
-    height: 100%;
-    border-radius: 10px;
-    transition: width 0.4s ease;
-}
-
-.bg-high { background: linear-gradient(90deg, #10b981, #059669); }
-.bg-med  { background: linear-gradient(90deg, #f59e0b, #d97706); }
-.bg-low  { background: linear-gradient(90deg, #ef4444, #dc2626); }
-
-.txt-high { color: #059669; }
-.txt-med  { color: #d97706; }
-.txt-low  { color: #dc2626; }
-
-.cve-metric-sub {
-    font-size: 0.73rem;
-    color: #64748b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* AI Mismatch Reason inside Modal Assessment Card */
-.cve-assessment-mismatch-box {
-    margin-top: 1rem;
-    padding: 12px 16px;
-    background: #fff1f2;
-    border: 1.5px solid #fecdd3;
-    border-left: 5px solid #e11d48;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(225, 29, 72, 0.04);
-}
-
-.cve-assessment-mismatch-title {
+    color: #1e293b;
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: #be123c;
-    font-size: 0.88rem;
+    gap: 6px;
+}
+
+.cve-metric-score-tag {
+    font-size: 0.84rem;
     font-weight: 800;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+    padding: 2px 9px;
+    border-radius: 6px;
+    letter-spacing: -0.01em;
 }
 
-.cve-assessment-mismatch-icon {
-    color: #e11d48;
-    font-size: 1.05rem;
-    stroke-width: 2.4;
-    flex-shrink: 0;
+.cve-metric-score-tag.score-high {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
 }
 
-.cve-assessment-mismatch-desc {
-    color: #881337;
-    font-size: 0.92rem;
-    font-weight: 600;
+.cve-metric-score-tag.score-med {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+.cve-metric-score-tag.score-low {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+/* Smooth reveal of detail text on hover */
+.cve-metric-item-detail {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, margin-top 0.2s ease, padding-top 0.2s ease;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 1px dashed transparent;
+    font-size: 0.76rem;
+    color: #475569;
     line-height: 1.45;
 }
+
+.cve-metric-item:hover .cve-metric-item-detail,
+.cve-metric-item.is-active .cve-metric-item-detail {
+    max-height: 80px;
+    opacity: 1;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.cve-metric-hover-hint {
+    margin-top: 0.65rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-style: italic;
+}
+
+/* Right Card Status Pills */
+.cve-pill-warning {
+    background: #ffe4e6;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cve-pill-success {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Point-form assessment list */
+.cve-assessment-points-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.4rem 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.cve-assessment-points-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 0.81rem;
+    line-height: 1.48;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+}
+
+.cve-assessment-points-list.mismatch li {
+    background: rgba(254, 226, 226, 0.42);
+    border: 1px solid rgba(254, 202, 202, 0.65);
+    color: #7f1d1d;
+}
+
+.cve-assessment-points-list.mismatch li:hover {
+    background: rgba(254, 226, 226, 0.7);
+}
+
+.cve-assessment-points-list.matched li {
+    background: rgba(220, 252, 231, 0.42);
+    border: 1px solid rgba(187, 247, 208, 0.65);
+    color: #14532d;
+}
+
+.cve-assessment-points-list.matched li:hover {
+    background: rgba(220, 252, 231, 0.7);
+}
+
+.cve-bullet-icon {
+    font-size: 0.88rem;
+    line-height: 1.25;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
 
 
 

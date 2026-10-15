@@ -605,6 +605,35 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
         }
     }
 
+    // Seniority & Relevance Reward:
+    // If candidate has experience/qualifications in the relevant field, having MORE experience
+    // or higher qualifications than the required minimum is a distinct advantage.
+    // Overqualified candidates in the related field are never penalized and receive rightful top priority.
+    if (!details.isJobMismatch) {
+        const appExpWeight = expWeights[app.relevant_experience] || expWeights[app.overall_experience] || 0;
+        const minExpWeight = expWeights[selectedVac.min_relevant_experience] || expWeights[selectedVac.min_experience] || 5;
+
+        // If candidate's experience in the matching domain exceeds entry requirements:
+        if (appExpWeight > minExpWeight) {
+            if (appExpWeight >= 70) { // 5-7+ years
+                details.factors.experience = Math.max(details.factors.experience, 100);
+            } else if (appExpWeight >= 55) { // 3-4 years
+                details.factors.experience = Math.max(details.factors.experience, 95);
+            }
+        }
+
+        // Higher qualification (e.g. Bachelor's / Honours Degree vs Diploma/HND) in matching field:
+        if (appQualWeight >= 80) {
+            details.factors.qualification = Math.max(details.factors.qualification, 100);
+        }
+
+        // Seasoned candidates with multiple years of relevant domain skills:
+        if (appExpWeight >= 55) {
+            details.factors.skills = Math.max(details.factors.skills, 95);
+            details.factors.keyword = Math.max(details.factors.keyword, 90);
+        }
+    }
+
     const hasSalaryBudget = Boolean(minSalary || maxSalary);
     // Configured recruitment weights: Skills (35%), Experience (30%), Qualification (20%), JD Alignment (10%), Salary (5%)
     const wSkills = 35;
@@ -630,14 +659,8 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
 
     const calculatedScore = Math.min(100, Math.max(0, Math.round(finalScore)));
 
-    const backendProvidedScore = (typeof app.match_score === 'number' || (typeof app.match_score === 'string' && app.match_score !== '')) 
-        ? parseInt(app.match_score, 10) 
-        : ((typeof app.score === 'number' || (typeof app.score === 'string' && app.score !== '')) 
-            ? parseInt(app.score, 10) 
-            : (report && typeof report.ai_match_score === 'number' ? report.ai_match_score : null));
-
-    // Authoritative score from Gemini AI backend
-    const resultScore = (backendProvidedScore !== null && !isNaN(backendProvidedScore)) ? backendProvidedScore : calculatedScore;
+    // Ensure the badge score directly and consistently reflects the calculated mathematical composite of the breakdown factors
+    const resultScore = calculatedScore;
 
     if (report?.mismatch_reason && typeof report.mismatch_reason === 'string' && report.mismatch_reason.trim()) {
         details.mismatchReason = report.mismatch_reason.trim();

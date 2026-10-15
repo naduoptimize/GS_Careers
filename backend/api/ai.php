@@ -35,7 +35,7 @@ function handleParse()
 
     // Retrieve settings from database
     $db = getDB();
-    $stmt = $db->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('ai_provider', 'gemini_api_key', 'gemini_model', 'ollama_server', 'ollama_model')");
+    $stmt = $db->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('ai_provider', 'gemini_api_key', 'gemini_api_key_backup', 'gemini_model', 'ollama_server', 'ollama_model')");
     $stmt->execute();
     
     $settings = [];
@@ -44,8 +44,9 @@ function handleParse()
     }
 
     $aiProvider = $settings['ai_provider'] ?? 'ollama';
-    $geminiApiKey = !empty($settings['gemini_api_key']) ? $settings['gemini_api_key'] : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
-    $geminiModel = $settings['gemini_model'] ?? 'gemini-3.5-flash';
+    $geminiApiKey = !empty($settings['gemini_api_key']) ? trim($settings['gemini_api_key']) : (defined('GEMINI_API_KEY') ? GEMINI_API_KEY : '');
+    $geminiApiKeyBackup = !empty($settings['gemini_api_key_backup']) ? trim($settings['gemini_api_key_backup']) : '';
+    $geminiModel = $settings['gemini_model'] ?? 'gemini-2.5-flash';
     
     // Fall back to config.php constants if not found in database settings
     $defaultOllamaServer = defined('OLLAMA_SERVER') ? OLLAMA_SERVER : 'http://172.16.7.21:11434';
@@ -55,7 +56,7 @@ function handleParse()
     $ollamaModel = !empty($settings['ollama_model']) ? $settings['ollama_model'] : $defaultOllamaModel;
 
     if ($aiProvider === 'gemini') {
-        if (empty($geminiApiKey)) {
+        if (empty($geminiApiKey) && empty($geminiApiKeyBackup)) {
             jsonResponse(400, 'Google Gemini API Key is not configured. Please define it in your portal settings.');
         }
 
@@ -72,39 +73,59 @@ function handleParse()
             ]
         ];
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/{$geminiModel}:generateContent?key={$geminiApiKey}";
-        $ch = curl_init($url);
-        if ($ch === false) {
-            jsonResponse(500, "Failed to initialize curl for Google Gemini API connection.");
+        $keysToTry = [];
+        if (!empty($geminiApiKey)) $keysToTry[] = ['key' => $geminiApiKey, 'type' => 'Primary'];
+        if (!empty($geminiApiKeyBackup) && $geminiApiKeyBackup !== $geminiApiKey) $keysToTry[] = ['key' => $geminiApiKeyBackup, 'type' => 'Backup'];
+
+        $lastError = '';
+        $textResponse = '';
+
+        foreach ($keysToTry as $kIdx => $kObj) {
+            $currentKey = $kObj['key'];
+            $keyType = $kObj['type'];
+
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$geminiModel}:generateContent?key={$currentKey}";
+            $ch = curl_init($url);
+            if ($ch === false) {
+                $lastError = "Failed to initialize curl for Google Gemini API connection ({$keyType} Key).";
+                continue;
+            }
+
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($response === false) {
+                $lastError = "Gemini API connection failed ({$keyType} Key): $error";
+                continue;
+            }
+
+            if ($httpCode === 200) {
+                $data = json_decode($response, true);
+                $textResponse = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                if (!empty($textResponse)) {
+                    // Success!
+                    break;
+                }
+            } else {
+                $errData = json_decode($response, true);
+                $errMessage = $errData['error']['message'] ?? $response;
+                $lastError = "Gemini {$keyType} Key returned HTTP {$httpCode}: {$errMessage}";
+                error_log("Gemini {$keyType} Key failed (HTTP {$httpCode}). Trying backup if available...");
+            }
         }
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json'
-        ]);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($response === false) {
-            jsonResponse(500, "Gemini API connection failed: $error");
-        }
-
-        if ($httpCode !== 200) {
-            $errData = json_decode($response, true);
-            $errMessage = $errData['error']['message'] ?? $response;
-            jsonResponse(500, "Gemini API returned status $httpCode: $errMessage");
-        }
-
-        $data = json_decode($response, true);
-        $textResponse = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
         if (empty($textResponse)) {
-            jsonResponse(500, "No structured response content returned from Google Gemini API.", $data);
+            jsonResponse(500, "Gemini API error (All configured keys exhausted): " . $lastError);
         }
 
         jsonResponse(200, 'Success', [
