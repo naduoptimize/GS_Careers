@@ -1473,25 +1473,130 @@ function Applicants({ admin }) {
         }
     };
 
+    // Upgraded 4-Factor Multi-Weighted Scoring Model
+    const calculateMatchScore = (app) => {
+        return calculateCandidateMatchScore(app, vacancies);
+    };
+
     const handleExport = async () => {
         if (isExporting) return;
         setIsExporting(true);
         const toastId = toast.loading('Preparing candidate export (ranking by score)...');
         try {
-            const params = {};
-            Object.entries(filters).forEach(([k, v]) => {
-                if (v && k !== 'search') params[k] = v;
-            });
-            const res = await exportApplications(params);
+            // Prefer live filtered applications from UI state to guarantee 100% fidelity with the screen
+            let exportList = (filteredApps && filteredApps.length > 0) ? [...filteredApps] : [];
 
-            // In case backend returned a JSON error blob (e.g., 401 or 500)
-            if (res.data && res.data.type && res.data.type.includes('application/json')) {
-                const text = await res.data.text();
-                const errJson = JSON.parse(text);
-                throw new Error(errJson.message || 'Export error');
+            // If local state doesn't have applications (e.g. initial load before render), fallback to backend API
+            if (exportList.length === 0) {
+                const params = {};
+                Object.entries(filters).forEach(([k, v]) => {
+                    if (v && k !== 'search') params[k] = v;
+                });
+                const res = await exportApplications(params);
+                if (res.data && res.data.type && res.data.type.includes('application/json')) {
+                    const text = await res.data.text();
+                    const errJson = JSON.parse(text);
+                    throw new Error(errJson.message || 'Export error');
+                }
+                const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                const selectedVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id));
+                const vacSlug = selectedVac?.title ? selectedVac.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' : '';
+                a.download = `applicants_${vacSlug}${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    if (document.body.contains(a)) document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 2500);
+                toast.dismiss(toastId);
+                toast.success('Excel/CSV downloaded successfully (Ranked by Match Score)');
+                return;
             }
 
-            const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+            // Rank candidates by Match Score descending (matches UI ranking)
+            exportList.sort((a, b) => {
+                const aScore = calculateMatchScore(a)?.score ?? 0;
+                const bScore = calculateMatchScore(b)?.score ?? 0;
+                if (bScore !== aScore) return bScore - aScore;
+
+                const expMap = {
+                    '10+ years': 7, '8-10 years': 6, '5-7 years': 5,
+                    '3-4 years': 4, '1-2 years': 3, '0-1 years': 2, '0 years': 1
+                };
+                const aRel = expMap[a.relevant_experience] || 0;
+                const bRel = expMap[b.relevant_experience] || 0;
+                if (bRel !== aRel) return bRel - aRel;
+
+                const aExp = expMap[a.overall_experience] || 0;
+                const bExp = expMap[b.overall_experience] || 0;
+                if (bExp !== aExp) return bExp - aExp;
+
+                return new Date(b.applied_at) - new Date(a.applied_at);
+            });
+
+            const headers = [
+                'Rank',
+                'Match Score (%)',
+                'First Name',
+                'Last Name',
+                'Email',
+                'Contact Number',
+                'Overall Experience',
+                'Relevant Experience',
+                'Qualification',
+                'Salary Expectation',
+                'Applied Date',
+                'Vacancy',
+                'Designation',
+                'Company',
+                'Status',
+                'Rejection Reason'
+            ];
+
+            const escapeCsvCell = (val) => {
+                if (val === null || val === undefined) return '""';
+                const str = String(val).trim().replace(/"/g, '""');
+                return `"${str}"`;
+            };
+
+            const rows = exportList.map((app, index) => {
+                const scoreData = calculateMatchScore(app);
+                const scoreVal = (scoreData && typeof scoreData.score === 'number') ? scoreData.score : 0;
+
+                // Contact Number: use ="..." formula format so Excel does not convert to scientific notation (e.g. 7.18E+08)
+                const rawContact = String(app.contact_number || '').trim();
+                const contactCell = rawContact ? `="${rawContact.replace(/"/g, '""')}"` : '""';
+
+                // Applied Date: use YYYY-MM-DD format so Excel does not display ########
+                const appliedDate = app.applied_at ? String(app.applied_at).slice(0, 10) : '';
+
+                return [
+                    index + 1,
+                    `"${scoreVal}%"`,
+                    escapeCsvCell(app.first_name || ''),
+                    escapeCsvCell(app.last_name || ''),
+                    escapeCsvCell(app.email || ''),
+                    contactCell,
+                    escapeCsvCell(app.overall_experience || ''),
+                    escapeCsvCell(app.relevant_experience || ''),
+                    escapeCsvCell(app.qualification || ''),
+                    escapeCsvCell(app.salary_expectation || ''),
+                    escapeCsvCell(appliedDate),
+                    escapeCsvCell(app.vacancy_title || selVac?.title || ''),
+                    escapeCsvCell(app.designation || selVac?.designation || ''),
+                    escapeCsvCell(app.company_name || selVac?.company_name || ''),
+                    escapeCsvCell(app.status || 'pending'),
+                    escapeCsvCell(app.rejection_reason || '')
+                ].join(',');
+            });
+
+            // Prepend UTF-8 BOM so Excel opens Sinhala and Unicode cleanly
+            const csvContent = '\uFEFF' + [headers.map(h => `"${h}"`).join(','), ...rows].join('\r\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.style.display = 'none';
@@ -1685,10 +1790,7 @@ function Applicants({ admin }) {
         setInviteData({ interview_type: 'Online', interview_date: '', interview_time: '', interview_location: '', interview_location_link: '' });
     };
 
-    // Upgraded 4-Factor Multi-Weighted Scoring Model
-    const calculateMatchScore = (app) => {
-        return calculateCandidateMatchScore(app, vacancies);
-    };
+    // (calculateMatchScore is declared above)
 
     const filteredApps = applications
         .filter(app => {

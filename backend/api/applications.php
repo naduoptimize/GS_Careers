@@ -1590,7 +1590,8 @@ function exportApplications()
     $sql = "SELECT a.*, 
             v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements,
             v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience,
-            v.min_salary, v.max_salary, v.reference_number as job_ref, v.designation, c.name as company_name
+            v.min_salary, v.max_salary, v.reference_number as job_ref, v.designation, c.name as company_name,
+            v.weight_skills, v.weight_experience, v.weight_qualification, v.weight_jd_alignment, v.weight_salary
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
             JOIN companies c ON v.company_id = c.id
@@ -1645,7 +1646,61 @@ function exportApplications()
     // Compute dynamic Match Score (%) for each candidate
     foreach ($applications as &$item) {
         $meta = !empty($item['skills_metadata']) ? (is_array($item['skills_metadata']) ? $item['skills_metadata'] : json_decode($item['skills_metadata'], true)) : null;
-        if (!empty($meta) && isset($meta['ai_match_score']) && is_numeric($meta['ai_match_score'])) {
+        $effectiveScore = null;
+
+        if (!empty($meta) && isset($meta['ai_score_breakdown']) && is_array($meta['ai_score_breakdown'])) {
+            $bd = $meta['ai_score_breakdown'];
+            $skillsFactor = (int)($bd['skills_match_score'] ?? 75);
+            $expFactor = (int)($bd['experience_match_score'] ?? 75);
+            $qualFactor = (int)($bd['qualification_match_score'] ?? 75);
+            $jdFactor = (int)($bd['job_description_match_score'] ?? ($bd['jd_alignment_score'] ?? 75));
+            $salaryFactor = (int)($bd['salary_match_score'] ?? 100);
+
+            // Seniority & Relevance Reward (consistent with frontend scoreCalculator.js)
+            if (empty($meta['is_job_mismatch'])) {
+                $expWeights = [
+                    '10+ years' => 100, '8-10 years' => 85, '5-7 years' => 70,
+                    '3-4 years' => 55, '1-2 years' => 35, '0-1 years' => 15, '0 years' => 5
+                ];
+                $appExpWeight = $expWeights[$item['relevant_experience'] ?? ''] ?? ($expWeights[$item['overall_experience'] ?? ''] ?? 0);
+                $minExpWeight = $expWeights[$item['min_relevant_experience'] ?? ''] ?? ($expWeights[$item['min_experience'] ?? ''] ?? 5);
+
+                if ($appExpWeight > $minExpWeight) {
+                    if ($appExpWeight >= 70) {
+                        $expFactor = max($expFactor, 100);
+                    } else if ($appExpWeight >= 55) {
+                        $expFactor = max($expFactor, 95);
+                    }
+                }
+
+                $qualWeights = [
+                    'PhD' => 100, 'Masters Degree' => 90, 'Bachelors Degree' => 80,
+                    'Professional Certification' => 75, 'Diploma' => 65,
+                    'A/L' => 45, 'O/L' => 25
+                ];
+                $candQual = $item['qualification'] ?? '';
+                $appQualWeight = $qualWeights[$candQual] ?? 0;
+                if ($appQualWeight === 0 && preg_match('/\b(bachelor|degree|bsc|beng|bba|bcom|bit|btech|honours)\b/i', $candQual)) {
+                    $appQualWeight = 80;
+                }
+                if ($appQualWeight >= 80) {
+                    $qualFactor = max($qualFactor, 100);
+                }
+
+                if ($appExpWeight >= 55) {
+                    $skillsFactor = max($skillsFactor, 95);
+                    $jdFactor = max($jdFactor, 90);
+                }
+            }
+
+            $wSkills = !empty($item['weight_skills']) ? (float)$item['weight_skills'] / 100 : 0.35;
+            $wExp = !empty($item['weight_experience']) ? (float)$item['weight_experience'] / 100 : 0.30;
+            $wQual = !empty($item['weight_qualification']) ? (float)$item['weight_qualification'] / 100 : 0.20;
+            $wJd = !empty($item['weight_jd_alignment']) ? (float)$item['weight_jd_alignment'] / 100 : 0.10;
+            $wSal = !empty($item['weight_salary']) ? (float)$item['weight_salary'] / 100 : 0.05;
+
+            $effectiveScore = (int)round(($skillsFactor * $wSkills) + ($expFactor * $wExp) + ($qualFactor * $wQual) + ($jdFactor * $wJd) + ($salaryFactor * $wSal));
+        } elseif (!empty($meta) && isset($meta['ai_match_score']) && is_numeric($meta['ai_match_score'])) {
             $effectiveScore = (int)$meta['ai_match_score'];
         } else {
             $cvTextToUse = $item['cv_text'] ?? '';
@@ -1713,18 +1768,24 @@ function exportApplications()
 
     $rank = 1;
     foreach ($applications as $app) {
+        $contact = trim((string)($app['contact_number'] ?? ''));
+        // Excel formula format ="..." prevents numbers like +94 718... from turning into scientific notation (7.18E+08)
+        $formattedContact = !empty($contact) ? '="' . str_replace('"', '""', $contact) . '"' : '';
+        // Date format YYYY-MM-DD prevents Excel cells from rendering ########
+        $appliedDate = !empty($app['applied_at']) ? substr($app['applied_at'], 0, 10) : '';
+
         fputcsv($output, [
             $rank++,
             $app['match_score'] . '%',
             $app['first_name'],
             $app['last_name'],
             $app['email'],
-            $app['contact_number'],
+            $formattedContact,
             $app['overall_experience'],
             $app['relevant_experience'],
             $app['qualification'],
             $app['salary_expectation'],
-            $app['applied_at'],
+            $appliedDate,
             $app['vacancy_title'],
             $app['designation'],
             $app['company_name'],
