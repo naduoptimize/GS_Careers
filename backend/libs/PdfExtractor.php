@@ -758,12 +758,29 @@ class PdfExtractor {
         $ollamaServer = !empty($settings['ollama_server']) ? $settings['ollama_server'] : (defined('OLLAMA_SERVER') ? OLLAMA_SERVER : 'http://172.16.7.21:11434');
         $ollamaModel = !empty($settings['ollama_model']) ? $settings['ollama_model'] : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : 'qwen2.5:3b');
 
-        // Dynamic Authoritative Business Scoring Weights from system settings
-        $wSkills = isset($settings['weight_skills']) ? (float)$settings['weight_skills'] : 35.0;
-        $wExp = isset($settings['weight_experience']) ? (float)$settings['weight_experience'] : 30.0;
-        $wQual = isset($settings['weight_qualification']) ? (float)$settings['weight_qualification'] : 20.0;
-        $wJd = isset($settings['weight_jd_alignment']) ? (float)$settings['weight_jd_alignment'] : 10.0;
-        $wSal = isset($settings['weight_salary']) ? (float)$settings['weight_salary'] : 5.0;
+        // Dynamic Authoritative Business Scoring Weights:
+        // Prioritize Vacancy-specific custom weights if configured, otherwise fallback to global system settings
+        $hasCustomVacWeights = is_array($vacancyInfo) && (
+            (isset($vacancyInfo['weight_skills']) && $vacancyInfo['weight_skills'] !== null && $vacancyInfo['weight_skills'] !== '') ||
+            (isset($vacancyInfo['weight_experience']) && $vacancyInfo['weight_experience'] !== null && $vacancyInfo['weight_experience'] !== '') ||
+            (isset($vacancyInfo['weight_qualification']) && $vacancyInfo['weight_qualification'] !== null && $vacancyInfo['weight_qualification'] !== '') ||
+            (isset($vacancyInfo['weight_jd_alignment']) && $vacancyInfo['weight_jd_alignment'] !== null && $vacancyInfo['weight_jd_alignment'] !== '') ||
+            (isset($vacancyInfo['weight_salary']) && $vacancyInfo['weight_salary'] !== null && $vacancyInfo['weight_salary'] !== '')
+        );
+
+        if ($hasCustomVacWeights) {
+            $wSkills = (isset($vacancyInfo['weight_skills']) && $vacancyInfo['weight_skills'] !== null && $vacancyInfo['weight_skills'] !== '') ? (float)$vacancyInfo['weight_skills'] : (isset($settings['weight_skills']) ? (float)$settings['weight_skills'] : 35.0);
+            $wExp = (isset($vacancyInfo['weight_experience']) && $vacancyInfo['weight_experience'] !== null && $vacancyInfo['weight_experience'] !== '') ? (float)$vacancyInfo['weight_experience'] : (isset($settings['weight_experience']) ? (float)$settings['weight_experience'] : 30.0);
+            $wQual = (isset($vacancyInfo['weight_qualification']) && $vacancyInfo['weight_qualification'] !== null && $vacancyInfo['weight_qualification'] !== '') ? (float)$vacancyInfo['weight_qualification'] : (isset($settings['weight_qualification']) ? (float)$settings['weight_qualification'] : 20.0);
+            $wJd = (isset($vacancyInfo['weight_jd_alignment']) && $vacancyInfo['weight_jd_alignment'] !== null && $vacancyInfo['weight_jd_alignment'] !== '') ? (float)$vacancyInfo['weight_jd_alignment'] : (isset($settings['weight_jd_alignment']) ? (float)$settings['weight_jd_alignment'] : 10.0);
+            $wSal = (isset($vacancyInfo['weight_salary']) && $vacancyInfo['weight_salary'] !== null && $vacancyInfo['weight_salary'] !== '') ? (float)$vacancyInfo['weight_salary'] : (isset($settings['weight_salary']) ? (float)$settings['weight_salary'] : 5.0);
+        } else {
+            $wSkills = isset($settings['weight_skills']) ? (float)$settings['weight_skills'] : 35.0;
+            $wExp = isset($settings['weight_experience']) ? (float)$settings['weight_experience'] : 30.0;
+            $wQual = isset($settings['weight_qualification']) ? (float)$settings['weight_qualification'] : 20.0;
+            $wJd = isset($settings['weight_jd_alignment']) ? (float)$settings['weight_jd_alignment'] : 10.0;
+            $wSal = isset($settings['weight_salary']) ? (float)$settings['weight_salary'] : 5.0;
+        }
         $totalWeight = max(1.0, $wSkills + $wExp + $wQual + $wJd + $wSal);
 
         @set_time_limit(180);

@@ -102,12 +102,12 @@ function App() {
                                 {(admin.role === 'super_admin' || admin.role === 'admin') && (
                                     <>
                                         <Route path="/vacancies/reports" element={<CompanyReports admin={admin} />} />
-                                        <Route path="/companies" element={<ManageCompanies admin={admin} />} />
                                         <Route path="/admins" element={<ManageAdmins admin={admin} />} />
-                                        <Route path="/cv-extractions" element={<CvExtractionsPage admin={admin} />} />
-                                        <Route path="/settings" element={<SettingsPage admin={admin} />} />
                                     </>
                                 )}
+                                <Route path="/companies" element={<ManageCompanies admin={admin} />} />
+                                <Route path="/cv-extractions" element={<CvExtractionsPage admin={admin} />} />
+                                <Route path="/settings" element={<SettingsPage admin={admin} />} />
                                 <Route path="*" element={<Navigate to="/admin" />} />
                             </Routes>
                         </AdminLayout>

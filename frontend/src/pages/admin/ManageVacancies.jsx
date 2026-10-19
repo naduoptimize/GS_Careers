@@ -9,7 +9,7 @@ import {
     FiPlus, FiEdit2, FiTrash2, FiClock, FiUsers, FiSearch,
     FiFilter, FiTrendingUp, FiCheckCircle, FiAlertCircle, FiArrowRight, FiBriefcase, FiTarget,
     FiEye, FiMapPin, FiX, FiCheck, FiXCircle, FiFileText, FiCalendar, FiChevronLeft, FiChevronRight, FiInfo, FiActivity, FiChevronDown, FiChevronUp, FiRotateCcw,
-    FiUser, FiMail, FiPhone, FiHome, FiLayers, FiMoreVertical
+    FiUser, FiMail, FiPhone, FiHome, FiLayers, FiMoreVertical, FiSliders
 } from 'react-icons/fi';
 import './ManageVacancies.css';
 import PaginationFooter from '../../components/PaginationFooter';
@@ -1221,6 +1221,157 @@ function ManageVacancies({ admin }) {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* CANDIDATE EVALUATION & SCORING FORMULA */}
+                                        {(() => {
+                                            const wSkills = (viewDetail.weight_skills !== null && viewDetail.weight_skills !== undefined && viewDetail.weight_skills !== '') ? Number(viewDetail.weight_skills) : 35;
+                                            const wExp = (viewDetail.weight_experience !== null && viewDetail.weight_experience !== undefined && viewDetail.weight_experience !== '') ? Number(viewDetail.weight_experience) : 30;
+                                            const wQual = (viewDetail.weight_qualification !== null && viewDetail.weight_qualification !== undefined && viewDetail.weight_qualification !== '') ? Number(viewDetail.weight_qualification) : 20;
+                                            const wJd = (viewDetail.weight_jd_alignment !== null && viewDetail.weight_jd_alignment !== undefined && viewDetail.weight_jd_alignment !== '') ? Number(viewDetail.weight_jd_alignment) : 10;
+                                            const wSal = (viewDetail.weight_salary !== null && viewDetail.weight_salary !== undefined && viewDetail.weight_salary !== '') ? Number(viewDetail.weight_salary) : 5;
+                                            const isCustomWeights = (viewDetail.weight_skills !== null && viewDetail.weight_skills !== undefined && viewDetail.weight_skills !== '');
+
+                                            return (
+                                                <div className="vd-form-section">
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                                                        <h3 className="vd-form-section-title" style={{ margin: 0 }}>
+                                                            Candidate Scoring Formula &amp; Criteria
+                                                        </h3>
+                                                        <span style={{
+                                                            background: isCustomWeights ? 'rgba(217, 119, 6, 0.08)' : 'rgba(15, 23, 42, 0.05)',
+                                                            color: isCustomWeights ? '#b45309' : '#475569',
+                                                            border: isCustomWeights ? '1px solid rgba(217, 119, 6, 0.25)' : '1px solid #e2e8f0',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 800,
+                                                            padding: '3px 10px',
+                                                            borderRadius: '20px',
+                                                            letterSpacing: '0.04em',
+                                                            textTransform: 'uppercase',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px'
+                                                        }}>
+                                                            <FiSliders size={12} /> {isCustomWeights ? 'Custom Vacancy Formula' : 'Standard Formula'}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Formula Equation Banner */}
+                                                    <div style={{
+                                                        background: '#0f172a',
+                                                        borderRadius: '12px',
+                                                        padding: '14px 18px',
+                                                        marginBottom: '14px',
+                                                        borderLeft: '4px solid #7A1228',
+                                                        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.08)'
+                                                    }}>
+                                                        <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                                                            AI MATCH CALCULATION FORMULA (100% SCALE)
+                                                        </div>
+                                                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', lineHeight: '1.6', wordBreak: 'break-word' }}>
+                                                            Score = <span style={{ color: '#f87171' }}>Skills × {wSkills}%</span> + <span style={{ color: '#93c5fd' }}>Experience × {wExp}%</span> + <span style={{ color: '#c084fc' }}>Qualifications × {wQual}%</span> + <span style={{ color: '#fbbf24' }}>JD Alignment × {wJd}%</span> + <span style={{ color: '#4ade80' }}>Salary × {wSal}%</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 5 Weights Cards */}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: viewDetail.required_skills ? '14px' : '0' }}>
+                                                        
+                                                        {/* Skills */}
+                                                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>🎯 Skills</span>
+                                                                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#7A1228' }}>{wSkills}%</span>
+                                                            </div>
+                                                            <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(100, Math.max(0, wSkills))}%`, height: '100%', background: '#7A1228' }}></div>
+                                                            </div>
+                                                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Resume skill match</span>
+                                                        </div>
+
+                                                        {/* Experience */}
+                                                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>💼 Experience</span>
+                                                                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a' }}>{wExp}%</span>
+                                                            </div>
+                                                            <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(100, Math.max(0, wExp))}%`, height: '100%', background: '#0f172a' }}></div>
+                                                            </div>
+                                                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Tenure &amp; role history</span>
+                                                        </div>
+
+                                                        {/* Qualification */}
+                                                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>🎓 Qualification</span>
+                                                                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#4f46e5' }}>{wQual}%</span>
+                                                            </div>
+                                                            <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(100, Math.max(0, wQual))}%`, height: '100%', background: '#4f46e5' }}></div>
+                                                            </div>
+                                                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Degrees &amp; diplomas</span>
+                                                        </div>
+
+                                                        {/* JD Alignment */}
+                                                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>📄 JD Fit</span>
+                                                                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#d97706' }}>{wJd}%</span>
+                                                            </div>
+                                                            <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(100, Math.max(0, wJd))}%`, height: '100%', background: '#d97706' }}></div>
+                                                            </div>
+                                                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Role duties alignment</span>
+                                                        </div>
+
+                                                        {/* Salary */}
+                                                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>💵 Salary</span>
+                                                                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#16a34a' }}>{wSal}%</span>
+                                                            </div>
+                                                            <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
+                                                                <div style={{ width: `${Math.min(100, Math.max(0, wSal))}%`, height: '100%', background: '#16a34a' }}></div>
+                                                            </div>
+                                                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Budget compatibility</span>
+                                                        </div>
+
+                                                    </div>
+
+                                                    {/* Evaluated Skills Badges */}
+                                                    {viewDetail.required_skills && (
+                                                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px' }}>
+                                                            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <FiTarget size={13} style={{ color: '#7A1228' }} /> Mandatory / Evaluated Skills for this Role:
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                                {viewDetail.required_skills.split(',').map((skill, sIdx) => {
+                                                                    const trimmed = skill.trim();
+                                                                    if (!trimmed) return null;
+                                                                    return (
+                                                                        <span key={sIdx} style={{
+                                                                            background: '#ffffff',
+                                                                            color: '#0f172a',
+                                                                            fontSize: '0.75rem',
+                                                                            fontWeight: 700,
+                                                                            padding: '3px 10px',
+                                                                            borderRadius: '16px',
+                                                                            border: '1px solid #cbd5e1',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '5px',
+                                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                                                        }}>
+                                                                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#7A1228' }}></span>
+                                                                            {trimmed}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     <div className="vd-details-right">

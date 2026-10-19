@@ -98,8 +98,24 @@ function createAdmin()
     $stmt = $db->prepare("INSERT INTO admins (username, email, password, full_name, role, company_id, require_password_change) VALUES (?, ?, ?, ?, ?, ?, 1)");
     $stmt->execute([$username, $email, $hashedPassword, $fullName, $role, $companyId]);
 
+    $newAdminId = $db->lastInsertId();
+
+    // Log admin creation in audit trail
+    logSystemAudit(
+        $auth['admin_id'],
+        'user_management',
+        'create_admin',
+        'admin',
+        $newAdminId,
+        "$fullName ($username)",
+        "Created new administrative account with role: " . strtoupper(str_replace('_', ' ', $role)),
+        null,
+        ['username' => $username, 'role' => $role, 'email' => $email, 'company_id' => $companyId],
+        $companyId
+    );
+
     jsonResponse(201, 'Admin created successfully', [
-        'id' => $db->lastInsertId(),
+        'id' => $newAdminId,
         'temp_password' => $tempPassword
     ]);
 }
@@ -206,6 +222,39 @@ function updateAdmin()
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
 
+    // Audit log update
+    $oldValues = [
+        'full_name' => $currentAdmin['full_name'],
+        'role' => $currentAdmin['role'],
+        'is_active' => (int)$currentAdmin['is_active'],
+        'company_id' => $currentAdmin['company_id']
+    ];
+    $newValues = [
+        'full_name' => $fullName,
+        'role' => $role,
+        'is_active' => $isActive,
+        'company_id' => $companyId
+    ];
+    $changes = [];
+    if ($currentAdmin['role'] !== $role) $changes[] = "role ({$currentAdmin['role']} → $role)";
+    if ((int)$currentAdmin['is_active'] !== $isActive) $changes[] = "status (" . ($isActive ? 'Active' : 'Deactivated') . ")";
+    if ($currentAdmin['full_name'] !== $fullName) $changes[] = "name";
+    if ($currentAdmin['company_id'] != $companyId) $changes[] = "subsidiary";
+    $changeDesc = empty($changes) ? "Updated administrator profile" : "Updated admin: " . implode(', ', $changes);
+
+    logSystemAudit(
+        $auth['admin_id'],
+        'user_management',
+        'update_admin',
+        'admin',
+        $id,
+        "$fullName ({$currentAdmin['username']})",
+        $changeDesc,
+        $oldValues,
+        $newValues,
+        $companyId
+    );
+
     jsonResponse(200, 'Admin updated successfully');
 }
 
@@ -221,7 +270,7 @@ function deleteAdmin()
     $db = getDB();
     
     // Fetch target admin role
-    $stmt = $db->prepare("SELECT id, role, full_name FROM admins WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, role, full_name, username, company_id FROM admins WHERE id = ?");
     $stmt->execute([$id]);
     $target = $stmt->fetch();
     if (!$target) {
@@ -257,6 +306,19 @@ function deleteAdmin()
     if ($stmt->rowCount() === 0) {
         jsonResponse(400, 'Admin not found or could not be deleted');
     }
+
+    logSystemAudit(
+        $auth['admin_id'],
+        'user_management',
+        'delete_admin',
+        'admin',
+        $id,
+        "{$target['full_name']} ({$target['username']})",
+        "Permanently deleted {$target['role']} account",
+        ['role' => $target['role'], 'full_name' => $target['full_name'], 'username' => $target['username']],
+        null,
+        $target['company_id']
+    );
 
     $isSelf = ($id === (int)$auth['admin_id']);
 

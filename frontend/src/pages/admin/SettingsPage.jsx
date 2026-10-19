@@ -9,6 +9,74 @@ import {
 } from 'react-icons/fi';
 import { getSettings, saveSettings, testSmtpSettings, checkGeminiQuota } from '../../services/api';
 
+const DIMENSION_CONFIG = [
+    {
+        id: 'skills',
+        key: 'weight_skills',
+        title: 'Skills Match',
+        shortTag: 'Mandatory & optional skills',
+        icon: '🎯',
+        whatItChecks: "Compares candidate's extracted technical, functional, and specialized skills against mandatory and optional skills listed in the job vacancy.",
+        keyPoints: [
+            'Automatically detects skill synonyms and aliases (e.g., React.js = React, PostgreSQL = Postgres, Node = NodeJS).',
+            'Mandatory skills hold significantly higher score weight than preferred or optional qualifications.',
+            'Evaluates domain match and tool proficiency directly from CV work history.'
+        ]
+    },
+    {
+        id: 'experience',
+        key: 'weight_experience',
+        title: 'Work Experience',
+        shortTag: 'Work tenure & role seniority',
+        icon: '💼',
+        whatItChecks: "Evaluates total career duration, relevant industry experience, and job title progression against the role's seniority requirements.",
+        keyPoints: [
+            'Career progression and domain-specific tenure are weighted against vacancy seniority.',
+            'Entry-level applicants with prior internships or relevant projects receive top ranking (never penalized).',
+            'Consistency and continuous career growth in matching roles contribute positively.'
+        ]
+    },
+    {
+        id: 'qualification',
+        key: 'weight_qualification',
+        title: 'Qualification',
+        shortTag: 'Academic & certified credentials',
+        icon: '🎓',
+        whatItChecks: 'Validates accredited academic degrees (BSc, MSc, PhD), accredited diplomas, and recognized professional qualifications.',
+        keyPoints: [
+            'Detects global & national certifications (CIMA, ACCA, BIT, CIM, PMP, AWS, CIPM, etc.).',
+            'Degree disciplines directly matching vacancy requirements provide maximum qualification merit.',
+            'Validates verified educational institutions and recognized professional bodies.'
+        ]
+    },
+    {
+        id: 'jd_alignment',
+        key: 'weight_jd_alignment',
+        title: 'JD Alignment',
+        shortTag: 'Project work & duties relevance',
+        icon: '📄',
+        whatItChecks: "Evaluates contextual alignment between candidate's demonstrated project work, daily responsibilities, and vacancy duties.",
+        keyPoints: [
+            'Ensures candidate has hands-on practical experience executing the core tasks of the role.',
+            'Uses semantic AI analysis to match real-world project achievements with job descriptions.',
+            'Verifies practical deliverables and responsibilities rather than simple keyword matches.'
+        ]
+    },
+    {
+        id: 'salary',
+        key: 'weight_salary',
+        title: 'Salary Budget',
+        shortTag: 'Expected vs vacancy budget',
+        icon: '💵',
+        whatItChecks: "Compares candidate's expected salary against the approved vacancy budget range for the position.",
+        keyPoints: [
+            'Candidates within or below budget receive top marks; scaled fairly if slightly above.',
+            'If no salary budget is configured for a position, this weight is auto-redistributed across skills and experience.',
+            'Prevents unnecessary candidate disqualification while optimizing hiring cost.'
+        ]
+    }
+];
+
 function SettingsPage({ admin }) {
     const [activeTab, setActiveTab] = useState('score');
     const [activeEmailSubTab, setActiveEmailSubTab] = useState('candidate');
@@ -85,6 +153,18 @@ function SettingsPage({ admin }) {
     const [showDebug, setShowDebug] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [backupSettings, setBackupSettings] = useState(null);
+    const [selectedDimensionModal, setSelectedDimensionModal] = useState(null);
+
+    // Close modal on Escape key press
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setSelectedDimensionModal(null);
+        };
+        if (selectedDimensionModal) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedDimensionModal]);
 
     // Role detection (Super Admin gets full access to all 5 tabs including AI & Email Templates)
     const storedAdminData = (() => {
@@ -96,6 +176,7 @@ function SettingsPage({ admin }) {
     })();
     const currentRole = admin?.role || storedAdminData?.role || '';
     const isSuperAdmin = currentRole === 'super_admin';
+    const isSubAdmin = currentRole === 'sub_admin1' || currentRole === 'sub_admin2' || currentRole === 'sub_admin';
 
     // Gemini Quota Monitor State
     const [quotaData, setQuotaData] = useState(null);
@@ -106,10 +187,12 @@ function SettingsPage({ admin }) {
     }, []);
 
     useEffect(() => {
-        if (!isSuperAdmin && (activeTab === 'email' || activeTab === 'ai')) {
+        if (isSubAdmin) {
+            setActiveTab('score');
+        } else if (!isSuperAdmin && (activeTab === 'email' || activeTab === 'ai')) {
             setActiveTab('score');
         }
-    }, [isSuperAdmin, activeTab]);
+    }, [isSuperAdmin, isSubAdmin, activeTab]);
 
     useEffect(() => {
         if (isSuperAdmin && activeTab === 'ai' && !quotaData) {
@@ -269,31 +352,47 @@ function SettingsPage({ admin }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!settings.system_email) {
-            toast.warning('Sender Email Address is required');
-            setActiveTab('mail');
-            return;
-        }
-        if (!settings.pdpa_title || !settings.pdpa_description || !settings.pdpa_purpose || !settings.pdpa_retention || !settings.pdpa_security || !settings.pdpa_rights) {
-            toast.warning('All PDPA Consent fields are required');
-            setActiveTab('pdpa');
-            return;
+        if (!isSubAdmin) {
+            if (!settings.system_email) {
+                toast.warning('Sender Email Address is required');
+                setActiveTab('mail');
+                return;
+            }
+            if (!settings.pdpa_title || !settings.pdpa_description || !settings.pdpa_purpose || !settings.pdpa_retention || !settings.pdpa_security || !settings.pdpa_rights) {
+                toast.warning('All PDPA Consent fields are required');
+                setActiveTab('pdpa');
+                return;
+            }
         }
 
-        const totalWeights = (parseInt(settings.weight_skills, 10) || 0) +
-                             (parseInt(settings.weight_experience, 10) || 0) +
-                             (parseInt(settings.weight_qualification, 10) || 0) +
-                             (parseInt(settings.weight_jd_alignment, 10) || 0) +
-                             (parseInt(settings.weight_salary, 10) || 0);
-        if (totalWeights !== 100) {
-            toast.warning(`Total Candidate Score Calculation Weights must equal exactly 100% (currently ${totalWeights}%). Please adjust your weights.`);
-            setActiveTab('score');
-            return;
+        if (isSuperAdmin) {
+            const totalWeights = (parseInt(settings.weight_skills, 10) || 0) +
+                                 (parseInt(settings.weight_experience, 10) || 0) +
+                                 (parseInt(settings.weight_qualification, 10) || 0) +
+                                 (parseInt(settings.weight_jd_alignment, 10) || 0) +
+                                 (parseInt(settings.weight_salary, 10) || 0);
+            if (totalWeights !== 100) {
+                toast.warning(`Total Candidate Score Calculation Weights must equal exactly 100% (currently ${totalWeights}%). Please adjust your weights.`);
+                setActiveTab('score');
+                return;
+            }
         }
         
         setSaving(true);
         try {
-            await saveSettings({
+            const formulaWeights = isSuperAdmin ? {
+                weight_skills: settings.weight_skills,
+                weight_experience: settings.weight_experience,
+                weight_qualification: settings.weight_qualification,
+                weight_jd_alignment: settings.weight_jd_alignment,
+                weight_salary: settings.weight_salary
+            } : {};
+
+            const payload = isSubAdmin ? {
+                min_high_match_score: settings.min_high_match_score,
+                min_medium_match_score: settings.min_medium_match_score,
+                ...formulaWeights
+            } : {
                 system_email: settings.system_email,
                 smtp_host: settings.smtp_host,
                 smtp_port: settings.smtp_port,
@@ -304,11 +403,7 @@ function SettingsPage({ admin }) {
                 enable_candidate_emails: settings.enable_candidate_emails,
                 min_high_match_score: settings.min_high_match_score,
                 min_medium_match_score: settings.min_medium_match_score,
-                weight_skills: settings.weight_skills,
-                weight_experience: settings.weight_experience,
-                weight_qualification: settings.weight_qualification,
-                weight_jd_alignment: settings.weight_jd_alignment,
-                weight_salary: settings.weight_salary,
+                ...formulaWeights,
                 pdpa_title: settings.pdpa_title,
                 pdpa_description: settings.pdpa_description,
                 pdpa_purpose: settings.pdpa_purpose,
@@ -333,8 +428,10 @@ function SettingsPage({ admin }) {
                 gemini_model: settings.gemini_model,
                 ollama_server: settings.ollama_server,
                 ollama_model: settings.ollama_model
-            });
-            toast.success('System configurations updated successfully');
+            };
+
+            await saveSettings(payload);
+            toast.success(isSubAdmin ? 'Candidate match score settings updated successfully' : 'System configurations updated successfully');
             setIsEditing(false);
             loadSettings();
         } catch (err) {
@@ -469,17 +566,19 @@ function SettingsPage({ admin }) {
                                     gap: '6px'
                                 }}>
                                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }}></span>
-                                    SYSTEM CONFIGURATIONS • V2.4
+                                    {isSubAdmin ? 'MATCH SCORE CRITERIA • CANDIDATE EVALUATION' : 'SYSTEM CONFIGURATIONS • V2.4'}
                                 </span>
                             </div>
 
                             <h1 style={{ fontSize: '1.55rem', fontWeight: 800, color: '#0f172a', margin: '2px 0 4px 0', letterSpacing: '-0.025em' }}>
-                                Portal Settings &amp; Preferences
+                                {isSubAdmin ? 'Candidate Match Score Settings' : 'Portal Settings & Preferences'}
                             </h1>
                             
-                            <p style={{ fontSize: '0.86rem', color: '#64748b', margin: 0, lineHeight: '1.45' }}>
-                                Manage candidate match thresholds, SMTP mail servers, notification templates, and AI resume parsing engines.
-                            </p>
+                            {!isSubAdmin && (
+                                <p style={{ fontSize: '0.86rem', color: '#64748b', margin: 0, lineHeight: '1.45' }}>
+                                    Manage candidate match thresholds, SMTP mail servers, notification templates, and AI resume parsing engines.
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -554,80 +653,30 @@ function SettingsPage({ admin }) {
                 </div>
             </div>
 
-            {/* 2. FLOATING SEGMENTED CONTROL TABS */}
-            <div style={{
-                background: '#f1f5f9',
-                padding: '4px',
-                borderRadius: '14px',
-                display: 'flex',
-                gap: '4px',
-                marginBottom: '28px',
-                overflowX: 'auto',
-                border: '1px solid #e2e8f0'
-            }}>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('score')}
-                    style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        fontWeight: activeTab === 'score' ? 700 : 600,
-                        fontSize: '0.86rem',
-                        border: 'none',
-                        background: activeTab === 'score' ? '#ffffff' : 'transparent',
-                        color: activeTab === 'score' ? '#7A1228' : '#64748b',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap',
-                        boxShadow: activeTab === 'score' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                    }}
-                >
-                    <FiTarget style={{ fontSize: '1rem', color: activeTab === 'score' ? '#7A1228' : '#94a3b8' }} />
-                    Match Score
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('mail')}
-                    style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        fontWeight: activeTab === 'mail' ? 700 : 600,
-                        fontSize: '0.86rem',
-                        border: 'none',
-                        background: activeTab === 'mail' ? '#ffffff' : 'transparent',
-                        color: activeTab === 'mail' ? '#7A1228' : '#64748b',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap',
-                        boxShadow: activeTab === 'mail' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                    }}
-                >
-                    <FiMail style={{ fontSize: '1rem', color: activeTab === 'mail' ? '#7A1228' : '#94a3b8' }} />
-                    Mail &amp; SMTP
-                </button>
-                {isSuperAdmin && (
+            {/* 2. FLOATING SEGMENTED CONTROL TABS (Super Admin & GS Admin Only) */}
+            {!isSubAdmin && (
+                <div style={{
+                    background: '#f1f5f9',
+                    padding: '4px',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    gap: '4px',
+                    marginBottom: '28px',
+                    overflowX: 'auto',
+                    border: '1px solid #e2e8f0'
+                }}>
                     <button
                         type="button"
-                        onClick={() => setActiveTab('email')}
+                        onClick={() => setActiveTab('score')}
                         style={{
                             flex: 1,
                             padding: '10px 16px',
                             borderRadius: '10px',
-                            fontWeight: activeTab === 'email' ? 700 : 600,
+                            fontWeight: activeTab === 'score' ? 700 : 600,
                             fontSize: '0.86rem',
                             border: 'none',
-                            background: activeTab === 'email' ? '#ffffff' : 'transparent',
-                            color: activeTab === 'email' ? '#7A1228' : '#64748b',
+                            background: activeTab === 'score' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'score' ? '#7A1228' : '#64748b',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
                             display: 'flex',
@@ -635,51 +684,24 @@ function SettingsPage({ admin }) {
                             justifyContent: 'center',
                             gap: '8px',
                             whiteSpace: 'nowrap',
-                            boxShadow: activeTab === 'email' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                            boxShadow: activeTab === 'score' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                         }}
                     >
-                        <FiFileText style={{ fontSize: '1rem', color: activeTab === 'email' ? '#7A1228' : '#94a3b8' }} />
-                        Email Templates
+                        <FiTarget style={{ fontSize: '1rem', color: activeTab === 'score' ? '#7A1228' : '#94a3b8' }} />
+                        Match Score
                     </button>
-                )}
-                <button
-                    type="button"
-                    onClick={() => setActiveTab('pdpa')}
-                    style={{
-                        flex: 1,
-                        padding: '10px 16px',
-                        borderRadius: '10px',
-                        fontWeight: activeTab === 'pdpa' ? 700 : 600,
-                        fontSize: '0.86rem',
-                        border: 'none',
-                        background: activeTab === 'pdpa' ? '#ffffff' : 'transparent',
-                        color: activeTab === 'pdpa' ? '#7A1228' : '#64748b',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        whiteSpace: 'nowrap',
-                        boxShadow: activeTab === 'pdpa' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
-                    }}
-                >
-                    <FiShield style={{ fontSize: '1rem', color: activeTab === 'pdpa' ? '#7A1228' : '#94a3b8' }} />
-                    PDPA Consent
-                </button>
-                {isSuperAdmin && (
                     <button
                         type="button"
-                        onClick={() => setActiveTab('ai')}
+                        onClick={() => setActiveTab('mail')}
                         style={{
                             flex: 1,
                             padding: '10px 16px',
                             borderRadius: '10px',
-                            fontWeight: activeTab === 'ai' ? 700 : 600,
+                            fontWeight: activeTab === 'mail' ? 700 : 600,
                             fontSize: '0.86rem',
                             border: 'none',
-                            background: activeTab === 'ai' ? '#ffffff' : 'transparent',
-                            color: activeTab === 'ai' ? '#7A1228' : '#64748b',
+                            background: activeTab === 'mail' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'mail' ? '#7A1228' : '#64748b',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
                             display: 'flex',
@@ -687,14 +709,93 @@ function SettingsPage({ admin }) {
                             justifyContent: 'center',
                             gap: '8px',
                             whiteSpace: 'nowrap',
-                            boxShadow: activeTab === 'ai' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                            boxShadow: activeTab === 'mail' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
                         }}
                     >
-                        <FiCpu style={{ fontSize: '1rem', color: activeTab === 'ai' ? '#7A1228' : '#94a3b8' }} />
-                        AI Resume Parser
+                        <FiMail style={{ fontSize: '1rem', color: activeTab === 'mail' ? '#7A1228' : '#94a3b8' }} />
+                        Mail &amp; SMTP
                     </button>
-                )}
-            </div>
+                    {isSuperAdmin && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('email')}
+                            style={{
+                                flex: 1,
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                fontWeight: activeTab === 'email' ? 700 : 600,
+                                fontSize: '0.86rem',
+                                border: 'none',
+                                background: activeTab === 'email' ? '#ffffff' : 'transparent',
+                                color: activeTab === 'email' ? '#7A1228' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                whiteSpace: 'nowrap',
+                                boxShadow: activeTab === 'email' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                            }}
+                        >
+                            <FiFileText style={{ fontSize: '1rem', color: activeTab === 'email' ? '#7A1228' : '#94a3b8' }} />
+                            Email Templates
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab('pdpa')}
+                        style={{
+                            flex: 1,
+                            padding: '10px 16px',
+                            borderRadius: '10px',
+                            fontWeight: activeTab === 'pdpa' ? 700 : 600,
+                            fontSize: '0.86rem',
+                            border: 'none',
+                            background: activeTab === 'pdpa' ? '#ffffff' : 'transparent',
+                            color: activeTab === 'pdpa' ? '#7A1228' : '#64748b',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: activeTab === 'pdpa' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                        }}
+                    >
+                        <FiShield style={{ fontSize: '1rem', color: activeTab === 'pdpa' ? '#7A1228' : '#94a3b8' }} />
+                        PDPA Consent
+                    </button>
+                    {isSuperAdmin && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('ai')}
+                            style={{
+                                flex: 1,
+                                padding: '10px 16px',
+                                borderRadius: '10px',
+                                fontWeight: activeTab === 'ai' ? 700 : 600,
+                                fontSize: '0.86rem',
+                                border: 'none',
+                                background: activeTab === 'ai' ? '#ffffff' : 'transparent',
+                                color: activeTab === 'ai' ? '#7A1228' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                whiteSpace: 'nowrap',
+                                boxShadow: activeTab === 'ai' ? '0 2px 8px rgba(0,0,0,0.06)' : 'none'
+                            }}
+                        >
+                            <FiCpu style={{ fontSize: '1rem', color: activeTab === 'ai' ? '#7A1228' : '#94a3b8' }} />
+                            AI Resume Parser
+                        </button>
+                    )}
+                </div>
+            )}
 
             <form onSubmit={handleSubmit}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -703,159 +804,264 @@ function SettingsPage({ admin }) {
                     {/* TAB 1: MATCH SCORE THRESHOLDS                             */}
                     {/* ========================================================= */}
                     {activeTab === 'score' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
                             
-                            {/* MAIN THRESHOLD CARDS ROW */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                                
-                                {/* High Match Card */}
-                                <div style={{
-                                    background: '#ffffff',
-                                    padding: '22px',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e2e8f0',
-                                    borderTop: '3.5px solid #16a34a',
-                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '14px'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ background: '#dcfce7', color: '#15803d', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
-                                            HIGH MATCH
-                                        </span>
-                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#15803d' }}>
-                                            ≥ {settings.min_high_match_score}%
-                                        </span>
+                            {/* SECTION 1: CANDIDATE MATCH LEVELS & THRESHOLDS */}
+                            <div style={{
+                                background: '#ffffff',
+                                padding: '28px 30px',
+                                borderRadius: '20px',
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 4px 24px -2px rgba(15, 23, 42, 0.04)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '24px'
+                            }}>
+                                <div>
+                                    <div style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        background: 'rgba(122, 18, 40, 0.06)',
+                                        color: '#7A1228',
+                                        padding: '4px 10px',
+                                        borderRadius: '20px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        letterSpacing: '0.04em',
+                                        textTransform: 'uppercase',
+                                        marginBottom: '6px'
+                                    }}>
+                                        <FiTarget style={{ fontSize: '0.85rem' }} /> Evaluation Benchmarks
                                     </div>
+                                    <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                                        Candidate Match Levels &amp; Cutoff Thresholds
+                                    </h3>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#64748b', lineHeight: '1.45' }}>
+                                        Applicants are automatically categorized into three hiring tiers based on their overall match score:
+                                    </p>
+                                </div>
 
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Top Recommended</h4>
-                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
-                                            Candidates meeting or exceeding this threshold receive a green verified match badge.
-                                        </p>
-                                    </div>
-
-                                    {isEditing && (
-                                        <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>Min Score Limit</label>
-                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#15803d' }}>{settings.min_high_match_score}%</span>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+                                    
+                                    {/* 1. HIGH MATCH CARD */}
+                                    <div style={{
+                                        background: 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 60%)',
+                                        padding: '20px 18px',
+                                        borderRadius: '16px',
+                                        border: '1px solid #bbf7d0',
+                                        boxShadow: '0 2px 12px rgba(22, 163, 74, 0.05)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                            <div style={{
+                                                width: '38px',
+                                                height: '38px',
+                                                borderRadius: '10px',
+                                                background: '#dcfce7',
+                                                color: '#16a34a',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.15)',
+                                                flexShrink: 0
+                                            }}>
+                                                <FiCheckCircle size={20} />
                                             </div>
-                                            <input
-                                                type="range"
-                                                min="55"
-                                                max="95"
-                                                value={settings.min_high_match_score}
-                                                onChange={(e) => setSettings(prev => ({ ...prev, min_high_match_score: e.target.value }))}
-                                                style={{ width: '100%', accentColor: '#16a34a', cursor: 'pointer' }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Medium Match Card */}
-                                <div style={{
-                                    background: '#ffffff',
-                                    padding: '22px',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e2e8f0',
-                                    borderTop: '3.5px solid #d97706',
-                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '14px'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
-                                            MEDIUM MATCH
-                                        </span>
-                                        <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#b45309' }}>
-                                            {settings.min_medium_match_score}% – {parseInt(settings.min_high_match_score, 10) - 1}%
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Potential Review</h4>
-                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
-                                            Candidates meeting primary criteria but lacking optional skills receive an amber review badge.
-                                        </p>
-                                    </div>
-
-                                    {isEditing && (
-                                        <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309' }}>Min Score Limit</label>
-                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#b45309' }}>{settings.min_medium_match_score}%</span>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{
+                                                    display: 'inline-block',
+                                                    background: '#dcfce7',
+                                                    color: '#15803d',
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 800,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '8px',
+                                                    letterSpacing: '0.04em',
+                                                    textTransform: 'uppercase',
+                                                    marginBottom: '2px'
+                                                }}>
+                                                    High Match
+                                                </span>
+                                                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#15803d', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                                                    ≥ {settings.min_high_match_score}%
+                                                </div>
                                             </div>
-                                            <input
-                                                type="range"
-                                                min="25"
-                                                max={parseInt(settings.min_high_match_score, 10) - 5}
-                                                value={settings.min_medium_match_score}
-                                                onChange={(e) => setSettings(prev => ({ ...prev, min_medium_match_score: e.target.value }))}
-                                                style={{ width: '100%', accentColor: '#d97706', cursor: 'pointer' }}
-                                            />
                                         </div>
-                                    )}
+
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                                                Top Recommended
+                                            </h4>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: '1.45' }}>
+                                                Strongest alignment with job criteria. Fast-tracked for immediate interview shortlisting.
+                                            </p>
+                                        </div>
+
+                                        {isEditing && (
+                                            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                    <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#15803d' }}>Cutoff Threshold</label>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#15803d' }}>{settings.min_high_match_score}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="55"
+                                                    max="95"
+                                                    value={settings.min_high_match_score}
+                                                    onChange={(e) => setSettings(prev => ({ ...prev, min_high_match_score: e.target.value }))}
+                                                    style={{ width: '100%', accentColor: '#16a34a', cursor: 'pointer' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 2. MEDIUM MATCH CARD */}
+                                    <div style={{
+                                        background: 'linear-gradient(180deg, #fffbeb 0%, #ffffff 60%)',
+                                        padding: '20px 18px',
+                                        borderRadius: '16px',
+                                        border: '1px solid #fde68a',
+                                        boxShadow: '0 2px 12px rgba(217, 119, 6, 0.05)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                            <div style={{
+                                                width: '38px',
+                                                height: '38px',
+                                                borderRadius: '10px',
+                                                background: '#fef3c7',
+                                                color: '#d97706',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 2px 8px rgba(217, 119, 6, 0.15)',
+                                                flexShrink: 0
+                                            }}>
+                                                <FiClock size={20} />
+                                            </div>
+
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{
+                                                    display: 'inline-block',
+                                                    background: '#fef3c7',
+                                                    color: '#b45309',
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 800,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '8px',
+                                                    letterSpacing: '0.04em',
+                                                    textTransform: 'uppercase',
+                                                    marginBottom: '2px'
+                                                }}>
+                                                    Medium Match
+                                                </span>
+                                                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#b45309', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                                                    {settings.min_medium_match_score}% – {parseInt(settings.min_high_match_score, 10) - 1}%
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                                                Potential for Review
+                                            </h4>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: '1.45' }}>
+                                                Meets primary criteria. Recommended for secondary screening or talent pool retention.
+                                            </p>
+                                        </div>
+
+                                        {isEditing && (
+                                            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                    <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#b45309' }}>Cutoff Threshold</label>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#b45309' }}>{settings.min_medium_match_score}%</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="25"
+                                                    max={parseInt(settings.min_high_match_score, 10) - 5}
+                                                    value={settings.min_medium_match_score}
+                                                    onChange={(e) => setSettings(prev => ({ ...prev, min_medium_match_score: e.target.value }))}
+                                                    style={{ width: '100%', accentColor: '#d97706', cursor: 'pointer' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 3. LOW MATCH CARD */}
+                                    <div style={{
+                                        background: 'linear-gradient(180deg, #fff1f2 0%, #ffffff 60%)',
+                                        padding: '20px 18px',
+                                        borderRadius: '16px',
+                                        border: '1px solid #fecdd3',
+                                        boxShadow: '0 2px 12px rgba(225, 29, 72, 0.05)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                            <div style={{
+                                                width: '38px',
+                                                height: '38px',
+                                                borderRadius: '10px',
+                                                background: '#ffe4e6',
+                                                color: '#e11d48',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                boxShadow: '0 2px 8px rgba(225, 29, 72, 0.12)',
+                                                flexShrink: 0
+                                            }}>
+                                                <FiAlertTriangle size={20} />
+                                            </div>
+
+                                            <div style={{ textAlign: 'right' }}>
+                                                <span style={{
+                                                    display: 'inline-block',
+                                                    background: '#ffe4e6',
+                                                    color: '#be123c',
+                                                    fontSize: '0.68rem',
+                                                    fontWeight: 800,
+                                                    padding: '2px 8px',
+                                                    borderRadius: '8px',
+                                                    letterSpacing: '0.04em',
+                                                    textTransform: 'uppercase',
+                                                    marginBottom: '2px'
+                                                }}>
+                                                    Low Match
+                                                </span>
+                                                <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#be123c', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                                                    &lt; {settings.min_medium_match_score}%
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 style={{ margin: '0 0 4px 0', fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
+                                                Low Alignment
+                                            </h4>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#475569', lineHeight: '1.45' }}>
+                                                Below minimum skills or experience limit. Automatically flagged for recruiter review.
+                                            </p>
+                                        </div>
+
+                                        {isEditing && (
+                                            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #e2e8f0', fontSize: '0.74rem', color: '#64748b', fontStyle: 'italic' }}>
+                                                Auto-calculated below Medium cutoff
+                                            </div>
+                                        )}
+                                    </div>
+
                                 </div>
-
-                                {/* Low Match Card */}
-                                <div style={{
-                                    background: '#ffffff',
-                                    padding: '22px',
-                                    borderRadius: '16px',
-                                    border: '1px solid #e2e8f0',
-                                    borderTop: '3.5px solid #e11d48',
-                                    boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '14px'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ background: '#ffe4e6', color: '#be123c', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px', textTransform: 'uppercase' }}>
-                                            LOW MATCH
-                                        </span>
-                                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#be123c' }}>
-                                            &lt; {settings.min_medium_match_score}%
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: '#0f172a' }}>Unqualified</h4>
-                                        <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px', marginBottom: 0, lineHeight: '1.45' }}>
-                                            Applicants failing minimum experience or qualification limits are flagged with a low match badge.
-                                        </p>
-                                    </div>
-
-                                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #f1f5f9', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>
-                                        Auto-calculated from Medium threshold.
-                                    </div>
-                                </div>
-
                             </div>
 
-                            {/* VISUAL THRESHOLD GAUGE BAR */}
-                            <div style={{ background: '#ffffff', padding: '18px 22px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <h5 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
-                                        Match Score Distribution Map
-                                    </h5>
-                                </div>
-                                <div style={{ height: '10px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex' }}>
-                                    <div style={{ width: `${settings.min_medium_match_score}%`, background: '#f43f5e', transition: 'all 0.3s' }} title={`Low Match: 0% - ${parseInt(settings.min_medium_match_score) - 1}%`}></div>
-                                    <div style={{ width: `${parseInt(settings.min_high_match_score) - parseInt(settings.min_medium_match_score)}%`, background: '#f59e0b', transition: 'all 0.3s' }} title={`Medium Match: ${settings.min_medium_match_score}% - ${parseInt(settings.min_high_match_score) - 1}%`}></div>
-                                    <div style={{ width: `${100 - parseInt(settings.min_high_match_score)}%`, background: '#22c55e', transition: 'all 0.3s' }} title={`High Match: ${settings.min_high_match_score}% - 100%`}></div>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginTop: '6px' }}>
-                                    <span>0%</span>
-                                    <span>{settings.min_medium_match_score}%</span>
-                                    <span>{settings.min_high_match_score}%</span>
-                                    <span>100%</span>
-                                </div>
-                            </div>
-
-                            {/* ALGORITHM WEIGHTING CARD */}
+                            {/* SECTION 3: CALCULATION WEIGHTS (5 DIMENSIONS) */}
                             {(() => {
                                 const totalWeights = (parseInt(settings.weight_skills, 10) || 0) +
                                                      (parseInt(settings.weight_experience, 10) || 0) +
@@ -867,18 +1073,105 @@ function SettingsPage({ admin }) {
                                 return (
                                     <div style={{
                                         background: '#ffffff',
-                                        padding: '24px',
-                                        borderRadius: '16px',
+                                        padding: '28px 30px',
+                                        borderRadius: '20px',
                                         border: isWeightValid ? '1px solid #e2e8f0' : '1px solid #fca5a5',
-                                        boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)',
-                                        transition: 'border-color 0.2s ease'
+                                        boxShadow: '0 4px 24px -2px rgba(15, 23, 42, 0.04)',
+                                        transition: 'border-color 0.2s ease',
+                                        position: 'relative'
                                     }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
-                                            <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <FiSliders style={{ color: '#7A1228' }} /> Candidate Score Calculation Weights
-                                            </h4>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {isEditing && (
+                                        <style>{`
+                                            .simple-dim-card {
+                                                transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+                                            }
+                                            .simple-dim-card:hover {
+                                                transform: translateY(-2px);
+                                                box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.06);
+                                                border-color: #cbd5e1 !important;
+                                            }
+                                            .criteria-btn {
+                                                transition: all 0.15s ease;
+                                            }
+                                            .criteria-btn:hover {
+                                                background: #ffffff !important;
+                                                border-color: #cbd5e1 !important;
+                                                color: #7A1228 !important;
+                                                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+                                            }
+                                            @keyframes modalSlideUp {
+                                                from {
+                                                    opacity: 0;
+                                                    transform: translateY(12px) scale(0.98);
+                                                }
+                                                to {
+                                                    opacity: 1;
+                                                    transform: translateY(0) scale(1);
+                                                }
+                                            }
+                                            @media (min-width: 960px) {
+                                                .dimensions-grid-5 {
+                                                    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+                                                }
+                                            }
+                                            @media (max-width: 959px) and (min-width: 600px) {
+                                                .dimensions-grid-5 {
+                                                    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                                                }
+                                            }
+                                            @media (max-width: 599px) {
+                                                .dimensions-grid-5 {
+                                                    grid-template-columns: 1fr !important;
+                                                }
+                                            }
+                                            @media (max-width: 640px) {
+                                                .dimension-section-header {
+                                                    flex-direction: column !important;
+                                                    align-items: flex-start !important;
+                                                    gap: 14px !important;
+                                                }
+                                            }
+                                        `}</style>
+
+                                        {/* Section Header */}
+                                        <div 
+                                            className="dimension-section-header"
+                                            style={{ 
+                                                display: 'flex', 
+                                                justifyContent: 'space-between', 
+                                                alignItems: 'flex-start', 
+                                                paddingBottom: '18px', 
+                                                borderBottom: '1px solid #f1f5f9',
+                                                marginBottom: '18px',
+                                                gap: '16px' 
+                                            }}
+                                        >
+                                            <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                                                <div style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    background: 'rgba(122, 18, 40, 0.06)',
+                                                    color: '#7A1228',
+                                                    padding: '4px 10px',
+                                                    borderRadius: '20px',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 800,
+                                                    letterSpacing: '0.04em',
+                                                    textTransform: 'uppercase',
+                                                    marginBottom: '6px'
+                                                }}>
+                                                    <FiSliders style={{ fontSize: '0.85rem' }} /> Scoring Architecture
+                                                </div>
+                                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                                                    How Candidate Scores Are Calculated (5 Dimensions)
+                                                </h3>
+                                                <p style={{ margin: '4px 0 0 0', fontSize: '0.84rem', color: '#64748b', lineHeight: '1.45' }}>
+                                                    Candidate scores (0% – 100%) are evaluated across these 5 essential recruitment dimensions. Total allocation must equal exactly 100%.
+                                                </p>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, marginTop: '2px' }}>
+                                                {isEditing && isSuperAdmin && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setSettings(prev => ({
@@ -893,56 +1186,58 @@ function SettingsPage({ admin }) {
                                                             background: '#f8fafc',
                                                             border: '1px solid #cbd5e1',
                                                             borderRadius: '8px',
-                                                            padding: '4px 10px',
-                                                            fontSize: '0.72rem',
+                                                            padding: '6px 12px',
+                                                            fontSize: '0.74rem',
                                                             fontWeight: 700,
                                                             color: '#475569',
                                                             cursor: 'pointer',
                                                             display: 'inline-flex',
                                                             alignItems: 'center',
-                                                            gap: '4px'
+                                                            gap: '6px',
+                                                            transition: 'all 0.15s ease'
                                                         }}
-                                                        title="Reset weights to default 35%, 30%, 20%, 10%, 5%"
+                                                        title="Reset weights to default: 35%, 30%, 20%, 10%, 5%"
                                                     >
-                                                        <FiRefreshCw style={{ fontSize: '0.72rem' }} /> Reset Defaults
+                                                        <FiRefreshCw style={{ fontSize: '0.74rem' }} /> Reset Defaults
                                                     </button>
                                                 )}
-                                                <span style={{
-                                                    background: isWeightValid ? 'rgba(22, 163, 74, 0.08)' : 'rgba(225, 29, 72, 0.1)',
-                                                    color: isWeightValid ? '#15803d' : '#be123c',
-                                                    fontSize: '0.74rem',
+                                                <div style={{
+                                                    background: isWeightValid ? '#ecfdf5' : '#fff1f2',
+                                                    color: isWeightValid ? '#047857' : '#be123c',
+                                                    fontSize: '0.76rem',
                                                     fontWeight: 800,
-                                                    padding: '3px 12px',
-                                                    borderRadius: '12px',
-                                                    border: isWeightValid ? '1px solid rgba(22, 163, 74, 0.25)' : '1px solid rgba(225, 29, 72, 0.25)',
+                                                    padding: '6px 14px',
+                                                    borderRadius: '20px',
+                                                    border: isWeightValid ? '1px solid #a7f3d0' : '1px solid #fecdd3',
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
-                                                    gap: '5px'
+                                                    gap: '6px',
+                                                    letterSpacing: '0.02em',
+                                                    whiteSpace: 'nowrap',
+                                                    boxShadow: isWeightValid ? '0 1px 2px rgba(16, 185, 129, 0.08)' : '0 1px 2px rgba(225, 29, 72, 0.08)'
                                                 }}>
                                                     {isWeightValid ? (
                                                         <>
-                                                            <FiCheckCircle style={{ fontSize: '0.8rem' }} /> TOTAL ALLOCATION: 100%
+                                                            <FiCheckCircle style={{ fontSize: '0.88rem', color: '#10b981' }} /> TOTAL ALLOCATION: 100%
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <FiAlertTriangle style={{ fontSize: '0.8rem' }} /> TOTAL ALLOCATION: {totalWeights}% (MUST BE 100%)
+                                                            <FiAlertTriangle style={{ fontSize: '0.88rem', color: '#ef4444' }} /> TOTAL: {totalWeights}% (MUST BE 100%)
                                                         </>
                                                     )}
-                                                </span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                                            Composite candidate match scores (0 – 100%) are evaluated dynamically across the following 5 weighted recruitment dimensions by the AI extraction pipeline &amp; rule calculation engine:
-                                        </p>
 
-                                        {/* Validation Alert when total != 100% in edit mode */}
-                                        {isEditing && !isWeightValid && (
+                                        {/* Validation Alert when total != 100% in edit mode for Super Admin */}
+                                        {isEditing && isSuperAdmin && !isWeightValid && (
                                             <div style={{
                                                 background: '#fff1f2',
                                                 border: '1px solid #fecdd3',
                                                 borderRadius: '10px',
                                                 padding: '10px 14px',
-                                                marginBottom: '16px',
+                                                marginTop: '14px',
+                                                marginBottom: '14px',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: '8px',
@@ -957,301 +1252,318 @@ function SettingsPage({ admin }) {
                                             </div>
                                         )}
 
-                                        {/* Dynamic Composite Visual Bar */}
-                                        <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '20px', overflow: 'hidden', display: 'flex', marginBottom: '20px' }}>
-                                            <div style={{ width: `${Math.max(0, settings.weight_skills || 0)}%`, background: '#7A1228', transition: 'width 0.2s ease' }} title={`Skills Match: ${settings.weight_skills}%`}></div>
-                                            <div style={{ width: `${Math.max(0, settings.weight_experience || 0)}%`, background: '#0f172a', transition: 'width 0.2s ease' }} title={`Relevant Experience: ${settings.weight_experience}%`}></div>
-                                            <div style={{ width: `${Math.max(0, settings.weight_qualification || 0)}%`, background: '#4f46e5', transition: 'width 0.2s ease' }} title={`Qualifications: ${settings.weight_qualification}%`}></div>
-                                            <div style={{ width: `${Math.max(0, settings.weight_jd_alignment || 0)}%`, background: '#d97706', transition: 'width 0.2s ease' }} title={`Job Description Alignment: ${settings.weight_jd_alignment}%`}></div>
-                                            <div style={{ width: `${Math.max(0, settings.weight_salary || 0)}%`, background: '#16a34a', transition: 'width 0.2s ease' }} title={`Salary Budget Alignment: ${settings.weight_salary}%`}></div>
+                                        {/* 5 DIMENSIONS GRID */}
+                                        <div 
+                                            className="dimensions-grid-5"
+                                            style={{ 
+                                                display: 'grid', 
+                                                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+                                                gap: '14px', 
+                                                marginTop: '18px'
+                                            }}
+                                        >
+                                            {DIMENSION_CONFIG.map((dim) => {
+                                                const currentWeight = parseInt(settings[dim.key], 10) || 0;
+
+                                                return (
+                                                    <div 
+                                                        key={dim.id}
+                                                        className="simple-dim-card"
+                                                        style={{ 
+                                                            background: '#ffffff', 
+                                                            padding: '18px 16px', 
+                                                            borderRadius: '14px', 
+                                                            border: '1px solid #e2e8f0', 
+                                                            display: 'flex', 
+                                                            flexDirection: 'column', 
+                                                            gap: '12px',
+                                                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                    >
+                                                        {/* Card Top: Icon & Title */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                            <div style={{
+                                                                width: '36px',
+                                                                height: '36px',
+                                                                borderRadius: '10px',
+                                                                background: '#f8fafc',
+                                                                border: '1px solid #e2e8f0',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '1.15rem',
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {dim.icon}
+                                                            </div>
+                                                            <div>
+                                                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.25, display: 'block' }}>
+                                                                    {dim.title}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Card Middle: Percentage & Progress */}
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                                <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                                                                    {currentWeight}%
+                                                                </span>
+                                                                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                                    Weight
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ height: '4px', width: '100%', background: '#f1f5f9', borderRadius: '8px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, currentWeight))}%`, background: '#7A1228', borderRadius: '8px', transition: 'width 0.25s ease' }}></div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Card Subtitle */}
+                                                        <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b', lineHeight: 1.35, minHeight: '28px' }}>
+                                                            {dim.shortTag}
+                                                        </p>
+
+                                                        {/* Card Bottom: Single Clean Criteria Details Button */}
+                                                        <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setSelectedDimensionModal(dim)}
+                                                                className="criteria-btn"
+                                                                style={{
+                                                                    width: '100%',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: '6px',
+                                                                    padding: '7px 12px',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid #e2e8f0',
+                                                                    background: '#f8fafc',
+                                                                    color: '#475569',
+                                                                    fontSize: '0.74rem',
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer',
+                                                                    transition: 'all 0.15s ease'
+                                                                }}
+                                                            >
+                                                                <FiInfo size={13} style={{ color: '#7A1228' }} /> Criteria Details
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Edit Controls (Super Admin Only in Edit Mode) */}
+                                                        {isEditing && isSuperAdmin && (
+                                                            <div style={{ marginTop: '8px', paddingTop: '10px', borderTop: '1px solid #f1f5f9' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                                    <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569' }}>Adjust Weight</label>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            max="100"
+                                                                            value={currentWeight}
+                                                                            onChange={(e) => setSettings(prev => ({ ...prev, [dim.key]: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                                            style={{ width: '46px', padding: '2px 4px', fontSize: '0.76rem', fontWeight: 800, textAlign: 'center', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#0f172a' }}
+                                                                        />
+                                                                        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                                    </div>
+                                                                </div>
+                                                                <input
+                                                                    type="range"
+                                                                    min="0"
+                                                                    max="100"
+                                                                    step="1"
+                                                                    value={currentWeight}
+                                                                    onChange={(e) => setSettings(prev => ({ ...prev, [dim.key]: parseInt(e.target.value, 10) || 0 }))}
+                                                                    style={{ width: '100%', accentColor: '#7A1228', cursor: 'pointer' }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '14px' }}>
-                                            
-                                            {/* Metric 1: Skills Overlap */}
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        🎯 Skills Match
-                                                    </span>
-                                                    <span style={{ background: '#7A1228', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                        {settings.weight_skills}%
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_skills || 0))}%`, background: '#7A1228', transition: 'width 0.2s' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Mandatory &amp; core skills verified against vacancy specifications with semantic synonym recognition (e.g. React.js = React, PostgreSQL = Postgres).
-                                                </span>
-                                                {isEditing && (
-                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#7A1228' }}>Weight</label>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={settings.weight_skills}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_skills: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
-                                                                    style={{
-                                                                        width: '48px',
-                                                                        padding: '2px 4px',
-                                                                        fontSize: '0.78rem',
+                                        {/* CRITERIA DETAILS MODAL POPUP */}
+                                        {selectedDimensionModal && (
+                                            <div
+                                                style={{
+                                                    position: 'fixed',
+                                                    inset: 0,
+                                                    zIndex: 9999,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '16px'
+                                                }}
+                                            >
+                                                {/* Dimmed Blurred Backdrop */}
+                                                <div
+                                                    onClick={() => setSelectedDimensionModal(null)}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        background: 'rgba(15, 23, 42, 0.45)',
+                                                        backdropFilter: 'blur(4px)',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                />
+
+                                                {/* Modal Dialog Card */}
+                                                <div
+                                                    style={{
+                                                        position: 'relative',
+                                                        background: '#ffffff',
+                                                        borderRadius: '18px',
+                                                        border: '1px solid #e2e8f0',
+                                                        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 4px 12px rgba(0,0,0,0.06)',
+                                                        width: '100%',
+                                                        maxWidth: '520px',
+                                                        zIndex: 10000,
+                                                        overflow: 'hidden',
+                                                        animation: 'modalSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)'
+                                                    }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {/* Modal Header */}
+                                                    <div style={{
+                                                        padding: '20px 24px',
+                                                        borderBottom: '1px solid #f1f5f9',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        background: '#ffffff'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <div style={{
+                                                                width: '42px',
+                                                                height: '42px',
+                                                                borderRadius: '12px',
+                                                                background: '#f8fafc',
+                                                                border: '1px solid #e2e8f0',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '1.35rem',
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {selectedDimensionModal.icon}
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <h3 style={{ margin: 0, fontSize: '1.12rem', fontWeight: 800, color: '#0f172a' }}>
+                                                                        {selectedDimensionModal.title}
+                                                                    </h3>
+                                                                    <span style={{
+                                                                        background: 'rgba(122, 18, 40, 0.08)',
+                                                                        color: '#7A1228',
+                                                                        fontSize: '0.74rem',
                                                                         fontWeight: 800,
-                                                                        textAlign: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        color: '#7A1228'
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: '8px'
+                                                                    }}>
+                                                                        {parseInt(settings[selectedDimensionModal.key], 10) || 0}% Allocation
+                                                                    </span>
+                                                                </div>
+                                                                <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                                                    {selectedDimensionModal.shortTag}
+                                                                </span>
                                                             </div>
                                                         </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            value={settings.weight_skills}
-                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_skills: parseInt(e.target.value, 10) || 0 }))}
-                                                            style={{ width: '100%', accentColor: '#7A1228', cursor: 'pointer' }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
 
-                                            {/* Metric 2: Experience */}
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        💼 Experience
-                                                    </span>
-                                                    <span style={{ background: '#0f172a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                        {settings.weight_experience}%
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_experience || 0))}%`, background: '#0f172a', transition: 'width 0.2s' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Relevant domain work history evaluated against role seniority. Prior relevant experience is rewarded with top ranking (95–100%) for entry/trainee positions — never penalized for overqualification.
-                                                </span>
-                                                {isEditing && (
-                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#0f172a' }}>Weight</label>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={settings.weight_experience}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_experience: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
-                                                                    style={{
-                                                                        width: '48px',
-                                                                        padding: '2px 4px',
-                                                                        fontSize: '0.78rem',
-                                                                        fontWeight: 800,
-                                                                        textAlign: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        color: '#0f172a'
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
+                                                        {/* Close Button */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedDimensionModal(null)}
+                                                            style={{
+                                                                width: '32px',
+                                                                height: '32px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid #e2e8f0',
+                                                                background: '#f8fafc',
+                                                                color: '#64748b',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#b91c1c'; }}
+                                                            onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
+                                                            title="Close (Esc)"
+                                                        >
+                                                            <FiX size={16} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Modal Body */}
+                                                    <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: '18px', maxHeight: '70vh', overflowY: 'auto' }}>
+                                                        {/* 1. What It Checks */}
+                                                        <div>
+                                                            <h5 style={{ margin: '0 0 6px 0', fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <FiCheckCircle style={{ color: '#7A1228' }} /> What This Dimension Evaluates
+                                                            </h5>
+                                                            <p style={{ margin: 0, fontSize: '0.84rem', color: '#334155', lineHeight: '1.55' }}>
+                                                                {selectedDimensionModal.whatItChecks}
+                                                            </p>
+                                                        </div>
+
+                                                        {/* 2. Key Rules & Logic */}
+                                                        <div style={{ background: '#f8fafc', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                                            <h5 style={{ margin: '0 0 10px 0', fontSize: '0.76rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                                ⚡ Scoring Rules &amp; Evaluation Logic
+                                                            </h5>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                                {selectedDimensionModal.keyPoints.map((pt, pIdx) => (
+                                                                    <div key={pIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '0.8rem', color: '#475569', lineHeight: '1.45' }}>
+                                                                        <span style={{ color: '#7A1228', fontWeight: 800, flexShrink: 0 }}>•</span>
+                                                                        <span>{pt}</span>
+                                                                    </div>
+                                                                ))}
                                                             </div>
                                                         </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            value={settings.weight_experience}
-                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_experience: parseInt(e.target.value, 10) || 0 }))}
-                                                            style={{ width: '100%', accentColor: '#0f172a', cursor: 'pointer' }}
-                                                        />
                                                     </div>
-                                                )}
-                                            </div>
 
-                                            {/* Metric 3: Qualifications */}
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        🎓 Qualification
-                                                    </span>
-                                                    <span style={{ background: '#4f46e5', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                        {settings.weight_qualification}%
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_qualification || 0))}%`, background: '#4f46e5', transition: 'width 0.2s' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Verified academic degree level (Bachelors/Masters/PhD), diplomas, or professional certifications (CIMA/ACCA/BIT) aligned to the job domain.
-                                                </span>
-                                                {isEditing && (
-                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#4f46e5' }}>Weight</label>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={settings.weight_qualification}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_qualification: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
-                                                                    style={{
-                                                                        width: '48px',
-                                                                        padding: '2px 4px',
-                                                                        fontSize: '0.78rem',
-                                                                        fontWeight: 800,
-                                                                        textAlign: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        color: '#4f46e5'
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
-                                                            </div>
-                                                        </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            value={settings.weight_qualification}
-                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_qualification: parseInt(e.target.value, 10) || 0 }))}
-                                                            style={{ width: '100%', accentColor: '#4f46e5', cursor: 'pointer' }}
-                                                        />
+                                                    {/* Modal Footer */}
+                                                    <div style={{
+                                                        padding: '14px 24px',
+                                                        borderTop: '1px solid #f1f5f9',
+                                                        background: '#f8fafc',
+                                                        display: 'flex',
+                                                        justifyContent: 'flex-end'
+                                                    }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSelectedDimensionModal(null)}
+                                                            style={{
+                                                                padding: '8px 20px',
+                                                                borderRadius: '10px',
+                                                                border: '1px solid #cbd5e1',
+                                                                background: '#ffffff',
+                                                                color: '#0f172a',
+                                                                fontSize: '0.84rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
+                                                            Close
+                                                        </button>
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
-
-                                            {/* Metric 4: Job Description Alignment */}
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        📄 JD Alignment
-                                                    </span>
-                                                    <span style={{ background: '#d97706', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                        {settings.weight_jd_alignment}%
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_jd_alignment || 0))}%`, background: '#d97706', transition: 'width 0.2s' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Substantive semantic alignment between candidate's demonstrated project duties, daily responsibilities, and specific vacancy duties.
-                                                </span>
-                                                {isEditing && (
-                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#d97706' }}>Weight</label>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={settings.weight_jd_alignment}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_jd_alignment: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
-                                                                    style={{
-                                                                        width: '48px',
-                                                                        padding: '2px 4px',
-                                                                        fontSize: '0.78rem',
-                                                                        fontWeight: 800,
-                                                                        textAlign: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        color: '#d97706'
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
-                                                            </div>
-                                                        </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            value={settings.weight_jd_alignment}
-                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_jd_alignment: parseInt(e.target.value, 10) || 0 }))}
-                                                            style={{ width: '100%', accentColor: '#d97706', cursor: 'pointer' }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Metric 5: Salary Budget */}
-                                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.86rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        💵 Salary Budget
-                                                    </span>
-                                                    <span style={{ background: '#16a34a', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '2px 9px', borderRadius: '10px' }}>
-                                                        {settings.weight_salary}%
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '4px', width: '100%', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, settings.weight_salary || 0))}%`, background: '#16a34a', transition: 'width 0.2s' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: '1.4' }}>
-                                                    Candidate salary expectations vs allocated job vacancy budget range (automatically redistributed across core factors if no budget is specified).
-                                                </span>
-                                                {isEditing && (
-                                                    <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid #e2e8f0' }}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#16a34a' }}>Weight</label>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    max="100"
-                                                                    value={settings.weight_salary}
-                                                                    onChange={(e) => setSettings(prev => ({ ...prev, weight_salary: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
-                                                                    style={{
-                                                                        width: '48px',
-                                                                        padding: '2px 4px',
-                                                                        fontSize: '0.78rem',
-                                                                        fontWeight: 800,
-                                                                        textAlign: 'center',
-                                                                        borderRadius: '6px',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        color: '#16a34a'
-                                                                    }}
-                                                                />
-                                                                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b' }}>%</span>
-                                                            </div>
-                                                        </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="100"
-                                                            step="1"
-                                                            value={settings.weight_salary}
-                                                            onChange={(e) => setSettings(prev => ({ ...prev, weight_salary: parseInt(e.target.value, 10) || 0 }))}
-                                                            style={{ width: '100%', accentColor: '#16a34a', cursor: 'pointer' }}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                        </div>
+                                        )}
                                     </div>
                                 );
                             })()}
 
-                            {/* OVERALL SCORE CALCULATION FORMULA & ENGINE CARD */}
+                            {/* SECTION 4: HOW IT WORKS SUMMARY & TRANSPARENT RULES */}
                             {(() => {
                                 const wSkills = parseInt(settings.weight_skills, 10) || 35;
                                 const wExp = parseInt(settings.weight_experience, 10) || 30;
                                 const wQual = parseInt(settings.weight_qualification, 10) || 20;
                                 const wJd = parseInt(settings.weight_jd_alignment, 10) || 10;
                                 const wSal = parseInt(settings.weight_salary, 10) || 5;
-
-                                const isOllama = settings.ai_provider === 'ollama';
 
                                 return (
                                     <div style={{
@@ -1261,116 +1573,62 @@ function SettingsPage({ admin }) {
                                         border: '1px solid #e2e8f0',
                                         boxShadow: '0 4px 20px -2px rgba(15, 23, 42, 0.03)'
                                     }}>
-                                        <h4 style={{ margin: '0 0 6px 0', fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <FiZap style={{ color: '#7A1228' }} /> Overall Score Formula &amp; Generation Pipeline
-                                        </h4>
-                                        <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 16px 0', lineHeight: '1.45' }}>
-                                            How final candidate match scores (0% – 100%) are synthesized, weighted, and calculated dynamically by the system:
-                                        </p>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                                            <h4 style={{ margin: 0, fontSize: '1.02rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <FiZap style={{ color: '#7A1228' }} /> Overall Calculation Formula &amp; Scoring Principles
+                                            </h4>
+                                            <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '12px' }}>
+                                                SYSTEM STANDARD
+                                            </span>
+                                        </div>
 
-                                        {/* MATHEMATICAL FORMULA BANNER */}
+                                        {/* Formula Card */}
                                         <div style={{
                                             background: '#0f172a',
-                                            color: '#f8fafc',
-                                            borderRadius: '14px',
-                                            padding: '18px 22px',
-                                            marginBottom: '16px',
-                                            fontFamily: 'monospace',
-                                            fontSize: '0.84rem',
-                                            lineHeight: '1.6',
+                                            borderRadius: '12px',
+                                            padding: '16px 20px',
+                                            marginBottom: '18px',
                                             borderLeft: '4px solid #7A1228',
-                                            boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)'
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '6px'
                                         }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
-                                                <span style={{ color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                                    🧮 SYSTEM OVERALL SCORE FORMULA
-                                                </span>
-                                                <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700 }}>
-                                                    TOTAL 100%
-                                                </span>
-                                            </div>
-
-                                            <div style={{ color: '#38bdf8', fontWeight: 700, wordBreak: 'break-word', fontSize: '0.86rem' }}>
-                                                Overall Score = <span style={{ color: '#f43f5e' }}>(Skills Match × {wSkills}%)</span> + <span style={{ color: '#fbbf24' }}>(Experience × {wExp}%)</span> + <span style={{ color: '#818cf8' }}>(Qualification × {wQual}%)</span> + <span style={{ color: '#fb923c' }}>(JD Alignment × {wJd}%)</span> + <span style={{ color: '#4ade80' }}>(Salary Budget × {wSal}%)</span>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                CALCULATION FORMULA
+                                            </span>
+                                            <div style={{ fontSize: '0.86rem', fontWeight: 700, color: '#f8fafc', wordBreak: 'break-word', lineHeight: '1.6' }}>
+                                                Total Score (0–100%) = <span style={{ color: '#f87171' }}>Skills × {wSkills}%</span> + <span style={{ color: '#93c5fd' }}>Experience × {wExp}%</span> + <span style={{ color: '#c084fc' }}>Qualification × {wQual}%</span> + <span style={{ color: '#fbbf24' }}>JD Alignment × {wJd}%</span> + <span style={{ color: '#4ade80' }}>Salary × {wSal}%</span>
                                             </div>
                                         </div>
 
-                                        {/* DUAL EVALUATION PIPELINES */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                                        {/* 3 Core Principles */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '14px' }}>
                                             
-                                            {/* Pipeline 1: Primary AI Generation */}
-                                            <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                                    <span style={{ background: 'rgba(122, 18, 40, 0.1)', color: '#7A1228', padding: '4px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-                                                        PRIMARY ENGINE ({isOllama ? 'LOCAL OLLAMA' : 'CLOUD GEMINI'})
-                                                    </span>
-                                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 7px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 800 }}>
-                                                        ACTIVE
-                                                    </span>
+                                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px' }}>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <FiCheckCircle size={15} /> 100% Resume-Based Scoring
                                                 </div>
-                                                <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
-                                                    {isOllama 
-                                                        ? `Executes on-premises private LLM inference via your local Ollama instance (${settings.ollama_server || 'http://172.16.7.21:11434'}). Semantically extracts verified skills, analyzes work history against job domain, detects role mismatches, and outputs a 0–100% composite score.`
-                                                        : 'Performs deep semantic LLM analysis across full CV text, comparing candidate domain background against vacancy duties, identifying penalizable domain mismatches, and returning an authoritative 0–100% composite score.'
-                                                    }
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: '#15803d', lineHeight: '1.45' }}>
+                                                    Every candidate score is calculated strictly from verified evidence in the submitted CV, ensuring an objective, unbiased evaluation for every applicant.
                                                 </p>
                                             </div>
 
-                                            {/* Pipeline 2: Redundant Backup AI Engine (Auto-Failover) */}
-                                            <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '16px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-                                                        AUTO-FAILOVER ENGINE (BACKUP AI KEY)
-                                                    </span>
-                                                    <span style={{ 
-                                                        background: settings.gemini_api_key_backup ? '#dcfce7' : '#f1f5f9', 
-                                                        color: settings.gemini_api_key_backup ? '#15803d' : '#64748b', 
-                                                        padding: '2px 7px', 
-                                                        borderRadius: '6px', 
-                                                        fontSize: '0.68rem', 
-                                                        fontWeight: 800 
-                                                    }}>
-                                                        {settings.gemini_api_key_backup ? 'STANDBY / READY' : 'OPTIONAL CONFIGURE'}
-                                                    </span>
+                                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '14px' }}>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e40af', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <FiTarget size={15} /> Fair Scaling for Entry Roles
                                                 </div>
-                                                <p style={{ fontSize: '0.78rem', color: '#475569', margin: 0, lineHeight: '1.45' }}>
-                                                    High-availability redundancy. If the primary API key encounters token limits or Google rate limits (HTTP 429), CV evaluations automatically route through the backup key seamlessly to guarantee 100% pure AI score extraction.
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: '#1d4ed8', lineHeight: '1.45' }}>
+                                                    For junior or trainee roles, applicants with matching degrees and relevant project history are awarded high match rankings without penalizing for overqualification.
                                                 </p>
                                             </div>
 
-                                        </div>
-
-                                        {/* RECRUITMENT INTELLIGENCE & BUSINESS RULES */}
-                                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                                            
-                                            {/* Rule 1: Seniority & Overqualification */}
-                                            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '12px' }}>
-                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#166534', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    ⭐ Seniority &amp; Overqualification Merit
+                                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '14px' }}>
+                                                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#92400e', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <FiAlertTriangle size={15} /> Domain Mismatch Protection
                                                 </div>
-                                                <div style={{ fontSize: '0.74rem', color: '#15803d', lineHeight: '1.4' }}>
-                                                    For entry-level and trainee roles, candidates with prior relevant experience or higher degrees in the target field are rewarded with top priority (95% – 100%). Overqualification in the matching domain is never penalized.
-                                                </div>
-                                            </div>
-
-                                            {/* Rule 2: Domain Conflict Guard */}
-                                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '10px', padding: '12px' }}>
-                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#92400e', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    ⚠️ Domain Conflict Guard
-                                                </div>
-                                                <div style={{ fontSize: '0.74rem', color: '#b45309', lineHeight: '1.4' }}>
-                                                    Candidates applying outside their primary professional domain (e.g., HR background applying for Software Developer roles) are automatically flagged with a mismatch warning and receive a domain conflict penalty.
-                                                </div>
-                                            </div>
-
-                                            {/* Rule 3: Clamping & Normalization */}
-                                            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px' }}>
-                                                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    🔒 Score Normalization (0% – 100%)
-                                                </div>
-                                                <div style={{ fontSize: '0.74rem', color: '#475569', lineHeight: '1.4' }}>
-                                                    All composite match scores strictly range from <strong>0% to 100%</strong> based on verified document evidence, with anti-prompt-injection security safeguards.
-                                                </div>
+                                                <p style={{ margin: 0, fontSize: '0.77rem', color: '#b45309', lineHeight: '1.45' }}>
+                                                    Applicants from completely unrelated professions (e.g., HR background applying for Software Developer) are automatically flagged with a clear mismatch notice.
+                                                </p>
                                             </div>
 
                                         </div>

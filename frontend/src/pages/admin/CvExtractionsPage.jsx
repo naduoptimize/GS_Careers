@@ -768,6 +768,15 @@ const getMatchBreakdown = (app) => {
     const jdSkills = skills > 0 ? skills : (jdAlignment > 0 ? jdAlignment : 0);
     const mismatchReason = extractCandidateMismatchReason(app, res);
 
+    const weights = res.details?.weights || {
+        skills: app.weight_skills !== null && app.weight_skills !== undefined ? Number(app.weight_skills) : 35,
+        experience: app.weight_experience !== null && app.weight_experience !== undefined ? Number(app.weight_experience) : 30,
+        qualification: app.weight_qualification !== null && app.weight_qualification !== undefined ? Number(app.weight_qualification) : 20,
+        jdAlignment: app.weight_jd_alignment !== null && app.weight_jd_alignment !== undefined ? Number(app.weight_jd_alignment) : 10,
+        salary: app.weight_salary !== null && app.weight_salary !== undefined ? Number(app.weight_salary) : 5,
+        isCustom: app.weight_skills !== null && app.weight_skills !== undefined
+    };
+
     return {
         overall: score,
         salary,
@@ -776,6 +785,7 @@ const getMatchBreakdown = (app) => {
         skills,
         jdAlignment,
         jdSkills,
+        weights,
         mismatchReason
     };
 };
@@ -885,6 +895,74 @@ const getAssessmentPoints = (isMismatch, parsedReport, candidate, breakdown, min
     }
 
     return points;
+};
+
+const parsePointDetail = (rawPoint, isMismatch, index) => {
+    if (!rawPoint) return { label: '', text: '' };
+
+    let str = typeof rawPoint === 'string' ? rawPoint.trim() : String(rawPoint).trim();
+    let label = '';
+    let text = str;
+
+    // Check if the string already has an explicit label followed by a colon
+    const colonIdx = str.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 40) {
+        const potentialLabel = str.substring(0, colonIdx).trim();
+        const remainder = str.substring(colonIdx + 1).trim();
+
+        if (/missing|unverified|tech stack/i.test(potentialLabel)) {
+            label = 'Missing Tech Stack';
+            text = remainder;
+        } else if (/requirement gap|role requirement gap|role gap/i.test(potentialLabel)) {
+            label = 'Requirement Gap';
+            text = remainder;
+        } else if (/demonstrated core competencies|core competencies|competencies/i.test(potentialLabel)) {
+            label = 'Core Competencies';
+            text = remainder;
+        } else if (/technical proficiencies|key technical proficiencies|proficiencies/i.test(potentialLabel)) {
+            label = 'Core Competencies';
+            text = remainder;
+        } else if (/experience alignment|experience fit|experience/i.test(potentialLabel)) {
+            label = 'Experience Fit';
+            text = remainder;
+        } else if (/educational qualification|qualification/i.test(potentialLabel)) {
+            label = 'Qualifications';
+            text = remainder;
+        } else if (/budget compatibility|budget match|budget|salary/i.test(potentialLabel)) {
+            label = 'Budget Match';
+            text = remainder;
+        } else {
+            label = potentialLabel.replace(/^(Job & CV Mismatch Warning|Demonstrated|Verified|Key)\s*/i, '').trim();
+            text = remainder;
+        }
+    }
+
+    // If no label was found via colon, infer based on content and position
+    if (!label) {
+        if (isMismatch) {
+            if (/strictly focused|focused on|experience and skillset|background|career/i.test(str)) {
+                label = 'Candidate Focus';
+            } else if (/requires|lacks|requirement|gap|intern|developer/i.test(str)) {
+                label = 'Requirement Gap';
+            } else if (/missing|tech stack|competenc/i.test(str)) {
+                label = 'Missing Tech Stack';
+            } else {
+                label = index === 0 ? 'Candidate Focus' : (index === 1 ? 'Requirement Gap' : 'Mismatch Factor');
+            }
+        } else {
+            if (/strong fit|hands-on|experience|support|holdings|associate|tenure/i.test(str) && index === 0) {
+                label = 'Role & Experience';
+            } else if (/qualification|salary|budget|bound|lkr|expectation/i.test(str)) {
+                label = 'Qualifications & Budget';
+            } else if (/competenc|infrastructure|troubleshooting|windows|network|proficienc/i.test(str)) {
+                label = 'Core Competencies';
+            } else {
+                label = index === 0 ? 'Role & Experience' : (index === 1 ? 'Qualifications & Budget' : 'Core Competencies');
+            }
+        }
+    }
+
+    return { label, text };
 };
 
 const cleanDisplayCvText = (text) => {
@@ -1018,6 +1096,16 @@ const generateAiParsedCvText = (candidate, skills = [], parsedReport = null, ext
 };
 
 function CvExtractionsPage({ admin }) {
+    const storedAdminData = (() => {
+        try {
+            return localStorage.getItem('gs_admin_data') ? JSON.parse(localStorage.getItem('gs_admin_data')) : null;
+        } catch (e) {
+            return null;
+        }
+    })();
+    const currentAdmin = admin || storedAdminData || {};
+    const isSubAdmin = currentAdmin.role === 'sub_admin1' || currentAdmin.role === 'sub_admin2' || currentAdmin.role === 'sub_admin';
+
     const [extractions, setExtractions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [extractingIds, setExtractingIds] = useState([]);
@@ -1071,7 +1159,11 @@ function CvExtractionsPage({ admin }) {
             }
             const res = await getExtractions(params);
             const data = res.data?.data || res.data;
-            setExtractions(data.items || []);
+            let items = data.items || [];
+            if (isSubAdmin && currentAdmin.company_id) {
+                items = items.filter(i => !i.company_id || parseInt(i.company_id, 10) === parseInt(currentAdmin.company_id, 10));
+            }
+            setExtractions(items);
             setTotal(data.total || 0);
             if (data.stats) setStats(data.stats);
             if (data.enable_cv_extraction !== undefined) {
@@ -1215,11 +1307,34 @@ function CvExtractionsPage({ admin }) {
             {/* Clean Header Bar */}
             <div className="cve-page-header">
                 <div className="cve-header-title-area">
-                    <div className="cve-header-tag">
-                        <FiCpu className="cve-header-tag-icon" /> AI Parsing Engine
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                        <div className="cve-header-tag" style={{ margin: 0 }}>
+                            <FiCpu className="cve-header-tag-icon" /> AI Parsing Engine
+                        </div>
+                        {isSubAdmin && currentAdmin.company_name && (
+                            <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '3px 10px',
+                                borderRadius: '14px',
+                                background: 'rgba(122, 18, 40, 0.08)',
+                                color: '#7A1228',
+                                fontWeight: 800,
+                                fontSize: '0.76rem',
+                                border: '1px solid rgba(122, 18, 40, 0.2)'
+                            }}>
+                                <FiBriefcase size={12} /> {currentAdmin.company_name} (Own Subsidiary)
+                            </span>
+                        )}
                     </div>
                     <h1>CV Extraction Manager</h1>
-                    <p>Automated candidate resume text parsing & profile extraction dashboard</p>
+                    <p>
+                        {isSubAdmin && currentAdmin.company_name
+                            ? `Automated resume text parsing & candidate profile extraction for ${currentAdmin.company_name} vacancies`
+                            : 'Automated candidate resume text parsing & profile extraction dashboard'
+                        }
+                    </p>
                 </div>
 
                 {/* Clean Toggle Card (Super Admin Only) */}
@@ -1400,10 +1515,15 @@ function CvExtractionsPage({ admin }) {
                                 setPage(1);
                             }}
                         >
-                            <option value="">All Job Vacancies ({vacancies.length})</option>
+                            <option value="">
+                                {isSubAdmin && currentAdmin.company_name
+                                    ? `All ${currentAdmin.company_name} Vacancies (${vacancies.length})`
+                                    : `All Job Vacancies (${vacancies.length})`
+                                }
+                            </option>
                             {vacancies.map(v => (
                                 <option key={v.id} value={v.id}>
-                                    {v.title} {v.company_name ? `(${v.company_name})` : ''}
+                                    {v.title} {v.company_name && !isSubAdmin ? `(${v.company_name})` : ''}
                                 </option>
                             ))}
                         </select>
@@ -1654,9 +1774,6 @@ function CvExtractionsPage({ admin }) {
                                                         <h3 style={{ fontSize: '1.28rem', margin: 0, color: '#0f172a', fontWeight: '800', letterSpacing: '-0.01em' }}>
                                                             {cleanCandidateName(selectedCandidate.first_name)} {cleanCandidateName(selectedCandidate.last_name)}
                                                         </h3>
-                                                        <span className={`cve-match-pill ${isLow ? 'low' : (mScore < minHighScore ? 'medium' : 'high')}`}>
-                                                            <FiTarget size={13} /> {mScore}% Overall Match
-                                                        </span>
                                                         {isExtracted ? (
                                                             <span className="cve-badge extracted" style={{ fontSize: '0.76rem', padding: '3px 9px', borderRadius: '8px' }}>
                                                                 <FiCheckCircle size={13} /> Extracted {selectedCandidate.is_manual_extracted == 1 && <span style={{ opacity: 0.85 }}>(Manual)</span>}
@@ -1726,116 +1843,137 @@ function CvExtractionsPage({ admin }) {
                                         {/* Dual-Card Assessment Layout (Left: Pre-Extraction Assessment, Right: AI Match / Mismatch Analysis) */}
                                         <div className="cve-assessment-two-col">
                                             {/* Left Card: Pre-Extraction Assessment */}
-                                            <div className="cve-assessment-card cve-assessment-left">
+                                            <div className="cve-assessment-card">
                                                 <div className="cve-assessment-header">
-                                                    <div>
-                                                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <FiTarget style={{ color: '#7A1228', fontSize: '1.05rem', flexShrink: 0 }} /> Pre-Extraction Assessment: Candidate CV vs Job Description Match
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        <h4 className="cve-card-title">
+                                                            <FiTarget style={{ color: '#7A1228', fontSize: '1.05rem', flexShrink: 0 }} /> Pre-Extraction Assessment: <span style={{ color: '#64748b', fontWeight: 600 }}>CV vs JD Match</span>
                                                         </h4>
-                                                        <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-                                                            Categorized match percentages evaluated against job requirements.
-                                                        </p>
+                                                        {modalBreakdown.weights?.isCustom ? (
+                                                            <span className="cve-custom-formula-badge">
+                                                                ⚡ Custom Formula
+                                                            </span>
+                                                        ) : null}
                                                     </div>
                                                     <div className="cve-overall-score-badge">
                                                         Overall: <strong>{mScore}%</strong>
                                                     </div>
                                                 </div>
 
-                                                <div className="cve-metric-list">
-                                                    {/* 1. Salary Match Rate */}
-                                                    <div className="cve-metric-item">
-                                                        <div className="cve-metric-item-main">
-                                                            <span className="cve-metric-item-label">💵 Salary Expectation Match</span>
-                                                            <span className={`cve-metric-score-tag ${modalBreakdown.salary >= 75 ? 'score-high' : modalBreakdown.salary >= 50 ? 'score-med' : 'score-low'}`}>
-                                                                {modalBreakdown.salary}%
-                                                            </span>
+                                                <div className="cve-metric-grid-5">
+                                                    {/* 1. Technical Skills Match Rate (Separate) */}
+                                                    <div
+                                                        className="cve-metric-tile"
+                                                        title={`Candidate technical skills match: ${modalBreakdown.skills}% against required competencies`}
+                                                    >
+                                                        <div className="cve-metric-tile-label">
+                                                            <span>🛠️ Skills Match</span>
+                                                            <span className="cve-metric-weight">({modalBreakdown.weights?.skills ?? 35}%)</span>
                                                         </div>
-                                                        <div className="cve-metric-item-detail">
-                                                            Salary Expectation: <strong>{selectedCandidate.salary_expectation ? `LKR ${Number(String(selectedCandidate.salary_expectation).replace(/[^0-9.]/g, '')).toLocaleString()}` : 'Not Specified'}</strong> vs Job Budget{selectedCandidate.min_salary || selectedCandidate.max_salary ? `: LKR ${Number(selectedCandidate.min_salary || 0).toLocaleString()} - ${selectedCandidate.max_salary ? Number(selectedCandidate.max_salary).toLocaleString() : 'Uncapped'}` : ''}
-                                                        </div>
+                                                        <span className={`cve-metric-score-tag ${modalBreakdown.skills >= 75 ? 'score-high' : modalBreakdown.skills >= 50 ? 'score-med' : 'score-low'}`}>
+                                                            {modalBreakdown.skills}%
+                                                        </span>
                                                     </div>
 
-                                                    {/* 2. Relevant Experience Match Rate */}
-                                                    <div className="cve-metric-item">
-                                                        <div className="cve-metric-item-main">
-                                                            <span className="cve-metric-item-label">💼 Relevant Experience Match</span>
-                                                            <span className={`cve-metric-score-tag ${modalBreakdown.experience >= 75 ? 'score-high' : modalBreakdown.experience >= 50 ? 'score-med' : 'score-low'}`}>
-                                                                {modalBreakdown.experience}%
-                                                            </span>
+                                                    {/* 2. Job Description & Scope Alignment (Separate) */}
+                                                    <div
+                                                        className="cve-metric-tile"
+                                                        title={`Candidate CV alignment with job description and duties: ${modalBreakdown.jdAlignment}%`}
+                                                    >
+                                                        <div className="cve-metric-tile-label">
+                                                            <span>📋 JD Alignment</span>
+                                                            <span className="cve-metric-weight">({modalBreakdown.weights?.jdAlignment ?? 10}%)</span>
                                                         </div>
-                                                        <div className="cve-metric-item-detail">
-                                                            Relevant: <strong>{selectedCandidate.relevant_experience || '0-1 years'}</strong> | Overall: <strong>{selectedCandidate.overall_experience || '0-1 years'}</strong>
-                                                        </div>
+                                                        <span className={`cve-metric-score-tag ${modalBreakdown.jdAlignment >= 75 ? 'score-high' : modalBreakdown.jdAlignment >= 50 ? 'score-med' : 'score-low'}`}>
+                                                            {modalBreakdown.jdAlignment}%
+                                                        </span>
                                                     </div>
 
-                                                    {/* 3. Relevant Qualifications Match Rate */}
-                                                    <div className="cve-metric-item">
-                                                        <div className="cve-metric-item-main">
-                                                            <span className="cve-metric-item-label">🎓 Relevant Field Qualifications</span>
-                                                            <span className={`cve-metric-score-tag ${modalBreakdown.qualification >= 75 ? 'score-high' : modalBreakdown.qualification >= 50 ? 'score-med' : 'score-low'}`}>
-                                                                {modalBreakdown.qualification}%
-                                                            </span>
+                                                    {/* 3. Relevant Experience Match Rate */}
+                                                    <div
+                                                        className="cve-metric-tile"
+                                                        title={`Relevant: ${selectedCandidate.relevant_experience || '0-1 years'} | Overall: ${selectedCandidate.overall_experience || '0-1 years'}`}
+                                                    >
+                                                        <div className="cve-metric-tile-label">
+                                                            <span>💼 Experience</span>
+                                                            <span className="cve-metric-weight">({modalBreakdown.weights?.experience ?? 30}%)</span>
                                                         </div>
-                                                        <div className="cve-metric-item-detail">
-                                                            Candidate Qualification: <strong>{selectedCandidate.qualification || 'Bachelors Degree'}</strong>
-                                                        </div>
+                                                        <span className={`cve-metric-score-tag ${modalBreakdown.experience >= 75 ? 'score-high' : modalBreakdown.experience >= 50 ? 'score-med' : 'score-low'}`}>
+                                                            {modalBreakdown.experience}%
+                                                        </span>
                                                     </div>
 
-                                                    {/* 4. Job Description & Skills Match Rate */}
-                                                    <div className="cve-metric-item">
-                                                        <div className="cve-metric-item-main">
-                                                            <span className="cve-metric-item-label">🎯 Job Description &amp; Skills Match</span>
-                                                            <span className={`cve-metric-score-tag ${modalBreakdown.jdSkills >= 75 ? 'score-high' : modalBreakdown.jdSkills >= 50 ? 'score-med' : 'score-low'}`}>
-                                                                {modalBreakdown.jdSkills}%
-                                                            </span>
+                                                    {/* 4. Relevant Qualifications Match Rate */}
+                                                    <div
+                                                        className="cve-metric-tile"
+                                                        title={`Candidate Qualification: ${selectedCandidate.qualification || 'Bachelors Degree'}`}
+                                                    >
+                                                        <div className="cve-metric-tile-label">
+                                                            <span>🎓 Qualifications</span>
+                                                            <span className="cve-metric-weight">({modalBreakdown.weights?.qualification ?? 20}%)</span>
                                                         </div>
-                                                        <div className="cve-metric-item-detail">
-                                                            Target Vacancy: <strong>{selectedCandidate.vacancy_title}</strong>
-                                                        </div>
+                                                        <span className={`cve-metric-score-tag ${modalBreakdown.qualification >= 75 ? 'score-high' : modalBreakdown.qualification >= 50 ? 'score-med' : 'score-low'}`}>
+                                                            {modalBreakdown.qualification}%
+                                                        </span>
                                                     </div>
-                                                </div>
 
-                                                <div className="cve-metric-hover-hint">
-                                                    <FiInfo size={13} /> Hover over each category to view detailed comparison
+                                                    {/* 5. Salary Budget Match Rate (Full Width) */}
+                                                    <div
+                                                        className="cve-metric-tile cve-metric-tile-full"
+                                                        title={`Salary Expectation: ${selectedCandidate.salary_expectation ? `LKR ${Number(String(selectedCandidate.salary_expectation).replace(/[^0-9.]/g, '')).toLocaleString()}` : 'Not Specified'} vs Job Budget${selectedCandidate.min_salary || selectedCandidate.max_salary ? `: LKR ${Number(selectedCandidate.min_salary || 0).toLocaleString()} - ${selectedCandidate.max_salary ? Number(selectedCandidate.max_salary).toLocaleString() : 'Uncapped'}` : ''}`}
+                                                    >
+                                                        <div className="cve-metric-tile-label">
+                                                            <span>💵 Salary Budget Match</span>
+                                                            <span className="cve-metric-weight">({modalBreakdown.weights?.salary ?? 5}%)</span>
+                                                        </div>
+                                                        <span className={`cve-metric-score-tag ${modalBreakdown.salary >= 75 ? 'score-high' : modalBreakdown.salary >= 50 ? 'score-med' : 'score-low'}`}>
+                                                            {modalBreakdown.salary}%
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             {/* Right Card: AI Match Analysis / Mismatch Warning in Point Form */}
-                                            <div className={`cve-assessment-card cve-assessment-right ${isMismatch ? 'is-mismatch' : 'is-matched'}`}>
+                                            <div className="cve-assessment-card">
                                                 <div className="cve-assessment-header">
-                                                    <div>
-                                                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: isMismatch ? '#991b1b' : '#14532d', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            {isMismatch ? (
-                                                                <><FiAlertTriangle style={{ color: '#dc2626', fontSize: '1.05rem', flexShrink: 0 }} /> Job &amp; CV Mismatch Warning</>
-                                                            ) : (
-                                                                <><FiCheckCircle style={{ color: '#16a34a', fontSize: '1.05rem', flexShrink: 0 }} /> Verified Job Alignment</>
-                                                            )}
-                                                        </h4>
-                                                        <p style={{ margin: '3px 0 0 0', fontSize: '0.78rem', color: isMismatch ? '#991b1b' : '#15803d', opacity: 0.85 }}>
-                                                            {isMismatch ? 'Key divergence factors identified between candidate profile and vacancy requirements:' : 'Key qualifying strengths and verified competencies aligning with target role:'}
-                                                        </p>
-                                                    </div>
+                                                    <h4 className="cve-card-title">
+                                                        {isMismatch ? (
+                                                            <><FiAlertTriangle style={{ color: '#dc2626', fontSize: '0.98rem', flexShrink: 0 }} /> Job Mismatch Warning</>
+                                                        ) : (
+                                                            <><FiCheckCircle style={{ color: '#16a34a', fontSize: '0.98rem', flexShrink: 0 }} /> Verified Job Alignment</>
+                                                        )}
+                                                    </h4>
                                                     <span className={isMismatch ? 'cve-pill-warning' : 'cve-pill-success'}>
-                                                        {isMismatch ? 'Mismatch Warning' : 'Verified Fit'}
+                                                        {isMismatch ? 'Mismatch' : 'Verified Fit'}
                                                     </span>
                                                 </div>
 
                                                 <ul className={`cve-assessment-points-list ${isMismatch ? 'mismatch' : 'matched'}`}>
-                                                    {assessmentPoints.map((pointText, pIdx) => (
-                                                        <li key={pIdx}>
-                                                            <span className="cve-bullet-icon">{isMismatch ? '⚠️' : '✓'}</span>
-                                                            <span>{pointText}</span>
-                                                        </li>
-                                                    ))}
+                                                    {assessmentPoints.slice(0, 3).map((rawPoint, pIdx) => {
+                                                        const { label, text } = parsePointDetail(rawPoint, isMismatch, pIdx);
+                                                        return (
+                                                            <li key={pIdx}>
+                                                                <span className="cve-bullet-icon">{isMismatch ? '!' : '✓'}</span>
+                                                                <div className="cve-point-content">
+                                                                    {label && (
+                                                                        <span className={`cve-point-tag ${isMismatch ? 'tag-mismatch' : 'tag-matched'}`}>
+                                                                            {label}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="cve-point-text">{text}</span>
+                                                                </div>
+                                                            </li>
+                                                        );
+                                                    })}
                                                 </ul>
                                             </div>
                                         </div>
 
                                         {isLow && !isExtracted && (
-                                            <div style={{ padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#991b1b', fontSize: '0.85rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <FiAlertTriangle style={{ fontSize: '1.2rem', flexShrink: 0 }} />
+                                            <div style={{ padding: '8px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', color: '#991b1b', fontSize: '0.8rem', marginBottom: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <FiAlertTriangle style={{ fontSize: '1.05rem', flexShrink: 0 }} />
                                                 <div>
-                                                    <strong>Low Match Score ({mScore}%):</strong> Auto-extraction skipped because match score is below {minMediumScore}%. You can manually extract this CV using the button above.
+                                                    <strong>Low Match Score ({mScore}%):</strong> Auto-extraction skipped (&lt;{minMediumScore}%). You can manually extract this CV above.
                                                 </div>
                                             </div>
                                         )}
@@ -1845,8 +1983,12 @@ function CvExtractionsPage({ admin }) {
 
                             <div className="cve-detail-grid">
                                 {/* Personal Information Box */}
-                                <div className="cve-detail-box">
-                                    <h3><FiUser style={{ marginRight: '6px' }} /> Personal Information</h3>
+                                <div className="cve-assessment-card cve-detail-box">
+                                    <div className="cve-assessment-header">
+                                        <h4 className="cve-card-title">
+                                            <FiUser style={{ color: '#7A1228', fontSize: '0.95rem' }} /> Personal Information
+                                        </h4>
+                                    </div>
                                     <div className="cve-field-grid">
                                         <div className="cve-field">
                                             <div className="cve-field-lbl">First Name</div>
@@ -1868,8 +2010,12 @@ function CvExtractionsPage({ admin }) {
                                 </div>
 
                                 {/* Professional Profile Box */}
-                                <div className="cve-detail-box">
-                                    <h3><FiBriefcase style={{ marginRight: '6px' }} /> Professional Profile</h3>
+                                <div className="cve-assessment-card cve-detail-box">
+                                    <div className="cve-assessment-header">
+                                        <h4 className="cve-card-title">
+                                            <FiBriefcase style={{ color: '#7A1228', fontSize: '0.95rem' }} /> Professional Profile
+                                        </h4>
+                                    </div>
                                     <div className="cve-field-grid">
                                         <div className="cve-field">
                                             <div className="cve-field-lbl">Highest Qualification</div>

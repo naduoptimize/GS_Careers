@@ -4,8 +4,8 @@
 // ============================================
 require_once __DIR__ . '/../config.php';
 
-// Authenticate admin or super admin
-$auth = requireAdminOrSuperAdmin();
+// Authenticate admin, sub_admin, or super admin
+$auth = verifyToken();
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -634,20 +634,64 @@ function getSettings()
     $settings['default_smtp_user'] = defined('SMTP_USER') ? SMTP_USER : '';
     $settings['default_smtp_from_name'] = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : '';
 
+    // If Sub Admin, strip sensitive credentials (SMTP password & Gemini API keys)
+    global $auth;
+    if ($auth && ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2' || $auth['role'] === 'sub_admin')) {
+        unset($settings['smtp_pass'], $settings['gemini_api_key'], $settings['gemini_api_key_backup']);
+    }
+
     jsonResponse(200, 'Settings retrieved', $settings);
 }
 
 function saveSettings()
 {
+    global $auth;
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {
         jsonResponse(400, 'Invalid settings data');
+    }
+
+    // Default Overall Calculation Formula weights can ONLY be edited by super_admin
+    $formulaWeightKeys = [
+        'weight_skills',
+        'weight_experience',
+        'weight_qualification',
+        'weight_jd_alignment',
+        'weight_salary'
+    ];
+    if (!$auth || $auth['role'] !== 'super_admin') {
+        foreach ($formulaWeightKeys as $wKey) {
+            unset($input[$wKey]);
+        }
+    }
+
+    // Sub Admins are only allowed to modify Match Score algorithm thresholds
+    if ($auth && ($auth['role'] === 'sub_admin1' || $auth['role'] === 'sub_admin2' || $auth['role'] === 'sub_admin')) {
+        $allowedMatchScoreKeys = [
+            'min_high_match_score',
+            'min_medium_match_score'
+        ];
+        $input = array_intersect_key($input, array_flip($allowedMatchScoreKeys));
+        if (empty($input)) {
+            jsonResponse(400, 'No valid match score settings provided');
+        }
     }
 
     $db = getDB();
     $db->beginTransaction();
 
     try {
+        // Fetch current settings for diff comparison
+        $stmtCurr = $db->query("SELECT setting_key, setting_value FROM settings");
+        $currSettings = [];
+        while ($r = $stmtCurr->fetch(PDO::FETCH_ASSOC)) {
+            $currSettings[$r['setting_key']] = $r['setting_value'];
+        }
+
+        $changedWeights = [];
+        $changedThresholds = [];
+        $changedOther = [];
+
         foreach ($input as $key => $value) {
             $key = sanitize($key);
             $value = sanitize($value);
@@ -664,12 +708,63 @@ function saveSettings()
                 }
             }
 
+            $oldVal = $currSettings[$key] ?? '';
+            if ((string)$oldVal !== (string)$value) {
+                if (strpos($key, 'weight_') === 0) {
+                    $changedWeights[$key] = ['old' => $oldVal, 'new' => $value];
+                } elseif (strpos($key, 'min_') === 0 && strpos($key, '_match_score') !== false) {
+                    $changedThresholds[$key] = ['old' => $oldVal, 'new' => $value];
+                } else {
+                    $isSecret = in_array($key, ['smtp_pass', 'gemini_api_key', 'gemini_api_key_backup']);
+                    $changedOther[$key] = [
+                        'old' => $isSecret ? '********' : $oldVal,
+                        'new' => $isSecret ? '********' : $value
+                    ];
+                }
+            }
+
             // Insert or update setting
             $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
             $stmt->execute([$key, $value, $value]);
         }
 
         $db->commit();
+
+        // Audit Logging
+        $adminId = $auth['admin_id'] ?? null;
+
+        if (!empty($changedWeights)) {
+            $oldVals = array_map(fn($item) => $item['old'], $changedWeights);
+            $newVals = array_map(fn($item) => $item['new'], $changedWeights);
+            $descList = [];
+            foreach ($changedWeights as $wK => $wV) {
+                $cleanK = ucwords(str_replace(['weight_', '_'], ['', ' '], $wK));
+                $descList[] = "$cleanK ({$wV['old']}% → {$wV['new']}%)";
+            }
+            $desc = "Adjusted Candidate Score Calculation weights: " . implode(', ', $descList);
+            logSystemAudit($adminId, 'settings', 'update_weights', 'setting', 'calculation_weights', 'Calculation Formula (5 Dimensions)', $desc, $oldVals, $newVals);
+        }
+
+        if (!empty($changedThresholds)) {
+            $oldVals = array_map(fn($item) => $item['old'], $changedThresholds);
+            $newVals = array_map(fn($item) => $item['new'], $changedThresholds);
+            $descList = [];
+            foreach ($changedThresholds as $tK => $tV) {
+                $cleanK = ucwords(str_replace(['min_', '_match_score', '_'], ['', '', ' '], $tK));
+                $descList[] = "$cleanK ({$tV['old']}% → {$tV['new']}%)";
+            }
+            $desc = "Updated Candidate Match Score Thresholds: " . implode(', ', $descList);
+            logSystemAudit($adminId, 'settings', 'update_thresholds', 'setting', 'match_thresholds', 'Evaluation Benchmarks Cutoffs', $desc, $oldVals, $newVals);
+        }
+
+        if (!empty($changedOther)) {
+            $keysUpdated = implode(', ', array_keys($changedOther));
+            $desc = "Updated portal configuration settings: $keysUpdated";
+            $oldVals = array_map(fn($item) => $item['old'], $changedOther);
+            $newVals = array_map(fn($item) => $item['new'], $changedOther);
+            logSystemAudit($adminId, 'settings', 'update_settings', 'setting', 'general_settings', 'Portal System Settings', $desc, $oldVals, $newVals);
+        }
+
         jsonResponse(200, 'Settings saved successfully');
     } catch (Exception $e) {
         $db->rollBack();
@@ -679,6 +774,11 @@ function saveSettings()
 
 function testSmtpConnection()
 {
+    global $auth;
+    if (!$auth || ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin')) {
+        jsonResponse(403, 'Permission denied');
+    }
+
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {
         jsonResponse(400, 'Invalid settings data');

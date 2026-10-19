@@ -20,7 +20,8 @@ import {
     FiGlobe,
     FiAward,
     FiUsers,
-    FiChevronDown
+    FiChevronDown,
+    FiUser
 } from "react-icons/fi";
 
 function VacanciesPage() {
@@ -111,7 +112,16 @@ function VacanciesPage() {
                 <div className={`navbar-links ${mobileMenuOpen ? "open" : ""}`}>
                     <Link to="/" className="navbar-link" onClick={closeMobileMenu}>Home</Link>
                     <Link to="/vacancies" className="navbar-link active" onClick={closeMobileMenu}>Vacancies</Link>
-                    <Link to="/admin/login" className="navbar-link btn-primary" onClick={closeMobileMenu}>Admin Portal</Link>
+                    <Link
+                        to="/admin/login"
+                        className="navbar-link admin-icon-link"
+                        onClick={closeMobileMenu}
+                        title="Admin Portal"
+                        aria-label="Admin Portal"
+                    >
+                        <FiUser size={19} />
+                        <span className="admin-link-text">Admin Portal</span>
+                    </Link>
                 </div>
                 <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen((s) => !s)}>
                     {mobileMenuOpen ? <FiX /> : <FiMenu />}
@@ -131,7 +141,7 @@ function VacanciesPage() {
                             <p className="v2-hero-subtitle animate-slide-up delay-1">
                                 Partner with the oldest mercantile firm in Sri Lanka.
                                 We offer more than just a job; we offer a platform to build a career
-                                rooted in 190 years of excellence.
+                                rooted in 190+ years of excellence.
                             </p>
                             <div className="v2-hero-actions animate-slide-up delay-2">
                                 <Link to="#current-openings" className="v2-btn-scroll" onClick={(e) => {
@@ -327,12 +337,12 @@ function VacanciesPage() {
                             <div className="v5-badge">The GS Advantage</div>
                             <h2 className="v5-main-title">Why Your Career Starts Here</h2>
                             <p className="v5-main-desc">
-                                Join a legacy of over 190 years. We provide a platform for you to build a lasting legacy within Sri Lanka most prestigious mercantile home.
+                                Join a legacy of over 190+ years. We provide a platform for you to build a lasting legacy within Sri Lanka most prestigious mercantile home.
                             </p>
                             <div className="v5-stats-cluster">
                                 <div className="v5-stat-card"><span className="num">190+</span><span className="lbl">Years</span></div>
                                 <div className="v5-stat-card gold"><span className="num">10+</span><span className="lbl">Sectors</span></div>
-                                <div className="v5-stat-card"><span className="num">5K+</span><span className="lbl">Family</span></div>
+                                <div className="v5-stat-card"><span className="num">1K+</span><span className="lbl">Family</span></div>
                             </div>
                         </div>
                         <div className="v5-pillars">
@@ -389,7 +399,6 @@ function VacanciesPage() {
                                 <li><Link to="/">Home</Link></li>
                                 <li><Link to="/vacancies">All Vacancies</Link></li>
                                 <li><a href="/#heritage">Our Heritage</a></li>
-                                <li><Link to="/admin/login">Admin Portal</Link></li>
                             </ul>
                         </div>
                         <div className="footer-col contact-col">

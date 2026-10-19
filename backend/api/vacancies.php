@@ -211,8 +211,14 @@ function createVacancy()
     $minSalary = (isset($input['min_salary']) && $input['min_salary'] !== '' && $input['min_salary'] !== null) ? (float)$input['min_salary'] : null;
     $maxSalary = (isset($input['max_salary']) && $input['max_salary'] !== '' && $input['max_salary'] !== null) ? (float)$input['max_salary'] : null;
 
+    $weightSkills = (isset($input['weight_skills']) && $input['weight_skills'] !== '' && $input['weight_skills'] !== null) ? (int)$input['weight_skills'] : null;
+    $weightExp = (isset($input['weight_experience']) && $input['weight_experience'] !== '' && $input['weight_experience'] !== null) ? (int)$input['weight_experience'] : null;
+    $weightQual = (isset($input['weight_qualification']) && $input['weight_qualification'] !== '' && $input['weight_qualification'] !== null) ? (int)$input['weight_qualification'] : null;
+    $weightJd = (isset($input['weight_jd_alignment']) && $input['weight_jd_alignment'] !== '' && $input['weight_jd_alignment'] !== null) ? (int)$input['weight_jd_alignment'] : null;
+    $weightSal = (isset($input['weight_salary']) && $input['weight_salary'] !== '' && $input['weight_salary'] !== null) ? (int)$input['weight_salary'] : null;
+
     $db = getDB();
-    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, required_skills, location, employment_type, min_experience, min_relevant_experience, min_salary, max_salary, publish_date, expire_date, created_by, approval_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO vacancies (company_id, reference_number, title, designation, description, requirements, required_skills, location, employment_type, min_experience, min_relevant_experience, min_salary, max_salary, publish_date, expire_date, created_by, approval_status, weight_skills, weight_experience, weight_qualification, weight_jd_alignment, weight_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -230,7 +236,12 @@ function createVacancy()
         $input['publish_date'],
         $input['expire_date'],
         $auth['admin_id'],
-        $status
+        $status,
+        $weightSkills,
+        $weightExp,
+        $weightQual,
+        $weightJd,
+        $weightSal
     ]);
 
     $newId = $db->lastInsertId();
@@ -307,7 +318,13 @@ function updateVacancy()
     $minSalary = (isset($input['min_salary']) && $input['min_salary'] !== '' && $input['min_salary'] !== null) ? (float)$input['min_salary'] : null;
     $maxSalary = (isset($input['max_salary']) && $input['max_salary'] !== '' && $input['max_salary'] !== null) ? (float)$input['max_salary'] : null;
 
-    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, required_skills = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, min_salary = ?, max_salary = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ? WHERE id = ?");
+    $weightSkills = (isset($input['weight_skills']) && $input['weight_skills'] !== '' && $input['weight_skills'] !== null) ? (int)$input['weight_skills'] : null;
+    $weightExp = (isset($input['weight_experience']) && $input['weight_experience'] !== '' && $input['weight_experience'] !== null) ? (int)$input['weight_experience'] : null;
+    $weightQual = (isset($input['weight_qualification']) && $input['weight_qualification'] !== '' && $input['weight_qualification'] !== null) ? (int)$input['weight_qualification'] : null;
+    $weightJd = (isset($input['weight_jd_alignment']) && $input['weight_jd_alignment'] !== '' && $input['weight_jd_alignment'] !== null) ? (int)$input['weight_jd_alignment'] : null;
+    $weightSal = (isset($input['weight_salary']) && $input['weight_salary'] !== '' && $input['weight_salary'] !== null) ? (int)$input['weight_salary'] : null;
+
+    $stmt = $db->prepare("UPDATE vacancies SET company_id = ?, reference_number = ?, title = ?, designation = ?, description = ?, requirements = ?, required_skills = ?, location = ?, employment_type = ?, min_experience = ?, min_relevant_experience = ?, min_salary = ?, max_salary = ?, publish_date = ?, expire_date = ?, is_active = ?, approval_status = ?, rejection_reason = NULL, sub1_approved_by = ?, sub1_approved_at = ?, global_approved_by = ?, global_approved_at = ?, rejected_by = ?, rejected_at = ?, weight_skills = ?, weight_experience = ?, weight_qualification = ?, weight_jd_alignment = ?, weight_salary = ? WHERE id = ?");
     $stmt->execute([
         (int)$input['company_id'],
         sanitize($input['reference_number'] ?? ''),
@@ -332,6 +349,11 @@ function updateVacancy()
         $glob_at,
         $rej_by,
         $rej_at,
+        $weightSkills,
+        $weightExp,
+        $weightQual,
+        $weightJd,
+        $weightSal,
         $id
     ]);
 
@@ -1143,29 +1165,100 @@ function listAllAuditLogs()
     $auth = verifyToken();
     $role = $auth['role'];
     $companyId = $auth['company_id'] ?? null;
+    $adminId = $auth['admin_id'] ?? null;
     $db = getDB();
 
-    $sql = "SELECT l.*, a.full_name as admin_name, a.role as admin_role, 
-                   v.title as vacancy_title, v.reference_number as vacancy_ref, c.name as company_name
-            FROM vacancy_audit_logs l
+    $categoryFilter = $_GET['category'] ?? '';
+    $actionFilter = $_GET['action_type'] ?? '';
+    $companyFilter = $_GET['company_id'] ?? '';
+    $myActivity = isset($_GET['my_activity']) && $_GET['my_activity'] === '1';
+    $search = trim($_GET['search'] ?? '');
+
+    $sql = "SELECT l.*, c.name as company_name, 
+                   COALESCE(a.full_name, l.admin_name, 'System') as display_admin_name,
+                   COALESCE(a.role, l.admin_role, 'system') as display_admin_role
+            FROM audit_logs l
+            LEFT JOIN companies c ON l.company_id = c.id
             LEFT JOIN admins a ON l.admin_id = a.id
-            JOIN vacancies v ON l.vacancy_id = v.id
-            JOIN companies c ON v.company_id = c.id";
+            WHERE 1=1";
     $params = [];
 
-    // Subsidiary admins can only see logs of their own company/subsidiary
-    if ($role === 'sub_admin1' || $role === 'sub_admin2') {
-        $sql .= " WHERE v.company_id = ?";
+    // Role-based visibility enforcement
+    if ($role === 'sub_admin1' || $role === 'sub_admin2' || $role === 'sub_admin') {
+        // Sub-admins only see logs related to their assigned subsidiary or their own actions
+        $sql .= " AND (l.company_id = ? OR l.admin_id = ?) AND l.category IN ('recruitment', 'candidate')";
         $params[] = $companyId;
+        $params[] = $adminId;
+    } elseif ($role === 'admin') {
+        // HR Admin sees recruitment, candidate, user_management, and general settings
+        $sql .= " AND l.category IN ('recruitment', 'candidate', 'user_management', 'settings', 'security')";
+    }
+    // super_admin sees 100% of all logs
+
+    // Optional user filters
+    if ($myActivity) {
+        $sql .= " AND l.admin_id = ?";
+        $params[] = $adminId;
     }
 
-    $sql .= " ORDER BY l.created_at DESC, l.id DESC";
+    if (!empty($categoryFilter)) {
+        $sql .= " AND l.category = ?";
+        $params[] = $categoryFilter;
+    }
+
+    if (!empty($actionFilter)) {
+        $sql .= " AND l.action = ?";
+        $params[] = $actionFilter;
+    }
+
+    if (!empty($companyFilter) && ($role === 'super_admin' || $role === 'admin')) {
+        $sql .= " AND l.company_id = ?";
+        $params[] = $companyFilter;
+    }
+
+    if (!empty($search)) {
+        $sql .= " AND (l.entity_name LIKE ? OR l.details LIKE ? OR l.admin_name LIKE ? OR a.full_name LIKE ? OR l.action LIKE ?)";
+        $searchParam = "%$search%";
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+    }
+
+    $sql .= " ORDER BY l.created_at DESC, l.id DESC LIMIT 500";
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    $logs = $stmt->fetchAll();
+    $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    jsonResponse(200, 'All audit logs retrieved', $logs);
+    // Compute category counts for tabs
+    $countsSql = "SELECT category, COUNT(*) as cnt FROM audit_logs l WHERE 1=1";
+    $countParams = [];
+    if ($role === 'sub_admin1' || $role === 'sub_admin2' || $role === 'sub_admin') {
+        $countsSql .= " AND (l.company_id = ? OR l.admin_id = ?) AND l.category IN ('recruitment', 'candidate')";
+        $countParams[] = $companyId;
+        $countParams[] = $adminId;
+    }
+    $countsSql .= " GROUP BY category";
+    $countStmt = $db->prepare($countsSql);
+    $countStmt->execute($countParams);
+    $countsRaw = $countStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $summary = [
+        'total' => array_sum($countsRaw),
+        'recruitment' => $countsRaw['recruitment'] ?? 0,
+        'candidate' => $countsRaw['candidate'] ?? 0,
+        'settings' => $countsRaw['settings'] ?? 0,
+        'user_management' => $countsRaw['user_management'] ?? 0,
+        'security' => $countsRaw['security'] ?? 0
+    ];
+
+    jsonResponse(200, 'Audit logs retrieved successfully', [
+        'logs' => $logs,
+        'summary' => $summary,
+        'role' => $role
+    ]);
 }
 
 

@@ -59,6 +59,20 @@ function handleLogin()
 
     $token = generateToken($admin['id'], $admin['role'], $admin['company_id']);
 
+    // Record login in audit trail
+    logSystemAudit(
+        $admin['id'],
+        'security',
+        'admin_login',
+        'auth',
+        $admin['id'],
+        $admin['full_name'] . ' (' . $admin['username'] . ')',
+        "Authenticated successfully into portal as " . strtoupper(str_replace('_', ' ', $admin['role'])),
+        null,
+        ['role' => $admin['role']],
+        $admin['company_id']
+    );
+
     jsonResponse(200, 'Login successful', [
         'token' => $token,
         'admin' => [

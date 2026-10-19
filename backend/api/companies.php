@@ -57,8 +57,8 @@ function listCompanies()
 function createCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage companies');
+    if (!in_array($auth['role'], ['admin', 'super_admin'])) {
+        jsonResponse(403, 'Global admin access required to register new companies');
     }
 
     $name = sanitize($_POST['name'] ?? '');
@@ -111,8 +111,11 @@ function createCompany()
 function updateCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage companies');
+    $isAdmin = in_array($auth['role'], ['admin', 'super_admin']);
+    $isSubAdmin = in_array($auth['role'], ['sub_admin1', 'sub_admin2', 'sub_admin']);
+
+    if (!$isAdmin && !$isSubAdmin) {
+        jsonResponse(403, 'Admin access required to update company details');
     }
 
     $id = (int)($_POST['id'] ?? 0);
@@ -122,6 +125,11 @@ function updateCompany()
 
     if ($id <= 0 || empty($name) || empty($location)) {
         jsonResponse(400, 'Company ID, Name, and Location are required');
+    }
+
+    // Subadmins can only update their own subsidiary
+    if ($isSubAdmin && (int)$auth['company_id'] !== $id) {
+        jsonResponse(403, 'You can only update details for your own subsidiary');
     }
 
     $db = getDB();
@@ -181,8 +189,8 @@ function updateCompany()
 function deleteCompany()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage companies');
+    if (!in_array($auth['role'], ['admin', 'super_admin'])) {
+        jsonResponse(403, 'Global admin access required to delete companies');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);

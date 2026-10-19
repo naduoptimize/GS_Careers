@@ -67,7 +67,16 @@ export const deleteVacancy = (data) => api.post('/vacancies.php?action=delete', 
 export const assignVacancyCandidate = (data) => api.post('/vacancies.php?action=assign_candidate', data);
 export const getNextReferenceNumber = (companyId) => api.get(`/vacancies.php?action=next_reference_number&company_id=${companyId}`);
 export const getVacancyAuditLog = (id) => api.get(`/vacancies.php?action=audit_log&id=${id}`);
-export const getAllVacancyAuditLogs = () => api.get('/vacancies.php?action=all_audit_logs');
+export const getAllVacancyAuditLogs = (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.category) query.append('category', params.category);
+    if (params.action_type) query.append('action_type', params.action_type);
+    if (params.company_id) query.append('company_id', params.company_id);
+    if (params.my_activity) query.append('my_activity', '1');
+    if (params.search) query.append('search', params.search);
+    const qs = query.toString();
+    return api.get(`/vacancies.php?action=all_audit_logs${qs ? '&' + qs : ''}`);
+};
 
 // Vacancy approvals
 export const getPendingApprovals = () => api.get('/vacancies.php?action=pending_approvals');

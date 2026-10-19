@@ -108,9 +108,9 @@ function AdminLayout({ admin, children }) {
 
     if (admin.role === 'super_admin' || admin.role === 'admin') {
         navItems.push({ to: '/admin/admins', icon: <FiUserPlus />, label: 'Manage Admins', badge: null });
-        navItems.push({ to: '/admin/cv-extractions', icon: <FiCpu />, label: 'CV Extractions', badge: null });
-        navItems.push({ to: '/admin/settings', icon: <FiSettings />, label: 'Settings', badge: null });
     }
+    navItems.push({ to: '/admin/cv-extractions', icon: <FiCpu />, label: 'CV Extractions', badge: null });
+    navItems.push({ to: '/admin/settings', icon: <FiSettings />, label: 'Settings', badge: null });
 
     const currentPage = navItems.find(item => {
         if (item.end) return location.pathname === '/admin';
@@ -244,25 +244,23 @@ function AdminLayout({ admin, children }) {
                                                 <span>{admin?.role === 'super_admin' ? 'View Vacancy' : 'Add Vacancies'}</span>
                                             </NavLink>
                                             {(admin.role === 'super_admin' || admin.role === 'admin') && (
-                                                <>
-                                                    <NavLink
-                                                        to="/admin/vacancies/reports"
-                                                        className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
-                                                        onClick={() => setSidebarOpen(false)}
-                                                    >
-                                                        <span className="sidebar-sublink-bullet"></span>
-                                                        <span>Manage Vacancies</span>
-                                                    </NavLink>
-                                                    <NavLink
-                                                        to="/admin/companies"
-                                                        className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
-                                                        onClick={() => setSidebarOpen(false)}
-                                                    >
-                                                        <span className="sidebar-sublink-bullet"></span>
-                                                        <span>Manage Company</span>
-                                                    </NavLink>
-                                                </>
+                                                <NavLink
+                                                    to="/admin/vacancies/reports"
+                                                    className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                    onClick={() => setSidebarOpen(false)}
+                                                >
+                                                    <span className="sidebar-sublink-bullet"></span>
+                                                    <span>Manage Vacancies</span>
+                                                </NavLink>
                                             )}
+                                            <NavLink
+                                                to="/admin/companies"
+                                                className={({ isActive }) => `sidebar-sublink ${isActive ? 'active' : ''}`}
+                                                onClick={() => setSidebarOpen(false)}
+                                            >
+                                                <span className="sidebar-sublink-bullet"></span>
+                                                <span>Manage Company</span>
+                                            </NavLink>
                                         </div>
                                     )}
                                 </div>

@@ -862,50 +862,52 @@ input:checked + .cve-slider:before {
 }
 
 .cve-modal-body {
-    padding: 1.5rem;
+    padding: 1.15rem 1.35rem;
+    background: #f8fafc;
     overflow-y: auto;
 }
 
 .cve-detail-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.15rem;
+    gap: 0.85rem;
+    margin-bottom: 0.85rem;
 }
 
 /* Candidate Modal Header Card & Avatar */
 .cve-candidate-modal-header-card {
-    background: #f8fafc;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 1.1rem 1.35rem;
-    margin-bottom: 1.25rem;
+    border-radius: 12px;
+    padding: 0.85rem 1.15rem;
+    margin-bottom: 0.85rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    gap: 0.85rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .cve-candidate-modal-avatar {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     background: linear-gradient(135deg, #7A1228, #9b1d38);
     color: #ffffff;
     font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.05rem;
-    box-shadow: 0 4px 10px rgba(122, 18, 40, 0.2);
+    font-size: 1rem;
+    box-shadow: 0 3px 8px rgba(122, 18, 40, 0.2);
     flex-shrink: 0;
 }
 
 .cve-field-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.85rem 1.15rem;
+    gap: 0.55rem 1rem;
 }
 
 @media (max-width: 640px) {
@@ -915,37 +917,27 @@ input:checked + .cve-slider:before {
 }
 
 .cve-detail-box {
-    background: #f8fafc;
+    background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1.15rem;
-}
-
-.cve-detail-box h3 {
-    font-size: 0.92rem;
-    font-weight: 800;
-    color: #7A1228;
-    margin: 0 0 0.95rem 0;
-    border-bottom: 1px solid #e2e8f0;
-    padding-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
+    border-radius: 14px;
+    padding: 1.15rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .cve-field {
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.35rem;
 }
 
 .cve-field-lbl {
-    font-size: 0.72rem;
+    font-size: 0.67rem;
     color: #64748b;
     text-transform: uppercase;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.04em;
 }
 
 .cve-field-val {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #0f172a;
     font-weight: 600;
     margin-top: 2px;
@@ -1741,8 +1733,8 @@ input:checked + .cve-slider:before {
 .cve-assessment-two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.15rem;
-    margin-bottom: 1.25rem;
+    gap: 1rem;
+    margin-bottom: 1rem;
     align-items: stretch;
 }
 
@@ -1756,99 +1748,135 @@ input:checked + .cve-slider:before {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    padding: 1.1rem 1.25rem;
+    padding: 1.25rem 1.35rem;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
-    transition: all 0.22s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: all 0.2s ease;
+    min-height: 235px;
 }
 
-.cve-assessment-left {
-    border-left: 4px solid #7A1228;
-    background: linear-gradient(135deg, #fcfcfd 0%, #ffffff 100%);
+.cve-assessment-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.cve-assessment-right.is-mismatch {
-    border: 1px solid #fecdd3;
-    border-left: 4px solid #e11d48;
-    background: linear-gradient(135deg, #fff8f8 0%, #ffffff 100%);
-    box-shadow: 0 4px 15px -3px rgba(225, 29, 72, 0.05);
-}
-
-.cve-assessment-right.is-matched {
-    border: 1px solid #bbf7d0;
-    border-left: 4px solid #10b981;
-    background: linear-gradient(135deg, #f6fef9 0%, #ffffff 100%);
-    box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.05);
+.cve-card-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
 }
 
 .cve-assessment-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.85rem;
-    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 0.95rem;
     gap: 0.65rem;
 }
 
-.cve-overall-score-badge {
-    background: rgba(122, 18, 40, 0.08);
-    color: #7A1228;
-    border: 1px solid rgba(122, 18, 40, 0.2);
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 0.78rem;
+.cve-custom-formula-badge {
+    font-size: 0.68rem;
     font-weight: 700;
+    padding: 2.5px 8px;
+    border-radius: 10px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     white-space: nowrap;
 }
 
-/* Category Metric List (No color bars, clean text + score badge, hover reveals detail) */
-.cve-metric-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 0.4rem;
+.cve-overall-score-badge {
+    background: #fff1f2;
+    color: #9f1239;
+    border: 1px solid #fecdd3;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cve-overall-score-badge strong {
+    font-weight: 800;
+    color: #7A1228;
+    font-size: 0.82rem;
+}
+
+/* Roomy 5-Metric Grid (2 columns, with Salary spanning full width) */
+.cve-metric-grid-5 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
     flex: 1;
 }
 
-.cve-metric-item {
-    background: #ffffff;
+.cve-metric-tile-full {
+    grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+    .cve-metric-grid-5 {
+        grid-template-columns: 1fr;
+    }
+    .cve-metric-tile-full {
+        grid-column: span 1;
+    }
+}
+
+.cve-metric-tile {
+    background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 0.65rem 0.85rem;
-    transition: all 0.22s ease;
-    cursor: pointer;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-}
-
-.cve-metric-item:hover,
-.cve-metric-item.is-active {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-}
-
-.cve-metric-item-main {
+    padding: 0.65rem 0.95rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.18s ease;
+    cursor: default;
 }
 
-.cve-metric-item-label {
-    font-size: 0.83rem;
+.cve-metric-tile:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.cve-metric-tile-label {
+    font-size: 0.82rem;
     font-weight: 700;
     color: #1e293b;
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
+}
+
+.cve-metric-weight {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+    margin-left: 2px;
 }
 
 .cve-metric-score-tag {
-    font-size: 0.84rem;
+    font-size: 0.78rem;
     font-weight: 800;
-    padding: 2px 9px;
-    border-radius: 6px;
+    padding: 3px 9px;
+    border-radius: 7px;
     letter-spacing: -0.01em;
+    flex-shrink: 0;
 }
 
 .cve-metric-score-tag.score-high {
@@ -1869,58 +1897,25 @@ input:checked + .cve-slider:before {
     border: 1px solid #fecaca;
 }
 
-/* Smooth reveal of detail text on hover */
-.cve-metric-item-detail {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, margin-top 0.2s ease, padding-top 0.2s ease;
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 1px dashed transparent;
-    font-size: 0.76rem;
-    color: #475569;
-    line-height: 1.45;
-}
-
-.cve-metric-item:hover .cve-metric-item-detail,
-.cve-metric-item.is-active .cve-metric-item-detail {
-    max-height: 80px;
-    opacity: 1;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px dashed #e2e8f0;
-}
-
-.cve-metric-hover-hint {
-    margin-top: 0.65rem;
-    font-size: 0.72rem;
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-style: italic;
-}
-
 /* Right Card Status Pills */
 .cve-pill-warning {
-    background: #ffe4e6;
+    background: #fff1f2;
     color: #be123c;
     border: 1px solid #fecdd3;
-    padding: 3px 10px;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     font-weight: 700;
     white-space: nowrap;
 }
 
 .cve-pill-success {
-    background: #dcfce7;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-    padding: 3px 10px;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -1929,50 +1924,92 @@ input:checked + .cve-slider:before {
 .cve-assessment-points-list {
     list-style: none;
     padding: 0;
-    margin: 0.4rem 0 0 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.65rem;
     flex: 1;
+    justify-content: flex-start;
+    overflow-y: visible;
 }
 
 .cve-assessment-points-list li {
     display: flex;
     align-items: flex-start;
-    gap: 9px;
+    gap: 10px;
     font-size: 0.81rem;
-    line-height: 1.48;
-    padding: 0.55rem 0.75rem;
-    border-radius: 8px;
-    transition: background 0.15s ease;
-}
-
-.cve-assessment-points-list.mismatch li {
-    background: rgba(254, 226, 226, 0.42);
-    border: 1px solid rgba(254, 202, 202, 0.65);
-    color: #7f1d1d;
-}
-
-.cve-assessment-points-list.mismatch li:hover {
-    background: rgba(254, 226, 226, 0.7);
-}
-
-.cve-assessment-points-list.matched li {
-    background: rgba(220, 252, 231, 0.42);
-    border: 1px solid rgba(187, 247, 208, 0.65);
-    color: #14532d;
-}
-
-.cve-assessment-points-list.matched li:hover {
-    background: rgba(220, 252, 231, 0.7);
+    line-height: 1.46;
+    padding: 0;
+    background: transparent;
+    border: none;
 }
 
 .cve-bullet-icon {
-    font-size: 0.88rem;
-    line-height: 1.25;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
     flex-shrink: 0;
     margin-top: 1px;
 }
+
+.cve-assessment-points-list.matched .cve-bullet-icon {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.cve-assessment-points-list.mismatch .cve-bullet-icon {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.cve-point-content {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.81rem;
+    line-height: 1.46;
+    color: #334155;
+    word-break: break-word;
+}
+
+.cve-point-tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.70rem;
+    font-weight: 800;
+    padding: 1.5px 7px;
+    border-radius: 6px;
+    margin-right: 6px;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    vertical-align: 1px;
+    line-height: 1.3;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.cve-point-tag.tag-matched {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.cve-point-tag.tag-mismatch {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.cve-point-text {
+    color: #334155;
+    font-weight: 500;
+}
+
 
 
 

@@ -1,11 +1,46 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createVacancy, updateVacancy, getVacancy, getCompanies, getCandidateCount, getMatchingCandidates, getNextReferenceNumber, API_BASE } from '../../services/api';
-import { EMPLOYMENT_TYPES, OVERALL_EXPERIENCE_OPTIONS, RELEVANT_EXPERIENCE_OPTIONS } from '../../utils/constants';
+import { 
+    createVacancy, 
+    updateVacancy, 
+    getVacancy, 
+    getCompanies, 
+    getCandidateCount, 
+    getMatchingCandidates, 
+    getNextReferenceNumber, 
+    API_BASE 
+} from '../../services/api';
+import { EMPLOYMENT_TYPES } from '../../utils/constants';
+import { toast } from 'react-toastify';
+import { 
+    FiArrowLeft, 
+    FiSave, 
+    FiCheckCircle, 
+    FiBriefcase, 
+    FiMapPin, 
+    FiCalendar, 
+    FiTarget, 
+    FiUsers, 
+    FiX, 
+    FiUser, 
+    FiFileText, 
+    FiMail, 
+    FiExternalLink, 
+    FiTag, 
+    FiPlus, 
+    FiList, 
+    FiHelpCircle,
+    FiAlertCircle,
+    FiClock,
+    FiDollarSign,
+    FiLayers,
+    FiAward,
+    FiMinus,
+    FiRotateCcw,
+    FiSliders
+} from 'react-icons/fi';
 
 const BACKEND_ROOT = API_BASE.replace('/api', '');
-import { toast } from 'react-toastify';
-import { FiArrowLeft, FiSave, FiCheckCircle, FiInfo, FiBriefcase, FiMapPin, FiClock, FiCalendar, FiTarget, FiUsers, FiX, FiUser, FiFileText, FiMail, FiExternalLink, FiTag, FiPlus, FiList } from 'react-icons/fi';
 
 function CreateVacancy({ admin }) {
     const navigate = useNavigate();
@@ -21,6 +56,7 @@ function CreateVacancy({ admin }) {
     const [approvalSubmitModal, setApprovalSubmitModal] = useState(null);
     const [searchingMatches, setSearchingMatches] = useState(false);
     const [loadingMatches, setLoadingMatches] = useState(false);
+
     const [form, setForm] = useState({
         company_id: (admin.role !== 'super_admin' && admin.role !== 'admin') ? admin.company_id : '',
         reference_number: '',
@@ -39,8 +75,15 @@ function CreateVacancy({ admin }) {
         expire_date: '',
         is_active: 1,
         approval_status: '',
-        rejection_reason: ''
+        rejection_reason: '',
+        use_custom_weights: false,
+        weight_skills: 35,
+        weight_experience: 30,
+        weight_qualification: 20,
+        weight_jd_alignment: 10,
+        weight_salary: 5
     });
+
     const [skillInput, setSkillInput] = useState('');
     const skillInputRef = useRef(null);
     const descriptionRef = useRef(null);
@@ -117,35 +160,37 @@ function CreateVacancy({ admin }) {
             setCompanies(fetchedCompanies);
 
             if (isEditing) {
-                // If we're editing, we might need a specific getVacancyById api call
-                // For now, let's fetch all and filter or assume there's an API
-                // Looking at api.js might be helpful later
                 const vacRes = await getVacancy(id);
                 const vacancy = vacRes.data.data;
                 if (vacancy) {
                     setForm({
                         company_id: vacancy.company_id,
                         reference_number: vacancy.reference_number || '',
-                        title: vacancy.title,
-                        designation: vacancy.designation,
+                        title: vacancy.title || '',
+                        designation: vacancy.designation || '',
                         description: vacancy.description || '',
                         requirements: vacancy.requirements || '',
                         required_skills: vacancy.required_skills || '',
                         location: vacancy.location || '',
-                        employment_type: vacancy.employment_type,
+                        employment_type: vacancy.employment_type || 'Full-Time',
                         min_experience: vacancy.min_experience || '0 years',
                         min_relevant_experience: vacancy.min_relevant_experience || '0 years',
                         min_salary: vacancy.min_salary || '',
                         max_salary: vacancy.max_salary || '',
-                        publish_date: vacancy.publish_date,
-                        expire_date: vacancy.expire_date,
-                        is_active: vacancy.is_active,
+                        publish_date: vacancy.publish_date || new Date().toISOString().split('T')[0],
+                        expire_date: vacancy.expire_date || '',
+                        is_active: vacancy.is_active ?? 1,
                         approval_status: vacancy.approval_status || '',
-                        rejection_reason: vacancy.rejection_reason || ''
+                        rejection_reason: vacancy.rejection_reason || '',
+                        use_custom_weights: Boolean(vacancy.weight_skills !== null && vacancy.weight_skills !== undefined && vacancy.weight_skills !== ''),
+                        weight_skills: (vacancy.weight_skills !== null && vacancy.weight_skills !== undefined && vacancy.weight_skills !== '') ? Number(vacancy.weight_skills) : 35,
+                        weight_experience: (vacancy.weight_experience !== null && vacancy.weight_experience !== undefined && vacancy.weight_experience !== '') ? Number(vacancy.weight_experience) : 30,
+                        weight_qualification: (vacancy.weight_qualification !== null && vacancy.weight_qualification !== undefined && vacancy.weight_qualification !== '') ? Number(vacancy.weight_qualification) : 20,
+                        weight_jd_alignment: (vacancy.weight_jd_alignment !== null && vacancy.weight_jd_alignment !== undefined && vacancy.weight_jd_alignment !== '') ? Number(vacancy.weight_jd_alignment) : 10,
+                        weight_salary: (vacancy.weight_salary !== null && vacancy.weight_salary !== undefined && vacancy.weight_salary !== '') ? Number(vacancy.weight_salary) : 5
                     });
                 }
             } else {
-                // If not editing, and company_id is pre-selected (e.g. for company-level admin/sub-admin)
                 const preselectedCompanyId = (admin.role !== 'super_admin' && admin.role !== 'admin') ? admin.company_id : '';
                 let updatedLocation = '';
                 if (preselectedCompanyId) {
@@ -155,7 +200,6 @@ function CreateVacancy({ admin }) {
                     }
                 }
                 
-                // Fetch next reference number
                 let generatedRef = '';
                 if (preselectedCompanyId) {
                     try {
@@ -321,16 +365,31 @@ function CreateVacancy({ admin }) {
     };
 
     const handleSave = async (submitForApproval) => {
-        // Basic validation
-        if (!form.company_id || !form.title || !form.designation || !form.description || !form.publish_date || !form.expire_date) {
-            toast.error('Please fill in all required fields');
+        if (!form.company_id || !form.title || !form.designation || !form.description || !form.publish_date || !form.expire_date || !form.min_salary || !form.max_salary) {
+            toast.error('Please fill in all required fields (Company, Title, Designation, Salary, Description, Dates)');
             return;
+        }
+
+        if (parseFloat(form.min_salary) > parseFloat(form.max_salary)) {
+            toast.error('Min. Salary cannot be greater than Max. Salary');
+            return;
+        }
+
+        if (form.use_custom_weights) {
+            const totalWeights = (parseInt(form.weight_skills, 10) || 0) +
+                                 (parseInt(form.weight_experience, 10) || 0) +
+                                 (parseInt(form.weight_qualification, 10) || 0) +
+                                 (parseInt(form.weight_jd_alignment, 10) || 0) +
+                                 (parseInt(form.weight_salary, 10) || 0);
+            if (totalWeights !== 100) {
+                toast.error(`Custom scoring weights must equal exactly 100% (Current: ${totalWeights}%)`);
+                return;
+            }
         }
 
         try {
             setLoading(true);
             
-            // Auto-commit any unsaved skill in the input box before saving
             let finalSkills = form.required_skills;
             if (skillInput.trim()) {
                 const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
@@ -346,11 +405,21 @@ function CreateVacancy({ admin }) {
                 }
             }
 
-            const payload = { ...form, required_skills: finalSkills, submit_for_approval: submitForApproval };
+            const payload = {
+                ...form,
+                required_skills: finalSkills,
+                weight_skills: form.use_custom_weights ? (parseInt(form.weight_skills, 10) || 0) : null,
+                weight_experience: form.use_custom_weights ? (parseInt(form.weight_experience, 10) || 0) : null,
+                weight_qualification: form.use_custom_weights ? (parseInt(form.weight_qualification, 10) || 0) : null,
+                weight_jd_alignment: form.use_custom_weights ? (parseInt(form.weight_jd_alignment, 10) || 0) : null,
+                weight_salary: form.use_custom_weights ? (parseInt(form.weight_salary, 10) || 0) : null,
+                submit_for_approval: submitForApproval
+            };
+
             let newId = id;
             if (isEditing) {
                 await updateVacancy({ ...payload, id });
-                toast.success(submitForApproval ? 'Vacancy submitted for approval' : 'Vacancy draft updated');
+                toast.success(submitForApproval ? 'Vacancy submitted for approval' : 'Vacancy draft saved');
             } else {
                 const res = await createVacancy(payload);
                 newId = res.data?.data?.id;
@@ -373,664 +442,1262 @@ function CreateVacancy({ admin }) {
         }
     };
 
-    if (fetching) return (
-        <div className="loading-spinner">
-            <div className="spinner"></div>
-        </div>
-    );
+    if (fetching) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px' }}>
+                <div style={{ width: '40px', height: '40px', border: '3px solid #f1f5f9', borderTopColor: '#7A1228', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>Loading vacancy details...</span>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+        );
+    }
 
     return (
-        <div className="create-vacancy-page">
-            <div className="vacancies-orchestration-header">
-                <div className="header-content-p">
-                    <div className="badge-p">
-                        <span className="dot pulse"></span>
-                        {isEditing ? 'REVISION CONSOLE' : 'POSTING ORCHESTRATOR'}
+        <div className="cv-page-wrapper">
+            {/* Top Navigation & Action Header */}
+            <header className="cv-top-bar">
+                <div className="cv-header-left">
+                    <button 
+                        type="button" 
+                        className="cv-back-btn" 
+                        onClick={() => navigate('/admin/vacancies')}
+                        title="Back to vacancies"
+                    >
+                        <FiArrowLeft />
+                    </button>
+                    <div>
+                        <div className="cv-breadcrumb">
+                            <span>Admin</span>
+                            <span>/</span>
+                            <span>Vacancies</span>
+                            <span>/</span>
+                            <span className="cv-active-crumb">{isEditing ? 'Edit' : 'Create'}</span>
+                        </div>
+                        <h1 className="cv-page-heading">
+                            {isEditing ? (form.title ? `Edit: ${form.title}` : 'Edit Vacancy') : 'Create New Vacancy'}
+                        </h1>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button className="back-btn-minimal" onClick={() => navigate('/admin/vacancies')}>
-                            <FiArrowLeft />
-                        </button>
-                        <h1 className="hero-title-p">{isEditing ? 'Edit Vacancy' : 'Create New Vacancy'}</h1>
-                    </div>
-                    <p className="hero-subtitle-p">Provide details for the job opening to attract the best talent.</p>
                 </div>
-                
-                {matchCount > 0 && (
-                    <div className="hero-stats-glass animate-bounce-in" onClick={handleViewMatches}>
-                        <div className="h-stat-item">
-                            <span className="h-label">AUTO-MATCH</span>
-                            <span className="h-value">{matchCount}</span>
-                        </div>
-                        <FiExternalLink className="h-stat-icon" />
+
+                <div className="cv-header-actions">
+                    {matchCount > 0 && (
+                        <button 
+                            type="button" 
+                            className="cv-match-badge-btn" 
+                            onClick={handleViewMatches}
+                            title="View auto-matching candidates from talent pool"
+                        >
+                            <span>🔥</span>
+                            <span><strong>{matchCount}</strong> Matched Candidates</span>
+                        </button>
+                    )}
+                </div>
+            </header>
+
+            {/* Rejection Notification Banner */}
+            {form.approval_status === 'rejected' && (
+                <div className="cv-rejection-card">
+                    <div className="cv-rej-header">
+                        <FiAlertCircle size={18} />
+                        <strong>Requisition Revision Required</strong>
                     </div>
-                )}
-            </div>
+                    <p className="cv-rej-reason">
+                        Reason: {form.rejection_reason || 'No specific reason provided.'}
+                    </p>
+                    <p className="cv-rej-subtext">
+                        Please update the requested changes and click "Submit for Approval" to resubmit.
+                    </p>
+                </div>
+            )}
 
-            <form onSubmit={(e) => e.preventDefault()} className="premium-form-layout">
-                <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0, minWidth: 0 }}>
-                    <div className="form-sections-container">
-                        {form.approval_status === 'rejected' && (
-                            <div className="rejection-banner animate-fade-in" style={{
-                                background: 'rgba(220, 38, 38, 0.08)',
-                                border: '1px solid rgba(220, 38, 38, 0.2)',
-                                borderRadius: '16px',
-                                padding: '20px',
-                                marginBottom: '24px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '8px',
-                                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.03)'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '1px', textTransform: 'uppercase' }}>
-                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#dc2626' }}></span>
-                                    Requisition Rejected
-                                </div>
-                                <p style={{ margin: 0, fontSize: '0.9rem', color: '#dc2626', fontWeight: 600 }}>
-                                    Reason: {form.rejection_reason || 'No specific rejection reason provided.'}
-                                </p>
-                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#991b1b', opacity: 0.8 }}>
-                                    Please make the required changes below and click "Submit for Approval" to restart the validation process.
-                                </p>
-                            </div>
-                        )}
-                    {/* Section 1: Basic Information */}
-                    <section className="form-section-card">
-                        <div className="section-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
-                            <div className="section-icon" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}><FiBriefcase /></div>
+            {/* Main Form Body */}
+            <form onSubmit={(e) => e.preventDefault()} className="cv-form-container">
+                <fieldset disabled={admin.role === 'super_admin'} style={{ border: 'none', padding: 0, margin: 0 }}>
+                    
+                    {/* SECTION 1: Job Details & Classification */}
+                    <div className="cv-card">
+                        <div className="cv-card-header">
+                            <div className="cv-card-icon"><FiBriefcase /></div>
                             <div>
-                                <h3 style={{ fontSize: '1.1rem' }}>Basic Information</h3>
-                                <p style={{ fontSize: '0.8rem' }}>Essential details about the job role.</p>
+                                <h2 className="cv-card-title">Job Details &amp; Classification</h2>
+                                <p className="cv-card-desc">Basic information, company assignment, and role requirements.</p>
                             </div>
                         </div>
 
-                        <div className="admin-grid-2">
-                            <div className="form-group-p full-width">
-                                <label htmlFor="company_id">Company <span className="required">*</span></label>
-                                <div className="input-with-preview" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <div className="input-wrapper" style={{ flex: 1 }}>
-                                        <select
-                                            id="company_id"
-                                            name="company_id"
-                                            value={form.company_id}
-                                            onChange={handleChange}
-                                            disabled={admin.role !== 'admin'}
-                                            className="premium-input"
-                                        >
-                                            <option value="">Select company</option>
-                                            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
-                                    </div>
+                        {/* Core Role Information - Consistent 2-Column Grid */}
+                        <div className="cv-grid cv-grid-2">
+                            {/* Company Selection */}
+                            <div className="cv-field">
+                                <label htmlFor="company_id">
+                                    Company <span className="cv-required">*</span>
+                                </label>
+                                <div className="cv-company-select-row">
+                                    <select
+                                        id="company_id"
+                                        name="company_id"
+                                        value={form.company_id}
+                                        onChange={handleChange}
+                                        disabled={admin.role !== 'admin'}
+                                        className="cv-input"
+                                    >
+                                        <option value="">Select Company</option>
+                                        {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
                                     {form.company_id && (
-                                        <div className="company-logo-preview animate-fade-in" style={{ width: '50px', height: '50px', borderRadius: '12px', background: '#fff', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', flexShrink: 0, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                                        <div className="cv-company-logo-chip" title={companies.find(c => c.id == form.company_id)?.name}>
                                             <img 
                                                 src={companies.find(c => c.id == form.company_id)?.logo ? `${BACKEND_ROOT}/uploads/logos/${companies.find(c => c.id == form.company_id).logo}` : "/gs-logo.png"} 
-                                                alt="Preview" 
-                                                onError={(e) => e.target.src = "/gs-logo.png"}
-                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                alt="Company" 
+                                                onError={(e) => { e.target.src = "/gs-logo.png"; }}
                                             />
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            <div className="form-group-p">
+                            {/* Reference Number */}
+                            <div className="cv-field">
                                 <label htmlFor="reference_number">Reference Number</label>
-                                <div className="input-wrapper">
-                                    <input
-                                        id="reference_number"
-                                        type="text"
-                                        name="reference_number"
-                                        value={form.reference_number}
-                                        onChange={handleChange}
-                                        placeholder="e.g. GS/ENG/2026/001"
-                                        className="premium-input"
-                                    />
-                                </div>
+                                <input
+                                    id="reference_number"
+                                    type="text"
+                                    name="reference_number"
+                                    value={form.reference_number}
+                                    onChange={handleChange}
+                                    placeholder="e.g. GS/ENG/2026/001"
+                                    className="cv-input"
+                                />
                             </div>
 
-                            <div className="form-group-p">
+                            {/* Job Title - Prominent Full Width */}
+                            <div className="cv-field cv-col-span-2">
+                                <label htmlFor="title">
+                                    Job Title <span className="cv-required">*</span>
+                                </label>
+                                <input
+                                    id="title"
+                                    type="text"
+                                    name="title"
+                                    value={form.title}
+                                    onChange={handleChange}
+                                    placeholder="e.g. Senior Brand Executive / Accounts Manager"
+                                    className="cv-input cv-input-lg"
+                                />
+                            </div>
+
+                            {/* Designation / Function */}
+                            <div className="cv-field">
+                                <label htmlFor="designation">
+                                    Designation / Function <span className="cv-required">*</span>
+                                </label>
+                                <input
+                                    id="designation"
+                                    type="text"
+                                    name="designation"
+                                    value={form.designation}
+                                    onChange={handleChange}
+                                    placeholder="e.g. Finance, Marketing, IT, Logistics"
+                                    className="cv-input"
+                                />
+                            </div>
+
+                            {/* Employment Type */}
+                            <div className="cv-field">
                                 <label htmlFor="employment_type">Employment Type</label>
-                                <div className="input-wrapper">
-                                    <select
-                                        id="employment_type"
-                                        name="employment_type"
-                                        value={form.employment_type}
-                                        onChange={handleChange}
-                                        className="premium-input"
-                                    >
-                                        {EMPLOYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
+                                <select
+                                    id="employment_type"
+                                    name="employment_type"
+                                    value={form.employment_type}
+                                    onChange={handleChange}
+                                    className="cv-input"
+                                >
+                                    {EMPLOYMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
                             </div>
 
-                            <div className="form-group-p">
-                                <label htmlFor="min_experience">Min. Overall Experience</label>
-                                <div className="input-wrapper">
-                                    <select
-                                        id="min_experience"
-                                        name="min_experience"
-                                        value={form.min_experience}
-                                        onChange={handleChange}
-                                        className="premium-input"
-                                    >
-                                        <option value="0 years">0 years (Freshers)</option>
-                                        <option value="0-1 years">0–1 years</option>
-                                        <option value="1-2 years">1–2 years</option>
-                                        <option value="3-4 years">3–4 years</option>
-                                        <option value="5-7 years">5–7 years</option>
-                                        <option value="8-10 years">8–10 years</option>
-                                        <option value="10+ years">10+ years</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <label htmlFor="min_relevant_experience">Min. Relevant Experience</label>
-                                <div className="input-wrapper">
-                                    <select
-                                        id="min_relevant_experience"
-                                        name="min_relevant_experience"
-                                        value={form.min_relevant_experience}
-                                        onChange={handleChange}
-                                        className="premium-input"
-                                    >
-                                        <option value="0 years">0 years (Freshers)</option>
-                                        <option value="0-1 years">0–1 years</option>
-                                        <option value="1-2 years">1–2 years</option>
-                                        <option value="3-4 years">3–4 years</option>
-                                        <option value="5-7 years">5–7 years</option>
-                                        <option value="8-10 years">8–10 years</option>
-                                        <option value="10+ years">10+ years</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <label htmlFor="min_salary">Min Expected Salary (LKR)</label>
-                                <div className="input-wrapper">
-                                    <input
-                                        id="min_salary"
-                                        type="number"
-                                        name="min_salary"
-                                        value={form.min_salary}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 100000"
-                                        className="premium-input"
-                                        min="0"
-                                        step="5000"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <label htmlFor="max_salary">Max Expected Salary (LKR)</label>
-                                <div className="input-wrapper">
-                                    <input
-                                        id="max_salary"
-                                        type="number"
-                                        name="max_salary"
-                                        value={form.max_salary}
-                                        onChange={handleChange}
-                                        placeholder="e.g. 150000"
-                                        className="premium-input"
-                                        min="0"
-                                        step="5000"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group-p full-width">
-                                <label htmlFor="title">Job Title <span className="required">*</span></label>
-                                <div className="input-wrapper">
-                                    <input
-                                        id="title"
-                                        type="text"
-                                        name="title"
-                                        value={form.title}
-                                        onChange={handleChange}
-                                        placeholder="e.g. Senior Software Engineer"
-                                        className="premium-input"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <label htmlFor="designation">Designation <span className="required">*</span></label>
-                                <div className="input-wrapper">
-                                    <input
-                                        id="designation"
-                                        type="text"
-                                        name="designation"
-                                        value={form.designation}
-                                        onChange={handleChange}
-                                        placeholder="e.g. Engineering"
-                                        className="premium-input"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <label htmlFor="location">Location</label>
-                                <div className="input-wrapper">
-                                    <FiMapPin className="input-icon" />
+                            {/* Location - Full Width */}
+                            <div className="cv-field cv-col-span-2">
+                                <label htmlFor="location">Work Location</label>
+                                <div className="cv-input-icon-wrap">
+                                    <FiMapPin className="cv-field-icon" />
                                     <input
                                         id="location"
                                         type="text"
                                         name="location"
                                         value={form.location}
                                         onChange={handleChange}
-                                        placeholder="e.g. Colombo, Sri Lanka"
-                                        className="premium-input with-icon"
+                                        placeholder="e.g. GS Corporate Office, Colombo 03 (or Remote / Hybrid)"
+                                        className="cv-input cv-has-icon"
+                                        list="company-locations-datalist"
+                                        autoComplete="off"
                                     />
+                                    <datalist id="company-locations-datalist">
+                                        {(() => {
+                                            const currComp = companies.find(c => String(c.id) === String(form.company_id));
+                                            if (!currComp?.locations_list) return null;
+                                            return currComp.locations_list.split(',').map((loc, lIdx) => {
+                                                const trimmed = loc.trim();
+                                                return trimmed ? <option key={lIdx} value={trimmed} /> : null;
+                                            });
+                                        })()}
+                                    </datalist>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* ── MANDATORY SKILLS TAG INPUT ── */}
-                            <div className="form-group-p full-width">
-                                <label htmlFor="skill_input" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <FiTag size={14} style={{ color: 'var(--crimson)' }} />
-                                    Mandatory Skills <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>(press Enter or comma to add)</span>
+                        {/* Experience Requirements Divider */}
+                        <div className="cv-group-divider">
+                            <div className="cv-group-divider-label">
+                                <FiClock size={14} style={{ color: '#7A1228' }} />
+                                <span>Experience Requirements</span>
+                            </div>
+                        </div>
+
+                        {/* Experience Fields - 2 Columns */}
+                        <div className="cv-grid cv-grid-2">
+                            <div className="cv-field">
+                                <label htmlFor="min_experience">Min. Overall Experience</label>
+                                <select
+                                    id="min_experience"
+                                    name="min_experience"
+                                    value={form.min_experience}
+                                    onChange={handleChange}
+                                    className="cv-input"
+                                >
+                                    <option value="0 years">0 years (Freshers)</option>
+                                    <option value="0-1 years">0–1 years</option>
+                                    <option value="1-2 years">1–2 years</option>
+                                    <option value="3-4 years">3–4 years</option>
+                                    <option value="5-7 years">5–7 years</option>
+                                    <option value="8-10 years">8–10 years</option>
+                                    <option value="10+ years">10+ years</option>
+                                </select>
+                            </div>
+
+                            <div className="cv-field">
+                                <label htmlFor="min_relevant_experience">Min. Relevant Experience</label>
+                                <select
+                                    id="min_relevant_experience"
+                                    name="min_relevant_experience"
+                                    value={form.min_relevant_experience}
+                                    onChange={handleChange}
+                                    className="cv-input"
+                                >
+                                    <option value="0 years">0 years (Freshers)</option>
+                                    <option value="0-1 years">0–1 years</option>
+                                    <option value="1-2 years">1–2 years</option>
+                                    <option value="3-4 years">3–4 years</option>
+                                    <option value="5-7 years">5–7 years</option>
+                                    <option value="8-10 years">8–10 years</option>
+                                    <option value="10+ years">10+ years</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Remuneration Divider */}
+                        <div className="cv-group-divider">
+                            <div className="cv-group-divider-label">
+                                <FiDollarSign size={14} style={{ color: '#7A1228' }} />
+                                <span>Salary (LKR)</span>
+                                <span className="cv-required">*</span>
+                            </div>
+                        </div>
+
+                        {/* Remuneration Fields - 2 Columns */}
+                        <div className="cv-grid cv-grid-2">
+                            <div className="cv-field">
+                                <label htmlFor="min_salary">
+                                    Min. Salary (LKR) <span className="cv-required">*</span>
                                 </label>
-                                <div className="skills-tag-box" onClick={() => skillInputRef.current?.focus()}>
-                                    {form.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => (
-                                        <span key={idx} className="skill-tag">
-                                            {skill.trim()}
-                                            <button
-                                                type="button"
-                                                className="skill-tag-remove"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    const arr = form.required_skills.split(',').filter(s => s.trim());
-                                                    arr.splice(idx, 1);
-                                                    setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
-                                                }}
-                                                aria-label={`Remove ${skill.trim()}`}
-                                            ><FiX size={11} /></button>
-                                        </span>
-                                    ))}
-                                    <input
-                                        ref={skillInputRef}
-                                        id="skill_input"
-                                        type="text"
-                                        className="skill-tag-input"
-                                        placeholder={form.required_skills ? '' : 'e.g. Microsoft Excel, SAP, AutoCAD...'}
-                                        value={skillInput}
-                                        onChange={e => setSkillInput(e.target.value)}
-                                        onBlur={() => {
-                                            if (skillInput.trim()) {
-                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
-                                                if (skillsToAdd.length > 0) {
-                                                    const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
-                                                    const updated = [...existing];
-                                                    skillsToAdd.forEach(s => {
-                                                        if (!updated.includes(s)) {
-                                                            updated.push(s);
-                                                        }
-                                                    });
-                                                    setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
-                                                }
-                                                setSkillInput('');
-                                            }
-                                        }}
-                                        onKeyDown={e => {
-                                            if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && skillInput.trim()) {
-                                                e.preventDefault();
-                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
-                                                if (skillsToAdd.length === 0) return;
+                                <input
+                                    id="min_salary"
+                                    type="number"
+                                    name="min_salary"
+                                    value={form.min_salary}
+                                    onChange={handleChange}
+                                    placeholder="e.g. 100,000"
+                                    className="cv-input"
+                                    min="0"
+                                    step="5000"
+                                    required
+                                />
+                            </div>
+
+                            <div className="cv-field">
+                                <label htmlFor="max_salary">
+                                    Max. Salary (LKR) <span className="cv-required">*</span>
+                                </label>
+                                <input
+                                    id="max_salary"
+                                    type="number"
+                                    name="max_salary"
+                                    value={form.max_salary}
+                                    onChange={handleChange}
+                                    placeholder="e.g. 180,000"
+                                    className="cv-input"
+                                    min="0"
+                                    step="5000"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Mandatory Skills Divider */}
+                        <div className="cv-group-divider">
+                            <div className="cv-group-divider-label">
+                                <FiTag size={14} style={{ color: '#7A1228' }} />
+                                <span>Mandatory Skills &amp; Competencies</span>
+                            </div>
+                            <span className="cv-group-divider-hint">Type skill and press Enter or comma</span>
+                        </div>
+
+                        {/* Mandatory Skills Tag Box */}
+                        <div className="cv-field">
+                            <div className="cv-skills-container" onClick={() => skillInputRef.current?.focus()}>
+                                {form.required_skills.split(',').filter(s => s.trim()).map((skill, idx) => (
+                                    <span key={idx} className="cv-skill-pill">
+                                        {skill.trim()}
+                                        <button
+                                            type="button"
+                                            className="cv-skill-del"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const arr = form.required_skills.split(',').filter(s => s.trim());
+                                                arr.splice(idx, 1);
+                                                setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
+                                            }}
+                                            aria-label={`Remove ${skill.trim()}`}
+                                        >
+                                            <FiX size={12} />
+                                        </button>
+                                    </span>
+                                ))}
+
+                                <input
+                                    ref={skillInputRef}
+                                    id="skill_input"
+                                    type="text"
+                                    className="cv-skill-text-input"
+                                    placeholder={form.required_skills ? '' : 'e.g. Budgeting, ERP, Communication, Sales Management...'}
+                                    value={skillInput}
+                                    onChange={e => setSkillInput(e.target.value)}
+                                    onBlur={() => {
+                                        if (skillInput.trim()) {
+                                            const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                            if (skillsToAdd.length > 0) {
                                                 const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
                                                 const updated = [...existing];
                                                 skillsToAdd.forEach(s => {
-                                                    if (!updated.includes(s)) {
-                                                        updated.push(s);
-                                                    }
+                                                    if (!updated.includes(s)) updated.push(s);
                                                 });
                                                 setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
-                                                setSkillInput('');
-                                            } else if (e.key === 'Backspace' && !skillInput) {
-                                                const arr = form.required_skills.split(',').filter(s => s.trim());
-                                                if (arr.length > 0) {
-                                                    arr.pop();
-                                                    setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
-                                                }
                                             }
+                                            setSkillInput('');
+                                        }
+                                    }}
+                                    onKeyDown={e => {
+                                        if ((e.key === 'Enter' || e.key === ',' || e.key === ';') && skillInput.trim()) {
+                                            e.preventDefault();
+                                            const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                            if (skillsToAdd.length === 0) return;
+                                            const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                                            const updated = [...existing];
+                                            skillsToAdd.forEach(s => {
+                                                if (!updated.includes(s)) updated.push(s);
+                                            });
+                                            setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
+                                            setSkillInput('');
+                                        } else if (e.key === 'Backspace' && !skillInput) {
+                                            const arr = form.required_skills.split(',').filter(s => s.trim());
+                                            if (arr.length > 0) {
+                                                arr.pop();
+                                                setForm(prev => ({ ...prev, required_skills: arr.join(',') }));
+                                            }
+                                        }
+                                    }}
+                                />
+
+                                {skillInput.trim() && (
+                                    <button
+                                        type="button"
+                                        className="cv-skill-add-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
+                                            if (skillsToAdd.length > 0) {
+                                                const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
+                                                const updated = [...existing];
+                                                skillsToAdd.forEach(s => {
+                                                    if (!updated.includes(s)) updated.push(s);
+                                                });
+                                                setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
+                                            }
+                                            setSkillInput('');
+                                            skillInputRef.current?.focus();
                                         }}
-                                    />
-                                    {skillInput.trim() && (
-                                        <button
-                                            type="button"
-                                            className="skill-tag-add-btn"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const skillsToAdd = skillInput.split(/[,,;]/).map(s => s.trim()).filter(Boolean);
-                                                if (skillsToAdd.length > 0) {
-                                                    const existing = form.required_skills.split(',').map(s => s.trim()).filter(Boolean);
-                                                    const updated = [...existing];
-                                                    skillsToAdd.forEach(s => {
-                                                        if (!updated.includes(s)) {
-                                                            updated.push(s);
-                                                        }
-                                                    });
-                                                    setForm(prev => ({ ...prev, required_skills: updated.join(',') }));
-                                                }
-                                                setSkillInput('');
-                                                skillInputRef.current?.focus();
-                                            }}
-                                            style={{
-                                                background: 'var(--crimson)',
-                                                color: '#fff',
-                                                border: 'none',
-                                                borderRadius: '6px',
-                                                padding: '4px 10px',
-                                                fontSize: '0.75rem',
-                                                cursor: 'pointer',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                marginLeft: '6px',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
-                                            }}
-                                        >
-                                            <FiPlus size={12} /> Add
-                                        </button>
-                                    )}
-                                </div>
-                                {form.required_skills.split(',').filter(s => s.trim()).length === 0 && (
-                                    <p style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '6px' }}>No skills added yet. Type a skill and press Enter.</p>
+                                    >
+                                        <FiPlus size={12} /> Add
+                                    </button>
                                 )}
                             </div>
                         </div>
-                    </section>
+                    </div>
 
-                    {/* Section 2: Dates and Status */}
-                    <section className="form-section-card">
-                        <div className="section-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
-                            <div className="section-icon" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}><FiCalendar /></div>
+                    {/* SECTION 2: Job Description & Requirements */}
+                    <div className="cv-card cv-mt-card">
+                        <div className="cv-card-header">
+                            <div className="cv-card-icon"><FiFileText /></div>
                             <div>
-                                <h3 style={{ fontSize: '1.1rem' }}>Dates & Visibility</h3>
-                                <p style={{ fontSize: '0.8rem' }}>Control when the vacancy is visible to applicants.</p>
+                                <h2 className="cv-card-title">Job Description &amp; Requirements</h2>
+                                <p className="cv-card-desc">Detailed responsibilities, scope of work, and applicant criteria.</p>
                             </div>
                         </div>
 
-                        <div className="admin-grid-3">
-                            <div className="form-group-p">
-                                <label htmlFor="publish_date">Publish Date <span className="required">*</span></label>
-                                <div className="input-wrapper">
-                                    <FiClock className="input-icon" />
+                        {/* Description */}
+                        <div className="cv-field">
+                            <div className="cv-field-toolbar-row">
+                                <label htmlFor="description">
+                                    Job Description &amp; Responsibilities <span className="cv-required">*</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    className="cv-bullet-btn"
+                                    onClick={() => toggleBullets('description', descriptionRef)}
+                                    title="Toggle bullet points for selected text"
+                                >
+                                    <FiList /> Format Bullets
+                                </button>
+                            </div>
+                            <textarea
+                                ref={descriptionRef}
+                                id="description"
+                                name="description"
+                                value={form.description}
+                                onChange={handleChange}
+                                onKeyDown={(e) => handleKeyDownBullet(e, 'description')}
+                                rows="7"
+                                placeholder="Describe key roles, day-to-day duties, and objectives of this position..."
+                                className="cv-textarea"
+                            />
+                        </div>
+
+                        {/* Requirements */}
+                        <div className="cv-field cv-mt">
+                            <div className="cv-field-toolbar-row">
+                                <label htmlFor="requirements">Requirements &amp; Qualifications</label>
+                                <button
+                                    type="button"
+                                    className="cv-bullet-btn"
+                                    onClick={() => toggleBullets('requirements', requirementsRef)}
+                                    title="Toggle bullet points for selected text"
+                                >
+                                    <FiList /> Format Bullets
+                                </button>
+                            </div>
+                            <textarea
+                                ref={requirementsRef}
+                                id="requirements"
+                                name="requirements"
+                                value={form.requirements}
+                                onChange={handleChange}
+                                onKeyDown={(e) => handleKeyDownBullet(e, 'requirements')}
+                                rows="6"
+                                placeholder="List educational qualifications, certifications, industry experience, and attributes required..."
+                                className="cv-textarea"
+                            />
+                        </div>
+                    </div>
+
+                    {/* SECTION 3: Candidate Scoring Formula & Evaluation Weights */}
+                    <div className="cv-card cv-mt-card">
+                        <div className="cv-card-header">
+                            <div className="cv-card-icon"><FiTarget /></div>
+                            <div>
+                                <h2 className="cv-card-title">Candidate Scoring Formula</h2>
+                                <p className="cv-card-desc">Configure how AI evaluates and weights candidate CVs for this vacancy.</p>
+                            </div>
+                        </div>
+
+                        {/* Mode Switcher & Status */}
+                        <div className="cv-formula-top-bar">
+                            <div className="cv-segmented-toggle">
+                                <button
+                                    type="button"
+                                    className={`cv-seg-btn ${!form.use_custom_weights ? 'active' : ''}`}
+                                    onClick={() => setForm(prev => ({ ...prev, use_custom_weights: false }))}
+                                >
+                                    <span>⚡</span>
+                                    <span>Use System Default Formula</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className={`cv-seg-btn ${form.use_custom_weights ? 'active' : ''}`}
+                                    onClick={() => setForm(prev => ({ ...prev, use_custom_weights: true }))}
+                                >
+                                    <span>⚙️</span>
+                                    <span>Customize Formula for this Job</span>
+                                </button>
+                            </div>
+
+                            {(() => {
+                                const total = form.use_custom_weights 
+                                    ? ((parseInt(form.weight_skills, 10) || 0) +
+                                       (parseInt(form.weight_experience, 10) || 0) +
+                                       (parseInt(form.weight_qualification, 10) || 0) +
+                                       (parseInt(form.weight_jd_alignment, 10) || 0) +
+                                       (parseInt(form.weight_salary, 10) || 0))
+                                    : 100;
+                                const isBalanced = total === 100;
+                                return (
+                                    <div className={`cv-formula-badge ${isBalanced ? 'balanced' : 'unbalanced'}`}>
+                                        <span className="cv-badge-dot" />
+                                        <span>{isBalanced ? '100% Balanced' : `${total}% Total Weight`}</span>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* VIEW 1: Default Formula Active */}
+                        {!form.use_custom_weights ? (
+                            <div className="cv-formula-default-view">
+                                <div className="cv-f-cards-grid">
+                                    {/* 1. Skills */}
+                                    <div className="cv-f-card">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiLayers /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Skills</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-left">
+                                                            <span className="cv-tip-title">Skills &amp; Competencies</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates role-specific practical skills, functional expertise, tools, and key competencies.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-f-value-box">
+                                            <span className="cv-f-val-num">35</span>
+                                            <span className="cv-f-val-pct">%</span>
+                                        </div>
+                                        <div className="cv-f-progress-track">
+                                            <div className="cv-f-progress-fill" style={{ width: '35%' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* 2. Experience */}
+                                    <div className="cv-f-card">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiClock /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Experience</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-left">
+                                                            <span className="cv-tip-title">Work Experience</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates total career duration, relevant industry background, and past job exposure.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-f-value-box">
+                                            <span className="cv-f-val-num">30</span>
+                                            <span className="cv-f-val-pct">%</span>
+                                        </div>
+                                        <div className="cv-f-progress-track">
+                                            <div className="cv-f-progress-fill" style={{ width: '30%' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* 3. Qualification */}
+                                    <div className="cv-f-card">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiAward /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Qualification</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-center">
+                                                            <span className="cv-tip-title">Education &amp; Qualifications</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates academic degrees, diplomas, professional credentials (e.g. CIMA, ACCA, CIM, SLIM), and certifications.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-f-value-box">
+                                            <span className="cv-f-val-num">20</span>
+                                            <span className="cv-f-val-pct">%</span>
+                                        </div>
+                                        <div className="cv-f-progress-track">
+                                            <div className="cv-f-progress-fill" style={{ width: '20%' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* 4. JD Alignment */}
+                                    <div className="cv-f-card">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiTarget /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">JD Match</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-right">
+                                                            <span className="cv-tip-title">Job Description Alignment</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates how closely the candidate's actual responsibilities and duties match this vacancy's JD.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-f-value-box">
+                                            <span className="cv-f-val-num">10</span>
+                                            <span className="cv-f-val-pct">%</span>
+                                        </div>
+                                        <div className="cv-f-progress-track">
+                                            <div className="cv-f-progress-fill" style={{ width: '10%' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* 5. Salary Fit */}
+                                    <div className="cv-f-card">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiDollarSign /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Salary Fit</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-right">
+                                                            <span className="cv-tip-title">Salary Fit</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates whether the candidate's expected compensation fits comfortably within the designated budget.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-f-value-box">
+                                            <span className="cv-f-val-num">5</span>
+                                            <span className="cv-f-val-pct">%</span>
+                                        </div>
+                                        <div className="cv-f-progress-track">
+                                            <div className="cv-f-progress-fill" style={{ width: '5%' }} />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="cv-default-footer-banner">
+                                    <div className="cv-df-info">
+                                        <FiCheckCircle className="cv-df-check" />
+                                        <span>Standard formula balances skills, tenure, education, JD match, and salary. Recommended for standard roles.</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="cv-btn-sm-primary"
+                                        onClick={() => setForm(prev => ({ ...prev, use_custom_weights: true }))}
+                                    >
+                                        <FiSliders size={13} /> Customize Weights
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            /* VIEW 2: Custom Formula Editor */
+                            <div className="cv-formula-custom-view">
+                                {/* Preset Buttons */}
+                                <div className="cv-preset-bar">
+                                    <span className="cv-preset-label">Quick Presets:</span>
+                                    <div className="cv-preset-buttons">
+                                        <button
+                                            type="button"
+                                            className="cv-preset-chip"
+                                            onClick={() => setForm(prev => ({
+                                                ...prev,
+                                                weight_skills: 35,
+                                                weight_experience: 30,
+                                                weight_qualification: 20,
+                                                weight_jd_alignment: 10,
+                                                weight_salary: 5
+                                            }))}
+                                        >
+                                            Standard Balanced (35/30/20/10/5)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="cv-preset-chip"
+                                            onClick={() => setForm(prev => ({
+                                                ...prev,
+                                                weight_skills: 40,
+                                                weight_experience: 0,
+                                                weight_qualification: 35,
+                                                weight_jd_alignment: 15,
+                                                weight_salary: 10
+                                            }))}
+                                        >
+                                            Intern / Fresher (0% Exp)
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="cv-preset-chip"
+                                            onClick={() => setForm(prev => ({
+                                                ...prev,
+                                                weight_skills: 25,
+                                                weight_experience: 45,
+                                                weight_qualification: 15,
+                                                weight_jd_alignment: 10,
+                                                weight_salary: 5
+                                            }))}
+                                        >
+                                            Senior / Leadership
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="cv-preset-chip"
+                                            onClick={() => setForm(prev => ({
+                                                ...prev,
+                                                weight_skills: 50,
+                                                weight_experience: 20,
+                                                weight_qualification: 15,
+                                                weight_jd_alignment: 10,
+                                                weight_salary: 5
+                                            }))}
+                                        >
+                                            Technical / Skills First
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Custom 5-Card Grid */}
+                                <div className="cv-f-cards-grid">
+                                    {/* 1. Skills */}
+                                    <div className="cv-f-card cv-f-card-interactive">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiLayers /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Skills</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-left">
+                                                            <span className="cv-tip-title">Skills &amp; Competencies</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates role-specific practical skills, functional expertise, tools, and key competencies.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-stepper-wrap">
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_skills: Math.max(0, (parseInt(prev.weight_skills, 10) || 0) - 5) }))}
+                                                aria-label="Decrease Skills Weight"
+                                            >
+                                                <FiMinus size={12} />
+                                            </button>
+                                            <div className="cv-step-input-box">
+                                                <input
+                                                    id="weight_skills"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="5"
+                                                    value={form.weight_skills}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, weight_skills: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                    className="cv-step-input"
+                                                />
+                                                <span className="cv-step-unit">%</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_skills: Math.min(100, (parseInt(prev.weight_skills, 10) || 0) + 5) }))}
+                                                aria-label="Increase Skills Weight"
+                                            >
+                                                <FiPlus size={12} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={form.weight_skills}
+                                            onChange={(e) => setForm(prev => ({ ...prev, weight_skills: parseInt(e.target.value, 10) }))}
+                                            className="cv-range-slider"
+                                        />
+                                    </div>
+
+                                    {/* 2. Experience */}
+                                    <div className="cv-f-card cv-f-card-interactive">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiClock /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Experience</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-left">
+                                                            <span className="cv-tip-title">Work Experience</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates total career duration, relevant industry background, and past job exposure.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-stepper-wrap">
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_experience: Math.max(0, (parseInt(prev.weight_experience, 10) || 0) - 5) }))}
+                                                aria-label="Decrease Experience Weight"
+                                            >
+                                                <FiMinus size={12} />
+                                            </button>
+                                            <div className="cv-step-input-box">
+                                                <input
+                                                    id="weight_experience"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="5"
+                                                    value={form.weight_experience}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, weight_experience: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                    className="cv-step-input"
+                                                />
+                                                <span className="cv-step-unit">%</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_experience: Math.min(100, (parseInt(prev.weight_experience, 10) || 0) + 5) }))}
+                                                aria-label="Increase Experience Weight"
+                                            >
+                                                <FiPlus size={12} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={form.weight_experience}
+                                            onChange={(e) => setForm(prev => ({ ...prev, weight_experience: parseInt(e.target.value, 10) }))}
+                                            className="cv-range-slider"
+                                        />
+                                    </div>
+
+                                    {/* 3. Qualification */}
+                                    <div className="cv-f-card cv-f-card-interactive">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiAward /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Qualification</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-center">
+                                                            <span className="cv-tip-title">Education &amp; Qualifications</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates academic degrees, diplomas, professional credentials (e.g. CIMA, ACCA, CIM, SLIM), and certifications.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-stepper-wrap">
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_qualification: Math.max(0, (parseInt(prev.weight_qualification, 10) || 0) - 5) }))}
+                                                aria-label="Decrease Qualification Weight"
+                                            >
+                                                <FiMinus size={12} />
+                                            </button>
+                                            <div className="cv-step-input-box">
+                                                <input
+                                                    id="weight_qualification"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="5"
+                                                    value={form.weight_qualification}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, weight_qualification: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                    className="cv-step-input"
+                                                />
+                                                <span className="cv-step-unit">%</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_qualification: Math.min(100, (parseInt(prev.weight_qualification, 10) || 0) + 5) }))}
+                                                aria-label="Increase Qualification Weight"
+                                            >
+                                                <FiPlus size={12} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={form.weight_qualification}
+                                            onChange={(e) => setForm(prev => ({ ...prev, weight_qualification: parseInt(e.target.value, 10) }))}
+                                            className="cv-range-slider"
+                                        />
+                                    </div>
+
+                                    {/* 4. JD Alignment */}
+                                    <div className="cv-f-card cv-f-card-interactive">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiTarget /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">JD Match</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-right">
+                                                            <span className="cv-tip-title">Job Description Alignment</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates how closely the candidate's actual responsibilities and duties match this vacancy's JD.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-stepper-wrap">
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_jd_alignment: Math.max(0, (parseInt(prev.weight_jd_alignment, 10) || 0) - 5) }))}
+                                                aria-label="Decrease JD Match Weight"
+                                            >
+                                                <FiMinus size={12} />
+                                            </button>
+                                            <div className="cv-step-input-box">
+                                                <input
+                                                    id="weight_jd_alignment"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="5"
+                                                    value={form.weight_jd_alignment}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, weight_jd_alignment: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                    className="cv-step-input"
+                                                />
+                                                <span className="cv-step-unit">%</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_jd_alignment: Math.min(100, (parseInt(prev.weight_jd_alignment, 10) || 0) + 5) }))}
+                                                aria-label="Increase JD Match Weight"
+                                            >
+                                                <FiPlus size={12} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={form.weight_jd_alignment}
+                                            onChange={(e) => setForm(prev => ({ ...prev, weight_jd_alignment: parseInt(e.target.value, 10) }))}
+                                            className="cv-range-slider"
+                                        />
+                                    </div>
+
+                                    {/* 5. Salary Fit */}
+                                    <div className="cv-f-card cv-f-card-interactive">
+                                        <div className="cv-f-card-top">
+                                            <div className="cv-f-icon"><FiDollarSign /></div>
+                                            <div className="cv-f-meta">
+                                                <div className="cv-f-title-row">
+                                                    <span className="cv-f-name">Salary Fit</span>
+                                                    <span className="cv-tooltip-trigger">
+                                                        <FiHelpCircle className="cv-help-icon" />
+                                                        <span className="cv-tooltip-body cv-tip-right">
+                                                            <span className="cv-tip-title">Salary Fit</span>
+                                                            <span className="cv-tip-text">
+                                                                Evaluates whether the candidate's expected compensation fits comfortably within the designated budget.
+                                                            </span>
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="cv-stepper-wrap">
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_salary: Math.max(0, (parseInt(prev.weight_salary, 10) || 0) - 5) }))}
+                                                aria-label="Decrease Salary Fit Weight"
+                                            >
+                                                <FiMinus size={12} />
+                                            </button>
+                                            <div className="cv-step-input-box">
+                                                <input
+                                                    id="weight_salary"
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="5"
+                                                    value={form.weight_salary}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, weight_salary: Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)) }))}
+                                                    className="cv-step-input"
+                                                />
+                                                <span className="cv-step-unit">%</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-step-btn"
+                                                onClick={() => setForm(prev => ({ ...prev, weight_salary: Math.min(100, (parseInt(prev.weight_salary, 10) || 0) + 5) }))}
+                                                aria-label="Increase Salary Fit Weight"
+                                            >
+                                                <FiPlus size={12} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={form.weight_salary}
+                                            onChange={(e) => setForm(prev => ({ ...prev, weight_salary: parseInt(e.target.value, 10) }))}
+                                            className="cv-range-slider"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Live Balance Indicator */}
+                                {(() => {
+                                    const total = (parseInt(form.weight_skills, 10) || 0) +
+                                                  (parseInt(form.weight_experience, 10) || 0) +
+                                                  (parseInt(form.weight_qualification, 10) || 0) +
+                                                  (parseInt(form.weight_jd_alignment, 10) || 0) +
+                                                  (parseInt(form.weight_salary, 10) || 0);
+                                    const isExact = total === 100;
+
+                                    return (
+                                        <div className={`cv-balance-bar ${isExact ? 'balanced' : 'unbalanced'}`}>
+                                            <div className="cv-bal-info">
+                                                <span className="cv-bal-icon">{isExact ? '✓' : '⚠️'}</span>
+                                                <div>
+                                                    <strong>Total Weight: {total}%</strong>
+                                                    <span className="cv-bal-status-text">
+                                                        {isExact 
+                                                            ? ' — Properly Balanced & Ready for AI Candidate Scoring' 
+                                                            : ` — Must equal 100% (${100 - total > 0 ? `Need +${100 - total}%` : `${Math.abs(100 - total)}% over`})`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="cv-reset-link"
+                                                onClick={() => setForm(prev => ({
+                                                    ...prev,
+                                                    weight_skills: 35,
+                                                    weight_experience: 30,
+                                                    weight_qualification: 20,
+                                                    weight_jd_alignment: 10,
+                                                    weight_salary: 5
+                                                }))}
+                                            >
+                                                <FiRotateCcw size={12} /> Reset to Default
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* SECTION 4: Schedule, Visibility & Active Status */}
+                    <div className="cv-card cv-mt-card">
+                        <div className="cv-card-header">
+                            <div className="cv-card-icon"><FiCalendar /></div>
+                            <div>
+                                <h2 className="cv-card-title">Schedule &amp; Visibility</h2>
+                                <p className="cv-card-desc">Publication window and public listing status.</p>
+                            </div>
+                        </div>
+
+                        <div className="cv-grid cv-grid-3">
+                            <div className="cv-field">
+                                <label htmlFor="publish_date">
+                                    Publish Date <span className="cv-required">*</span>
+                                </label>
+                                <div className="cv-input-icon-wrap">
+                                    <FiCalendar className="cv-field-icon" />
                                     <input
                                         id="publish_date"
                                         type="date"
                                         name="publish_date"
                                         value={form.publish_date}
                                         onChange={handleChange}
-                                        className="premium-input with-icon"
+                                        className="cv-input cv-has-icon"
                                     />
                                 </div>
                             </div>
 
-                            <div className="form-group-p">
-                                <label htmlFor="expire_date">Expiration Date <span className="required">*</span></label>
-                                <div className="input-wrapper">
-                                    <FiClock className="input-icon" />
+                            <div className="cv-field">
+                                <label htmlFor="expire_date">
+                                    Expiration Date <span className="cv-required">*</span>
+                                </label>
+                                <div className="cv-input-icon-wrap">
+                                    <FiClock className="cv-field-icon" />
                                     <input
                                         id="expire_date"
                                         type="date"
                                         name="expire_date"
                                         value={form.expire_date}
                                         onChange={handleChange}
-                                        className="premium-input with-icon"
+                                        className="cv-input cv-has-icon"
                                     />
                                 </div>
                             </div>
 
-                            <div className="form-group-p">
-                                <label htmlFor="is_active">Status</label>
-                                <div className="input-wrapper">
-                                    <select
-                                        id="is_active"
-                                        name="is_active"
-                                        value={form.is_active}
-                                        onChange={(e) => setForm(prev => ({ ...prev, is_active: parseInt(e.target.value) }))}
-                                        className="premium-input"
-                                    >
-                                        <option value={1}>Active</option>
-                                        <option value={0}>Inactive</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Section 3: Content */}
-                    <section className="form-section-card">
-                        <div className="section-header" style={{ marginBottom: '16px', paddingBottom: '12px' }}>
-                            <div className="section-icon" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}><FiInfo /></div>
-                            <div>
-                                <h3 style={{ fontSize: '1.1rem' }}>Job Description & Requirements</h3>
-                                <p style={{ fontSize: '0.8rem' }}>Provide a detailed overview of the role and what's expected.</p>
-                            </div>
-                        </div>
-
-                        <div className="form-vertical">
-                            <div className="form-group-p">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <label htmlFor="description" style={{ marginBottom: 0 }}>Job Description <span className="required">*</span></label>
-                                    <button
-                                        type="button"
-                                        className="bullet-format-btn"
-                                        onClick={() => toggleBullets('description', descriptionRef)}
-                                        title="Click to add/remove bullet points on lines"
-                                    >
-                                        <FiList style={{ marginRight: '6px' }} /> Add / Format Bullets
-                                    </button>
-                                </div>
-                                <div className="input-wrapper">
-                                    <textarea
-                                        ref={descriptionRef}
-                                        id="description"
-                                        name="description"
-                                        value={form.description}
-                                        onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDownBullet(e, 'description')}
-                                        rows="8"
-                                        placeholder="Describe the role, responsibilities, and day-to-day activities..."
-                                        className="premium-textarea"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group-p">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <label htmlFor="requirements" style={{ marginBottom: 0 }}>Requirements & Qualifications</label>
-                                    <button
-                                        type="button"
-                                        className="bullet-format-btn"
-                                        onClick={() => toggleBullets('requirements', requirementsRef)}
-                                        title="Click to add/remove bullet points on lines"
-                                    >
-                                        <FiList style={{ marginRight: '6px' }} /> Add / Format Bullets
-                                    </button>
-                                </div>
-                                <div className="input-wrapper">
-                                    <textarea
-                                        ref={requirementsRef}
-                                        id="requirements"
-                                        name="requirements"
-                                        value={form.requirements}
-                                        onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDownBullet(e, 'requirements')}
-                                        rows="6"
-                                        placeholder="List the required skills, experience, and academic qualifications..."
-                                        className="premium-textarea"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-                </fieldset>
-
-                {/* Sidebar / Info Column */}
-                <div className="form-sidebar-container">
-                    <div className="sticky-sidebar">
-                        <div className="status-preview-card" style={{ padding: '20px' }}>
-                            <h4 style={{ fontSize: '1rem', marginBottom: '16px' }}>Post Summary</h4>
-                            <div className="preview-stat" style={{ marginBottom: '10px' }}>
-                                <span className="label">Title:</span>
-                                <span className="value" style={{ fontSize: '0.9rem' }}>{form.title || 'Untitled Role'}</span>
-                            </div>
-                             <div className="preview-stat" style={{ marginBottom: '10px' }}>
-                                <span className="label">Ref. No:</span>
-                                <span className="value" style={{ fontSize: '0.9rem' }}>{form.reference_number || 'N/A'}</span>
-                            </div>
-                            <div className="preview-stat" style={{ marginBottom: '10px' }}>
-                                <span className="label">Type:</span>
-                                <span className="value" style={{ fontSize: '0.9rem' }}>{form.employment_type}</span>
-                            </div>
-                            <div className="preview-stat" style={{ marginBottom: '10px' }}>
-                                <span className="label">Status:</span>
-                                <span className={`status-badge ${form.is_active ? 'active' : 'inactive'}`} style={{ padding: '4px 10px', fontSize: '0.7rem' }}>
-                                    {form.is_active ? 'Active' : 'Draft'}
-                                </span>
-                            </div>
-                            <div className="preview-stat" style={{ marginBottom: '16px' }}>
-                                <span className="label">Exp:</span>
-                                <span className="value" style={{ fontSize: '0.9rem' }}>{form.min_experience}</span>
-                            </div>
-
-                            {matchCount > 0 && (
-                                <div className="auto-match-alert animate-bounce-in" style={{ padding: '12px', marginTop: '16px' }}>
-                                    <div className="alert-badge" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>🔥 Auto-Match</div>
-                                    <p style={{ fontSize: '0.8rem', margin: '8px 0' }}><strong>{matchCount}</strong> candidates already available!</p>
-                                    <button 
-                                        type="button" 
-                                        className="view-matches-btn"
-                                        onClick={handleViewMatches}
-                                        style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                                    >
-                                        <FiExternalLink /> View Candidates
-                                    </button>
-                                </div>
-                            )}
-
-                            <hr style={{ margin: '20px 0' }} />
-
-                            <div className="form-actions-p" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {admin.role !== 'super_admin' && (
-                                    <>
-                                        <button
-                                            type="button"
-                                            className="btn btn-gold full-width"
-                                            disabled={loading}
-                                            onClick={() => handleSave(true)}
-                                            style={{ padding: '12px 20px', fontSize: '0.9rem' }}
-                                        >
-                                            {loading ? (
-                                                <div className="spinner-small"></div>
-                                            ) : admin.role === 'admin' ? (
-                                                <><FiCheckCircle /> Publish Vacancy</>
-                                            ) : (
-                                                <><FiCheckCircle /> Submit for Approval</>
-                                            )}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline full-width"
-                                            disabled={loading}
-                                            onClick={() => handleSave(false)}
-                                            style={{ padding: '12px 20px', fontSize: '0.9rem', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                                        >
-                                            <FiSave /> Save Requisition Draft
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    type="button"
-                                    className="btn btn-outline full-width"
-                                    onClick={() => navigate('/admin/vacancies')}
-                                    style={{ padding: '12px 20px', fontSize: '0.9rem' }}
+                            <div className="cv-field">
+                                <label htmlFor="is_active">Listing Status</label>
+                                <select
+                                    id="is_active"
+                                    name="is_active"
+                                    value={form.is_active}
+                                    onChange={(e) => setForm(prev => ({ ...prev, is_active: parseInt(e.target.value, 10) }))}
+                                    className="cv-input"
                                 >
-                                    {admin.role === 'super_admin' ? 'Back to Vacancies' : 'Cancel'}
-                                </button>
+                                    <option value={1}>🟢 Active (Accepting Applications)</option>
+                                    <option value={0}>⚪ Inactive (Draft / On Hold)</option>
+                                </select>
                             </div>
-                        </div>
-
-                        <div className="tips-card" style={{ padding: '20px' }}>
-                            <div className="tips-header" style={{ marginBottom: '12px' }}>
-                                <FiTarget />
-                                <h5 style={{ fontSize: '0.9rem' }}>Pro-Tips</h5>
-                            </div>
-                            <ul style={{ fontSize: '0.8rem' }}>
-                                <li style={{ marginBottom: '8px' }}>Use a clear, descriptive job title.</li>
-                                <li style={{ marginBottom: '8px' }}>Be specific about the location.</li>
-                                <li style={{ marginBottom: '8px' }}>Highlight the most important requirements in the first few lines.</li>
-                                <li>Ensure the expiration date gives enough time for applications.</li>
-                            </ul>
                         </div>
                     </div>
-                </div>
+
+                    {/* Bottom Action Footer */}
+                    <div className="cv-bottom-bar">
+                        <div className="cv-bottom-summary">
+                            <span className="cv-bs-item"><strong>Title:</strong> {form.title || 'Untitled Role'}</span>
+                            <span className="cv-bs-item"><strong>Company:</strong> {companies.find(c => c.id == form.company_id)?.name || 'Not selected'}</span>
+                            <span className="cv-bs-item"><strong>Ref:</strong> {form.reference_number || 'Auto'}</span>
+                        </div>
+
+                        <div className="cv-bottom-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button
+                                type="button"
+                                className="cv-btn-secondary"
+                                onClick={() => navigate('/admin/vacancies')}
+                                disabled={loading}
+                            >
+                                Cancel
+                            </button>
+
+                            {admin.role !== 'super_admin' && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="cv-btn-outline"
+                                        onClick={() => handleSave(false)}
+                                        disabled={loading}
+                                    >
+                                        <FiSave />
+                                        <span>Save Draft</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="cv-btn-primary"
+                                        onClick={() => handleSave(true)}
+                                        disabled={loading}
+                                    >
+                                        <FiCheckCircle />
+                                        <span>{admin.role === 'admin' ? 'Publish Vacancy' : 'Submit for Approval'}</span>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </fieldset>
             </form>
 
-            {/* Match Modal */}
+            {/* Candidate Matching Modal */}
             {showMatchModal && (
-                <div className="modal-overlay-p" onClick={() => setShowMatchModal(false)}>
-                    <div className="match-modal-p" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header-p">
-                            <div className="header-info-p">
-                                <FiUsers className="modal-icon" />
+                <div className="cv-modal-backdrop" onClick={() => setShowMatchModal(false)}>
+                    <div className="cv-modal-card" onClick={e => e.stopPropagation()}>
+                        <div className="cv-modal-header">
+                            <div className="cv-modal-title-group">
+                                <div className="cv-modal-icon-wrap"><FiUsers /></div>
                                 <div>
-                                    <h2>Matching Candidates</h2>
-                                    <p>Showing candidates matching "{form.designation}" or company requirements.</p>
+                                    <h3>Matching Candidates from Talent Pool</h3>
+                                    <p>Showing applicants with matching designations or related experience for "{form.designation || form.title || 'this role'}".</p>
                                 </div>
                             </div>
-                            <button className="close-btn-p" onClick={() => setShowMatchModal(false)}>
+                            <button type="button" className="cv-modal-close-btn" onClick={() => setShowMatchModal(false)}>
                                 <FiX />
                             </button>
                         </div>
 
-                        <div className="modal-body-p">
+                        <div className="cv-modal-content">
                             {loadingMatches ? (
-                                <div className="loading-state">
-                                    <div className="spinner-p"></div>
-                                    <p>Searching talent pool...</p>
+                                <div className="cv-modal-empty">
+                                    <div className="cv-spinner" />
+                                    <p>Searching candidates in database...</p>
                                 </div>
                             ) : matchingCandidates.length === 0 ? (
-                                <div className="empty-state">
-                                    <FiUsers size={48} />
-                                    <p>No candidates found matching these criteria.</p>
+                                <div className="cv-modal-empty">
+                                    <FiUsers size={40} style={{ color: '#94a3b8', marginBottom: '10px' }} />
+                                    <p>No candidates found matching the current criteria in the talent pool.</p>
                                 </div>
                             ) : (
-                                <div className="match-list">
+                                <div className="cv-cand-list">
                                     {matchingCandidates.map((cand, idx) => (
-                                        <div key={idx} className="match-item-card">
-                                            <div className="cand-main-info">
-                                                <div className="cand-avatar">
-                                                    <FiUser />
-                                                </div>
-                                                <div className="cand-details-p">
-                                                    <h3>{cand.first_name} {cand.last_name}</h3>
-                                                    <p className="last-applied">
-                                                        Last applied for: <strong>{cand.last_applied_vacancy}</strong> (<i>{cand.last_applied_company}</i>)
-                                                    </p>
-                                                    <div className="cand-tags">
-                                                        <span className="tag-p">{cand.overall_experience} Exp</span>
-                                                        <span className="tag-p">{cand.qualification}</span>
-                                                    </div>
+                                        <div key={idx} className="cv-cand-item">
+                                            <div className="cv-cand-avatar">
+                                                <FiUser />
+                                            </div>
+                                            <div className="cv-cand-info">
+                                                <h4>{cand.first_name} {cand.last_name}</h4>
+                                                <p className="cv-cand-applied">
+                                                    Last applied for: <strong>{cand.last_applied_vacancy}</strong> ({cand.last_applied_company})
+                                                </p>
+                                                <div className="cv-cand-badges">
+                                                    <span className="cv-badge">{cand.overall_experience} Exp</span>
+                                                    <span className="cv-badge">{cand.qualification}</span>
                                                 </div>
                                             </div>
-                                            <div className="cand-actions-p">
+                                            <div className="cv-cand-buttons">
                                                 <a
                                                     href={`${API_BASE}/applications.php?action=view_cv&file=${encodeURIComponent(cand.cv_path)}`}
                                                     target="_blank"
                                                     rel="noreferrer"
-                                                    className="btn btn-gold btn-sm"
+                                                    className="cv-btn-sm-primary"
                                                 >
                                                     <FiFileText /> View CV
                                                 </a>
                                                 <a 
-                                                    href={`mailto:${cand.email}?subject=Exciting Opportunity: ${form.title} at George Steuart`} 
-                                                    className="btn btn-outline btn-sm"
+                                                    href={`mailto:${cand.email}?subject=Career Opportunity: ${form.title} at George Steuart`} 
+                                                    className="cv-btn-sm-outline"
                                                 >
                                                     <FiMail /> Contact
                                                 </a>
@@ -1044,99 +1711,59 @@ function CreateVacancy({ admin }) {
                 </div>
             )}
 
+            {/* Approval Submission Modal */}
             {approvalSubmitModal && (
-                <div className="modal-overlay-p" style={{ zIndex: 1100 }}>
-                    <div className="match-modal-p success-modal" style={{ maxWidth: '450px', textAlign: 'center', padding: '36px' }}>
-                        <div className="success-visual animate-bounce-in" style={{
-                            width: '76px',
-                            height: '76px',
-                            background: 'rgba(22, 163, 74, 0.08)',
-                            color: '#16a34a',
-                            borderRadius: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '2.5rem',
-                            margin: '0 auto 24px',
-                            border: '1px solid rgba(22, 163, 74, 0.15)'
-                        }}>
+                <div className="cv-modal-backdrop">
+                    <div className="cv-modal-card cv-modal-success" onClick={e => e.stopPropagation()}>
+                        <div className="cv-success-icon-wrap">
                             <FiCheckCircle />
                         </div>
-                        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', color: '#1e293b', marginBottom: '8px', fontWeight: 800 }}>
-                            {admin.role === 'admin' ? 'Vacancy Published' : 'Requisition Submitted'}
-                        </h2>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: '1.5' }}>
-                            {admin.role === 'admin' ? (
-                                <>Your vacancy for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been successfully published.</>
-                            ) : (
-                                <>Your requisition for <strong>{approvalSubmitModal.title}</strong> {approvalSubmitModal.reference_number && `(Ref: #${approvalSubmitModal.reference_number})`} has been created.</>
-                            )}
+                        <h2>{admin.role === 'admin' ? 'Vacancy Published Live' : 'Requisition Submitted'}</h2>
+                        <p className="cv-success-desc">
+                            {admin.role === 'admin' 
+                                ? <>Your vacancy for <strong>{approvalSubmitModal.title}</strong> (Ref: #{approvalSubmitModal.reference_number || 'N/A'}) is now live on the careers portal.</>
+                                : <>Your vacancy for <strong>{approvalSubmitModal.title}</strong> (Ref: #{approvalSubmitModal.reference_number || 'N/A'}) has been submitted into the approval pipeline.</>
+                            }
                         </p>
-                        
-                        {/* Approval Target Box */}
-                        <div style={{
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '16px',
-                            padding: '18px',
-                            marginBottom: '28px',
-                            textAlign: 'left'
-                        }}>
-                            <h4 style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <FiUser /> {admin.role === 'admin' ? 'Vacancy Status' : 'Approval Routing'}
-                            </h4>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                <div className={`dot ${
-                                    admin.role === 'admin' ? 'pulse-green' :
-                                    admin.role === 'sub_admin1' ? 'pulse-blue' : 'pulse-amber'
-                                }`} style={{ flexShrink: 0, marginTop: '4px' }}></div>
-                                <div>
-                                    <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
-                                        {admin.role === 'admin' && 'Status: LIVE & Published'}
-                                        {admin.role === 'sub_admin1' && 'Awaiting Action: GS Admin'}
-                                        {admin.role === 'sub_admin2' && 'Awaiting Action: Sub Admin 1'}
-                                    </p>
-                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', marginTop: '2px', lineHeight: '1.4' }}>
-                                        {admin.role === 'admin' && 'The vacancy is active and visible to applicants.'}
-                                        {admin.role === 'sub_admin1' && 'Email notification sent to GS approval reviewers.'}
-                                        {admin.role === 'sub_admin2' && 'Email notification sent to evaluation reviewers.'}
-                                    </p>
+
+                        <div className="cv-approval-status-box">
+                            <div className="cv-as-dot" />
+                            <div>
+                                <div className="cv-as-title">
+                                    {admin.role === 'admin' && 'Status: LIVE & Published'}
+                                    {admin.role === 'sub_admin1' && 'Awaiting: GS Admin Final Approval'}
+                                    {admin.role === 'sub_admin2' && 'Awaiting: Sub Admin 1 Review'}
+                                </div>
+                                <div className="cv-as-desc">
+                                    {admin.role === 'admin' && 'Applicants can now view and apply for this vacancy.'}
+                                    {admin.role === 'sub_admin1' && 'Reviewers have been notified by email for approval.'}
+                                    {admin.role === 'sub_admin2' && 'Requisition has entered the initial verification stage.'}
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {admin.role === 'admin' ? (
-                                <button 
-                                    type="button" 
-                                    className="btn btn-gold" 
-                                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
-                                    onClick={() => {
-                                        const targetId = approvalSubmitModal.id;
-                                        setApprovalSubmitModal(null);
+                        <div className="cv-success-actions">
+                            <button
+                                type="button"
+                                className="cv-btn-primary"
+                                style={{ width: '100%', justifyContent: 'center' }}
+                                onClick={() => {
+                                    const targetId = approvalSubmitModal.id;
+                                    setApprovalSubmitModal(null);
+                                    if (admin.role === 'admin') {
                                         navigate(`/admin/vacancies?highlight=${targetId}`);
-                                    }}
-                                >
-                                    View Published Vacancy
-                                </button>
-                            ) : (
-                                <button 
-                                    type="button" 
-                                    className="btn btn-gold" 
-                                    style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}
-                                    onClick={() => {
-                                        const targetId = approvalSubmitModal.id;
-                                        setApprovalSubmitModal(null);
+                                    } else {
                                         navigate(`/admin/approvals?highlight=${targetId}`);
-                                    }}
-                                >
-                                    Track in Approval Pipeline
-                                </button>
-                            )}
-                            <button 
-                                type="button" 
-                                className="btn btn-outline" 
-                                style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                    }
+                                }}
+                            >
+                                {admin.role === 'admin' ? 'View Published Vacancy' : 'Track in Approval Pipeline'}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="cv-btn-secondary"
+                                style={{ width: '100%', justifyContent: 'center' }}
                                 onClick={() => {
                                     setApprovalSubmitModal(null);
                                     navigate('/admin/vacancies');
@@ -1149,1149 +1776,1294 @@ function CreateVacancy({ admin }) {
                 </div>
             )}
 
-
+            {/* Premium, Clean Modern SaaS Styling */}
             <style jsx="true">{`
-                .create-vacancy-page {
-                    max-width: 1200px;
+                .cv-page-wrapper {
+                    max-width: 1040px;
                     margin: 0 auto;
+                    padding: 16px 20px 60px;
+                    font-family: inherit;
+                    color: #0f172a;
                 }
 
-                .back-btn {
+                /* ── TOP ACTION BAR ── */
+                .cv-top-bar {
                     display: flex;
                     align-items: center;
-                    gap: 8px;
-                    background: none;
-                    border: none;
-                    color: var(--crimson);
-                    font-weight: 600;
-                    font-size: 0.9rem;
-                    cursor: pointer;
-                    padding: 0;
-                    margin-bottom: 12px;
-                    transition: var(--transition-fast);
-                }
-
-                .back-btn:hover {
-                    transform: translateX(-5px);
-                }
-
-                /* NORMAL SIZING HEADER */
-                .vacancies-orchestration-header {
-                    position: relative;
-                    padding: 24px;
-                    border-radius: 24px;
-                    overflow: hidden;
-                    margin-bottom: 24px;
-                    display: flex;
                     justify-content: space-between;
-                    align-items: center;
                     flex-wrap: wrap;
-                    gap: 20px;
-                    background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
-                    box-shadow: 0 10px 30px rgba(139, 26, 43, 0.15);
-                }
-
-                .vacancies-orchestration-header::after {
-                    content: '';
-                    position: absolute;
-                    inset: 0;
-                    background-image: 
-                        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-                    background-size: 20px 20px;
-                    pointer-events: none;
-                }
-
-                .header-content-p { position: relative; z-index: 2; }
-
-                .badge-p {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    background: rgba(200, 169, 81, 0.15);
-                    color: var(--gold-accent);
-                    padding: 5px 12px;
-                    border-radius: 100px;
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                    margin-bottom: 12px;
-                }
-
-                .dot { width: 6px; height: 6px; border-radius: 50%; }
-                .dot.pulse-green { background: #16a34a; animation: pulseGreen 2s infinite; }
-                .dot.pulse-blue { background: #2563eb; animation: pulseBlue 2s infinite; }
-                .dot.pulse-amber { background: #d97706; animation: pulseAmber 2s infinite; }
-
-                @keyframes pulseGreen {
-                    0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
-                }
-                @keyframes pulseBlue {
-                    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
-                }
-                @keyframes pulseAmber {
-                    0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
-                }
-
-                .hero-title-p {
-                    font-family: var(--font-heading);
-                    font-size: 1.8rem;
-                    color: #fff;
-                    margin: 0;
-                }
-
-                .hero-subtitle-p {
-                    color: rgba(255,255,255,0.6);
-                    font-size: 0.9rem;
-                    margin-top: 6px;
-                }
-
-                .back-btn-minimal {
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(255,255,255,0.1);
-                    color: #fff;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .back-btn-minimal:hover {
-                    background: rgba(255,255,255,0.2);
-                    transform: translateX(-3px);
-                }
-
-                .hero-stats-glass {
-                    background: rgba(255, 255, 255, 0.05);
-                    backdrop-filter: blur(10px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    padding: 12px 20px;
-                    border-radius: 16px;
-                    display: flex;
-                    align-items: center;
-                    gap: 15px;
-                    cursor: pointer;
-                    transition: all 0.3s;
-                    z-index: 2;
-                }
-
-                .hero-stats-glass:hover {
-                    background: rgba(255, 255, 255, 0.1);
-                    transform: translateY(-3px);
-                    border-color: var(--gold-accent);
-                }
-
-                .h-stat-item {
-                    display: flex;
-                    flex-direction: column;
-                }
-
-                .h-label {
-                    font-size: 0.6rem;
-                    font-weight: 800;
-                    color: rgba(255,255,255,0.5);
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                }
-
-                .h-value {
-                    font-size: 1.2rem;
-                    font-weight: 800;
-                    color: var(--gold-accent);
-                }
-
-                .h-stat-icon {
-                    color: #fff;
-                    font-size: 1.2rem;
-                    opacity: 0.3;
-                }
-
-                .premium-form-layout {
-                    display: grid;
-                    grid-template-columns: 1fr 340px;
-                    gap: 24px;
-                    align-items: start;
-                    margin-top: 2rem;
-                }
-
-                @media (max-width: 992px) {
-                    .premium-form-layout {
-                        grid-template-columns: 1fr;
-                    }
-                }
-
-                /* Modal Styles */
-                .modal-overlay-p {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.6);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 1000;
-                    padding: 20px;
-                }
-
-                .match-modal-p {
-                    background: #fff;
-                    width: 100%;
-                    max-width: 700px;
-                    max-height: 90vh;
-                    border-radius: var(--radius-lg);
-                    display: flex;
-                    flex-direction: column;
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-                    animation: slideUp 0.3s ease-out;
-                }
-
-                @keyframes slideUp {
-                    from { transform: translateY(20px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-
-                .modal-header-p {
-                    padding: 20px 24px;
-                    border-bottom: 1px solid var(--border-light);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-
-                .header-info-p {
-                    display: flex;
-                    align-items: center;
-                    gap: 15px;
-                }
-
-                .modal-icon {
-                    font-size: 1.8rem;
-                    color: var(--gold-accent);
-                }
-
-                .modal-header-p h2 {
-                    margin: 0;
-                    font-family: var(--font-heading);
-                    font-size: 1.5rem;
-                    color: #333;
-                }
-
-                .modal-header-p p {
-                    margin: 2px 0 0;
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                }
-
-                .close-btn-p {
-                    background: #f1f5f9;
-                    border: none;
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    color: var(--text-secondary);
-                    transition: all 0.2s;
-                }
-
-                .close-btn-p:hover { background: #e2e8f0; color: var(--text-primary); }
-
-                .modal-body-p {
-                    padding: 24px;
-                    overflow-y: auto;
-                    flex: 1;
-                }
-
-                .loading-state, .empty-state {
-                    text-align: center;
-                    padding: 60px 20px;
-                    color: var(--text-muted);
-                }
-
-                .spinner-p {
-                    width: 40px;
-                    height: 40px;
-                    border: 3px solid rgba(200, 169, 81, 0.1);
-                    border-top-color: var(--gold-accent);
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 15px;
-                }
-
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-
-                .match-list {
-                    display: flex;
-                    flex-direction: column;
                     gap: 16px;
-                }
-
-                .match-item-card {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 16px;
-                    background: #f8fafc;
-                    border: 1px solid #e2e8f0;
-                    border-radius: var(--radius-md);
-                    transition: all 0.2s;
-                }
-
-                .match-item-card:hover {
-                    border-color: var(--gold-accent);
-                    background: #fff;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                }
-
-                .cand-main-info {
-                    display: flex;
-                    gap: 15px;
-                    align-items: flex-start;
-                }
-
-                .cand-avatar {
-                    width: 45px;
-                    height: 45px;
-                    border-radius: 50%;
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: var(--gold-accent);
-                    font-size: 1.2rem;
-                }
-
-                .cand-details-p h3 {
-                    margin: 0;
-                    font-size: 1rem;
-                    color: var(--text-primary);
-                }
-
-                .last-applied {
-                    margin: 4px 0 8px;
-                    font-size: 0.8rem;
-                    color: var(--text-muted);
-                }
-
-                .cand-tags {
-                    display: flex;
-                    gap: 8px;
-                }
-
-                .tag-p {
-                    font-size: 0.7rem;
-                    padding: 2px 8px;
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 4px;
-                    font-weight: 600;
-                    color: var(--text-secondary);
-                }
-
-                .cand-actions-p {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-
-                .btn-sm {
-                   padding: 6px 14px;
-                   font-size: 0.75rem;
-                }
-
-                .form-sections-container {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 24px;
-                }
-
-                .form-section-card {
-                    background: #fff;
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--border-light);
-                    padding: 24px;
-                    box-shadow: var(--shadow-sm);
-                }
-
-                .section-header {
-                    display: flex;
-                    gap: 16px;
-                    margin-bottom: 24px;
                     padding-bottom: 20px;
-                    border-bottom: 1px solid var(--border-light);
-                }
-
-                .section-icon {
-                    width: 48px;
-                    height: 48px;
-                    background: rgba(139, 26, 43, 0.05);
-                    color: var(--crimson);
-                    border-radius: var(--radius-md);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 1.4rem;
-                }
-
-                .section-header h3 {
-                    font-size: 1.15rem;
-                    font-weight: 700;
-                    margin-bottom: 2px;
-                    color: var(--text-primary);
-                }
-
-                .section-header p {
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                }
-
-                .form-grid-2 {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 20px;
-                }
-
-                .form-grid-3 {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 20px;
-                }
-
-                .full-width {
-                    grid-column: 1 / -1;
-                }
-
-                .form-group-p {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                }
-
-                .form-group-p label {
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: var(--text-secondary);
-                }
-
-                .required {
-                    color: var(--danger);
-                }
-
-                .input-wrapper {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                }
-
-                .input-icon {
-                    position: absolute;
-                    left: 14px;
-                    color: var(--text-muted);
-                    font-size: 1rem;
-                }
-
-                .premium-input {
-                    width: 100%;
-                    padding: 12px 16px;
-                    background: #fff;
-                    border: 1px solid #eef0f2;
-                    border-radius: var(--radius-md);
-                    font-size: 0.95rem;
-                    transition: all 0.2s ease;
-                    color: var(--text-primary);
-                }
-
-                .premium-input:focus {
-                    outline: none;
-                    border-color: var(--crimson);
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
-                }
-
-                .premium-input.with-icon {
-                    padding-left: 42px;
-                }
-
-                .premium-textarea {
-                    width: 100%;
-                    padding: 14px 16px;
-                    background: #fff;
-                    border: 1px solid #eef0f2;
-                    border-radius: var(--radius-md);
-                    font-size: 0.95rem;
-                    resize: vertical;
-                    min-height: 120px;
-                    font-family: inherit;
-                    transition: all 0.2s ease;
-                }
-
-                .premium-textarea:focus {
-                    outline: none;
-                    border-color: var(--crimson);
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
-                }
-
-                /* ── SKILLS TAG INPUT ── */
-                .skills-tag-box {
-                    min-height: 52px;
-                    padding: 8px 12px;
-                    background: #fff;
-                    border: 1.5px solid #eef0f2;
-                    border-radius: var(--radius-md);
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    align-items: center;
-                    cursor: text;
-                    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-                }
-
-                .skills-tag-box:focus-within {
-                    border-color: var(--crimson);
-                    box-shadow: 0 0 0 4px rgba(139, 26, 43, 0.05);
-                }
-
-                .skill-tag {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 5px;
-                    padding: 5px 10px 5px 12px;
-                    background: linear-gradient(135deg, rgba(139,26,43,0.08), rgba(139,26,43,0.04));
-                    border: 1px solid rgba(139,26,43,0.2);
-                    border-radius: 20px;
-                    font-size: 0.8rem;
-                    font-weight: 700;
-                    color: var(--crimson);
-                    white-space: nowrap;
-                    animation: tag-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-                }
-
-                @keyframes tag-pop {
-                    from { transform: scale(0.7); opacity: 0; }
-                    to   { transform: scale(1);   opacity: 1; }
-                }
-
-                .skill-tag-remove {
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    padding: 1px;
-                    color: rgba(139,26,43,0.5);
-                    display: flex;
-                    align-items: center;
-                    border-radius: 50%;
-                    transition: color 0.15s, background 0.15s;
-                }
-
-                .skill-tag-remove:hover {
-                    color: var(--crimson);
-                    background: rgba(139,26,43,0.1);
-                }
-
-                .skill-tag-input {
-                    border: none;
-                    outline: none;
-                    font-family: inherit;
-                    font-size: 0.9rem;
-                    color: var(--text-primary);
-                    background: transparent;
-                    flex: 1;
-                    min-width: 160px;
-                    padding: 4px 4px;
-                }
-
-                .skill-tag-input::placeholder {
-                    color: #b0bec5;
-                    font-weight: 400;
-                }
-
-                .sticky-sidebar {
-                    position: sticky;
-                    top: 24px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 20px;
-                }
-
-                .status-preview-card {
-                    background: #fff;
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--border-light);
-                    padding: 24px;
-                    box-shadow: var(--shadow-sm);
-                }
-
-                .status-preview-card h4 {
-                    font-size: 1rem;
-                    font-weight: 700;
                     margin-bottom: 20px;
-                    color: var(--text-primary);
+                    border-bottom: 1px solid #e2e8f0;
                 }
-
-                .preview-stat {
+                .cv-header-left {
                     display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 12px;
-                    font-size: 0.9rem;
+                    align-items: center;
+                    gap: 14px;
                 }
-
-                .preview-stat .label {
-                    color: var(--text-muted);
-                }
-
-                .preview-stat .value {
-                    font-weight: 600;
-                    color: var(--text-primary);
-                    text-align: right;
-                    max-width: 160px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-
-                .status-badge {
-                    padding: 4px 10px;
-                    border-radius: 100px;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    text-transform: uppercase;
-                }
-
-                .status-badge.active {
-                    background: rgba(22, 163, 74, 0.1);
-                    color: var(--success);
-                }
-
-                .status-badge.inactive {
-                    background: #f0f2f5;
-                    color: var(--text-muted);
-                }
-
-                .form-actions-p {
+                .cv-back-btn {
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 10px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    color: #475569;
                     display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                    margin-top: 20px;
-                }
-
-                .full-width {
-                    width: 100%;
+                    align-items: center;
                     justify-content: center;
+                    font-size: 1.1rem;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
                 }
-
-                .tips-card {
-                    background: #1f1f2e;
-                    color: #fff;
-                    border-radius: var(--radius-lg);
-                    padding: 24px;
-                    box-shadow: var(--shadow-md);
+                .cv-back-btn:hover {
+                    background: #f8fafc;
+                    color: #7A1228;
+                    border-color: #cbd5e1;
+                    transform: translateX(-2px);
                 }
-
-                .tips-header {
+                .cv-breadcrumb {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    font-size: 0.74rem;
+                    font-weight: 600;
+                    color: #94a3b8;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 3px;
+                }
+                .cv-active-crumb {
+                    color: #7A1228;
+                }
+                .cv-page-heading {
+                    font-size: 1.35rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    margin: 0;
+                    line-height: 1.25;
+                    letter-spacing: -0.3px;
+                }
+                .cv-header-actions {
                     display: flex;
                     align-items: center;
                     gap: 10px;
-                    margin-bottom: 16px;
-                    color: var(--gold-accent);
+                    flex-wrap: wrap;
                 }
-
-                .tips-header h5 {
-                    margin: 0;
-                    font-size: 0.95rem;
+                .cv-match-badge-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: #fffbeb;
+                    border: 1px solid #fde68a;
+                    color: #b45309;
+                    font-size: 0.78rem;
+                    padding: 7px 12px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.15s ease;
+                }
+                .cv-match-badge-btn:hover {
+                    background: #fef3c7;
+                    border-color: #f59e0b;
+                }
+                .cv-btn-secondary {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    color: #475569;
+                    font-size: 0.84rem;
+                    font-weight: 600;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .cv-btn-secondary:hover {
+                    background: #f8fafc;
+                    border-color: #cbd5e1;
+                    color: #0f172a;
+                }
+                .cv-btn-outline {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 7px;
+                    background: #ffffff;
+                    border: 1.5px solid #7A1228;
+                    color: #7A1228;
+                    font-size: 0.84rem;
                     font-weight: 700;
+                    padding: 8px 16px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
                 }
-
-                .tips-card ul {
-                    list-style: none;
-                    padding: 0;
-                    margin: 0;
+                .cv-btn-outline:hover {
+                    background: rgba(122, 18, 40, 0.04);
                 }
-
-                .tips-card li {
-                    font-size: 0.85rem;
-                    margin-bottom: 12px;
-                    color: rgba(255, 255, 255, 0.7);
-                    position: relative;
-                    padding-left: 18px;
-                }
-
-                .tips-card li::before {
-                    content: '•';
-                    position: absolute;
-                    left: 0;
-                    color: var(--gold-accent);
-                    font-weight: bold;
-                }
-
-                .spinner-small {
-                    width: 18px;
-                    height: 18px;
-                    border: 2px solid rgba(255, 255, 255, 0.3);
-                    border-top-color: #fff;
-                    border-radius: 50%;
-                    animation: spin 0.6s linear infinite;
-                }
-
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-
-                hr {
+                .cv-btn-primary {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 7px;
+                    background: linear-gradient(135deg, #7A1228 0%, #9B1B30 100%);
                     border: none;
-                    border-top: 1px solid var(--border-light);
-                    margin: 20px 0;
+                    color: #ffffff;
+                    font-size: 0.84rem;
+                    font-weight: 700;
+                    padding: 9px 18px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    box-shadow: 0 2px 6px rgba(122, 18, 40, 0.25);
+                    transition: all 0.15s ease;
+                }
+                .cv-btn-primary:hover {
+                    background: linear-gradient(135deg, #600e1f 0%, #821526 100%);
+                    box-shadow: 0 4px 12px rgba(122, 18, 40, 0.35);
+                    transform: translateY(-1px);
                 }
 
-                .auto-match-alert {
-                    margin-top: 20px;
-                    padding: 16px;
-                    background: rgba(200, 169, 81, 0.08);
-                    border: 1px solid rgba(200, 169, 81, 0.2);
-                    border-radius: var(--radius-md);
-                    text-align: center;
+                /* ── REJECTION CARD ── */
+                .cv-rejection-card {
+                    background: #fef2f2;
+                    border: 1px solid #fecaca;
+                    border-radius: 12px;
+                    padding: 16px 20px;
+                    margin-bottom: 20px;
                 }
-
-                .alert-badge {
-                    display: inline-block;
-                    padding: 3px 10px;
-                    background: var(--gold-accent);
-                    color: #fff;
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    border-radius: 100px;
-                    margin-bottom: 8px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
+                .cv-rej-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    color: #b91c1c;
+                    font-size: 0.86rem;
+                    margin-bottom: 4px;
                 }
-
-                .auto-match-alert p {
+                .cv-rej-reason {
                     margin: 0;
-                    font-size: 0.85rem;
-                    color: var(--text-primary);
+                    color: #991b1b;
+                    font-size: 0.84rem;
+                    font-weight: 600;
+                }
+                .cv-rej-subtext {
+                    margin: 4px 0 0;
+                    color: #b91c1c;
+                    font-size: 0.76rem;
+                    opacity: 0.85;
                 }
 
-                .view-matches-btn {
-                    margin-top: 10px;
-                    background: transparent;
-                    border: 1px solid var(--gold-accent);
-                    color: var(--gold-accent);
-                    padding: 6px 12px;
-                    border-radius: var(--radius-sm);
+                /* ── CARDS & SECTIONS ── */
+                .cv-card {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 14px;
+                    padding: 22px 24px;
+                    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+                }
+                .cv-mt-card {
+                    margin-top: 20px;
+                }
+                .cv-card-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding-bottom: 16px;
+                    margin-bottom: 18px;
+                    border-bottom: 1px solid #f1f5f9;
+                }
+                .cv-card-icon {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 9px;
+                    background: rgba(122, 18, 40, 0.08);
+                    color: #7A1228;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.15rem;
+                    flex-shrink: 0;
+                }
+                .cv-card-title {
+                    font-size: 1.05rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                    margin: 0;
+                    line-height: 1.25;
+                }
+                .cv-card-desc {
+                    font-size: 0.78rem;
+                    color: #64748b;
+                    margin: 2px 0 0;
+                }
+
+                /* ── GRIDS & FIELDS ── */
+                .cv-grid {
+                    display: grid;
+                    gap: 16px;
+                }
+                .cv-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .cv-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                .cv-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+                .cv-col-span-2 { grid-column: span 2; }
+                .cv-mt { margin-top: 16px; }
+
+                @media (max-width: 768px) {
+                    .cv-grid-2,
+                    .cv-grid-3,
+                    .cv-grid-4 {
+                        grid-template-columns: 1fr;
+                        gap: 14px;
+                    }
+                    .cv-col-span-2 {
+                        grid-column: span 1;
+                    }
+                }
+
+                .cv-field {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+                .cv-field label {
                     font-size: 0.8rem;
+                    font-weight: 700;
+                    color: #334155;
+                    text-transform: none;
+                    letter-spacing: normal;
+                }
+                .cv-required {
+                    color: #dc2626;
+                }
+                .cv-sub-label {
+                    font-size: 0.72rem;
+                    color: #94a3b8;
+                    font-weight: 400;
+                    margin-left: 4px;
+                }
+
+                .cv-input {
+                    width: 100%;
+                    padding: 9px 12px;
+                    background: #f8fafc;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    font-size: 0.88rem;
+                    color: #0f172a;
+                    outline: none;
+                    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+                    font-family: inherit;
+                    box-sizing: border-box;
+                }
+                .cv-input:focus {
+                    background: #ffffff;
+                    border-color: #7A1228;
+                    box-shadow: 0 0 0 3px rgba(122, 18, 40, 0.08);
+                }
+                .cv-input-lg {
+                    font-size: 0.98rem;
+                    font-weight: 600;
+                    padding: 10px 14px;
+                }
+
+                .cv-input-icon-wrap {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                }
+                .cv-field-icon {
+                    position: absolute;
+                    left: 11px;
+                    color: #94a3b8;
+                    font-size: 0.95rem;
+                    pointer-events: none;
+                }
+                .cv-input.cv-has-icon {
+                    padding-left: 36px;
+                }
+
+                .cv-company-select-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .cv-company-logo-chip {
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 8px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 3px;
+                    flex-shrink: 0;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                }
+                .cv-company-logo-chip img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                }
+
+                /* ── GROUP DIVIDERS & PREFIX INPUTS ── */
+                .cv-group-divider {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    margin-top: 22px;
+                    margin-bottom: 14px;
+                    padding-top: 18px;
+                    border-top: 1px solid #f1f5f9;
+                }
+                .cv-group-divider-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                }
+                .cv-group-divider-hint {
+                    font-size: 0.72rem;
+                    color: #94a3b8;
+                    font-weight: 400;
+                }
+                .cv-opt-badge {
+                    font-size: 0.68rem;
+                    font-weight: 600;
+                    color: #64748b;
+                    background: #f1f5f9;
+                    border: 1px solid #e2e8f0;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    margin-left: 6px;
+                    letter-spacing: 0.2px;
+                }
+                .cv-field-hint {
+                    font-size: 0.72rem;
+                    color: #94a3b8;
+                    margin-top: 4px;
+                    line-height: 1.35;
+                }
+                .cv-input-prefix-wrap {
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    width: 100%;
+                }
+                .cv-input-prefix {
+                    position: absolute;
+                    left: 1px;
+                    top: 1px;
+                    bottom: 1px;
+                    width: 44px;
+                    background: #f1f5f9;
+                    border-right: 1px solid #cbd5e1;
+                    border-top-left-radius: 7px;
+                    border-bottom-left-radius: 7px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.72rem;
+                    font-weight: 700;
+                    color: #64748b;
+                    letter-spacing: 0.5px;
+                    pointer-events: none;
+                    user-select: none;
+                }
+                .cv-input.cv-has-prefix {
+                    padding-left: 54px;
+                }
+
+                /* ── SKILLS TAGS ── */
+                .cv-skills-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .cv-skills-container {
+                    min-height: 46px;
+                    padding: 6px 10px;
+                    background: #f8fafc;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 6px;
+                    align-items: center;
+                    cursor: text;
+                    transition: all 0.15s ease;
+                }
+                .cv-skills-container:focus-within {
+                    background: #ffffff;
+                    border-color: #7A1228;
+                    box-shadow: 0 0 0 3px rgba(122, 18, 40, 0.08);
+                }
+                .cv-skill-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 3px 8px 3px 10px;
+                    background: rgba(122, 18, 40, 0.08);
+                    border: 1px solid rgba(122, 18, 40, 0.2);
+                    border-radius: 16px;
+                    font-size: 0.76rem;
+                    font-weight: 700;
+                    color: #7A1228;
+                }
+                .cv-skill-del {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    color: #7A1228;
+                    opacity: 0.6;
+                    display: flex;
+                    align-items: center;
+                    padding: 0;
+                    transition: opacity 0.15s;
+                }
+                .cv-skill-del:hover { opacity: 1; }
+                .cv-skill-text-input {
+                    border: none;
+                    outline: none;
+                    background: transparent;
+                    font-size: 0.85rem;
+                    color: #0f172a;
+                    flex: 1;
+                    min-width: 140px;
+                    padding: 4px;
+                }
+                .cv-skill-add-btn {
+                    background: #7A1228;
+                    color: #ffffff;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 3px 9px;
+                    font-size: 0.72rem;
                     font-weight: 700;
                     cursor: pointer;
                     display: inline-flex;
                     align-items: center;
+                    gap: 3px;
+                }
+
+                /* ── TEXTAREA & TOOLBAR ── */
+                .cv-field-toolbar-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .cv-bullet-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    color: #475569;
+                    font-size: 0.72rem;
+                    font-weight: 600;
+                    padding: 3px 8px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .cv-bullet-btn:hover {
+                    background: #f1f5f9;
+                    color: #0f172a;
+                }
+                .cv-textarea {
+                    width: 100%;
+                    padding: 10px 14px;
+                    background: #f8fafc;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 8px;
+                    font-size: 0.88rem;
+                    color: #0f172a;
+                    outline: none;
+                    font-family: inherit;
+                    line-height: 1.5;
+                    resize: vertical;
+                    transition: all 0.15s ease;
+                    box-sizing: border-box;
+                }
+                .cv-textarea:focus {
+                    background: #ffffff;
+                    border-color: #7A1228;
+                    box-shadow: 0 0 0 3px rgba(122, 18, 40, 0.08);
+                }
+
+                /* ── SEGMENTED SWITCHER ── */
+                .cv-segmented-toggle {
+                    display: inline-flex;
+                    background: #f1f5f9;
+                    padding: 4px;
+                    border-radius: 10px;
+                    gap: 4px;
+                    margin-bottom: 16px;
+                    border: 1px solid #e2e8f0;
+                }
+                /* ── CANDIDATE SCORING FORMULA UI ── */
+                .cv-formula-top-bar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 12px;
+                    margin-bottom: 14px;
+                }
+                .cv-segmented-toggle {
+                    display: inline-flex;
+                    background: #f1f5f9;
+                    padding: 3px;
+                    border-radius: 9px;
+                    gap: 3px;
+                    border: 1px solid #e2e8f0;
+                }
+                .cv-seg-btn {
+                    padding: 7px 14px;
+                    border-radius: 7px;
+                    border: none;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    background: transparent;
+                    color: #64748b;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
                     gap: 6px;
-                    transition: all 0.2s;
+                    transition: all 0.15s ease;
+                }
+                .cv-seg-btn.active {
+                    background: #ffffff;
+                    color: #0f172a;
+                    font-weight: 700;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                }
+                .cv-formula-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    font-size: 0.74rem;
+                    font-weight: 700;
+                }
+                .cv-formula-badge.balanced {
+                    background: #ecfdf5;
+                    border: 1px solid #a7f3d0;
+                    color: #065f46;
+                }
+                .cv-formula-badge.unbalanced {
+                    background: #fef2f2;
+                    border: 1px solid #fecaca;
+                    color: #991b1b;
+                }
+                .cv-badge-dot {
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background: currentColor;
                 }
 
-                .view-matches-btn:hover {
-                    background: var(--gold-accent);
-                    color: #fff;
+                /* ── PRESET CHIPS BAR ── */
+                .cv-preset-bar {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                    margin-bottom: 14px;
+                    padding: 8px 12px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 9px;
+                }
+                .cv-preset-label {
+                    font-size: 0.74rem;
+                    font-weight: 700;
+                    color: #475569;
+                }
+                .cv-preset-buttons {
+                    display: flex;
+                    gap: 6px;
+                    flex-wrap: wrap;
+                }
+                .cv-preset-chip {
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    font-size: 0.72rem;
+                    font-weight: 600;
+                    color: #334155;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                }
+                .cv-preset-chip:hover {
+                    border-color: #D97706;
+                    color: #B45309;
+                    background: #FFFBEB;
                 }
 
-                /* Modal Styles */
-                .modal-overlay-p {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: rgba(0, 0, 0, 0.6);
+                /* ── 5-CARDS GRID ── */
+                .cv-f-cards-grid {
+                    display: grid;
+                    grid-template-columns: repeat(5, minmax(0, 1fr));
+                    gap: 10px;
+                    margin-bottom: 14px;
+                }
+                @media (max-width: 900px) {
+                    .cv-f-cards-grid {
+                        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    }
+                }
+                .cv-f-card {
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    padding: 12px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    transition: all 0.18s ease;
+                    position: relative;
+                }
+                .cv-f-card:hover {
+                    border-color: #cbd5e1;
+                    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+                }
+                .cv-f-card.cv-f-card-interactive:focus-within {
+                    border-color: #D97706;
+                    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
+                }
+                .cv-f-card-top {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-bottom: 8px;
+                }
+                .cv-f-icon {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    color: #475569;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    z-index: 1000;
-                    padding: 20px;
+                    font-size: 0.95rem;
+                    flex-shrink: 0;
+                    transition: all 0.15s ease;
+                }
+                .cv-f-card:hover .cv-f-icon {
+                    background: #FFFDF5;
+                    border-color: #FCD34D;
+                    color: #D97706;
                 }
 
-                .match-modal-p {
-                    background: #fff;
-                    width: 100%;
-                    max-width: 700px;
-                    max-height: 90vh;
-                    border-radius: var(--radius-lg);
+                .cv-f-meta {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .cv-f-title-row {
                     display: flex;
-                    flex-direction: column;
-                    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-                    animation: slideUp 0.3s ease-out;
-                }
-
-                @keyframes slideUp {
-                    from { transform: translateY(20px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
-                }
-
-                .modal-header-p {
-                    padding: 20px 24px;
-                    border-bottom: 1px solid var(--border-light);
-                    display: flex;
+                    align-items: center;
                     justify-content: space-between;
-                    align-items: center;
+                    gap: 4px;
+                }
+                .cv-f-name {
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
 
-                .header-info-p {
+                /* ── VALUE BOX (DEFAULT VIEW) ── */
+                .cv-f-value-box {
+                    display: flex;
+                    align-items: baseline;
+                    justify-content: center;
+                    gap: 2px;
+                    padding: 8px 0;
+                }
+                .cv-f-val-num {
+                    font-size: 1.6rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    line-height: 1;
+                }
+                .cv-f-val-pct {
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    color: #64748b;
+                }
+
+                .cv-f-progress-track {
+                    height: 6px;
+                    background: #f1f5f9;
+                    border-radius: 999px;
+                    overflow: hidden;
+                }
+                .cv-f-progress-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #F59E0B, #D97706);
+                    border-radius: 999px;
+                    transition: width 0.25s ease;
+                }
+
+                .cv-default-footer-banner {
                     display: flex;
                     align-items: center;
-                    gap: 15px;
+                    justify-content: space-between;
+                    gap: 16px;
+                    padding: 9px 16px;
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    flex-wrap: nowrap;
+                }
+                .cv-df-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 0.78rem;
+                    color: #475569;
+                    flex: 1;
+                    min-width: 0;
+                }
+                .cv-df-check {
+                    color: #059669;
+                    font-size: 1rem;
+                    flex-shrink: 0;
+                }
+                .cv-btn-sm-primary {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 6px 14px;
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    color: #1e293b;
+                    font-size: 0.76rem;
+                    font-weight: 600;
+                    font-family: inherit;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    transition: all 0.15s ease;
+                    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                }
+                .cv-btn-sm-primary:hover {
+                    background: #7A1228;
+                    border-color: #7A1228;
+                    color: #ffffff;
+                    box-shadow: 0 2px 6px rgba(122, 18, 40, 0.18);
+                }
+                .cv-btn-sm-primary:active {
+                    transform: translateY(1px);
                 }
 
-                .modal-icon {
-                    font-size: 1.8rem;
-                    color: var(--gold-accent);
+                /* ── STEPPER & RANGE SLIDER (CUSTOM VIEW) ── */
+                .cv-stepper-wrap {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-bottom: 10px;
                 }
-
-                .modal-header-p h2 {
-                    margin: 0;
-                    font-family: var(--font-heading);
-                    font-size: 1.5rem;
-                }
-
-                .modal-header-p p {
-                    margin: 2px 0 0;
-                    font-size: 0.85rem;
-                    color: var(--text-muted);
-                }
-
-                .close-btn-p {
+                .cv-step-btn {
+                    width: 26px;
+                    height: 28px;
+                    border-radius: 6px;
                     background: #f1f5f9;
-                    border: none;
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
+                    border: 1px solid #cbd5e1;
+                    color: #475569;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     cursor: pointer;
-                    color: var(--text-secondary);
-                    transition: all 0.2s;
+                    transition: all 0.15s ease;
+                    flex-shrink: 0;
+                }
+                .cv-step-btn:hover {
+                    background: #e2e8f0;
+                    color: #0f172a;
+                }
+                .cv-step-input-box {
+                    flex: 1;
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                }
+                .cv-step-input {
+                    width: 100%;
+                    text-align: center;
+                    font-size: 1.05rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                    background: #f8fafc;
+                    border: 1px solid #cbd5e1;
+                    border-radius: 6px;
+                    padding: 4px 16px 4px 4px;
+                    outline: none;
+                    transition: all 0.15s ease;
+                    -moz-appearance: textfield;
+                }
+                .cv-step-input::-webkit-outer-spin-button,
+                .cv-step-input::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                .cv-step-input:focus {
+                    background: #ffffff;
+                    border-color: #D97706;
+                }
+                .cv-step-unit {
+                    position: absolute;
+                    right: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    color: #94a3b8;
+                    pointer-events: none;
                 }
 
-                .close-btn-p:hover { background: #e2e8f0; color: var(--text-primary); }
+                .cv-range-slider {
+                    width: 100%;
+                    height: 5px;
+                    border-radius: 999px;
+                    outline: none;
+                    appearance: none;
+                    background: #e2e8f0;
+                    cursor: pointer;
+                    accent-color: #D97706;
+                }
+                .cv-range-slider::-webkit-slider-thumb {
+                    appearance: none;
+                    width: 15px;
+                    height: 15px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #F59E0B, #D97706);
+                    border: 2px solid #ffffff;
+                    box-shadow: 0 1px 4px rgba(217, 119, 6, 0.45);
+                    cursor: pointer;
+                    transition: transform 0.1s ease;
+                }
+                .cv-range-slider::-webkit-slider-thumb:hover {
+                    transform: scale(1.25);
+                    background: #D97706;
+                }
 
-                .modal-body-p {
-                    padding: 24px;
+                /* ── TOOLTIPS ── */
+                .cv-tooltip-trigger {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    cursor: pointer;
+                }
+                .cv-help-icon {
+                    font-size: 0.82rem;
+                    color: #94a3b8;
+                    transition: color 0.15s, transform 0.15s;
+                }
+                .cv-tooltip-trigger:hover .cv-help-icon {
+                    color: #7A1228;
+                    transform: scale(1.15);
+                }
+                .cv-tooltip-body {
+                    visibility: hidden;
+                    opacity: 0;
+                    position: absolute;
+                    bottom: calc(100% + 8px);
+                    background: #0f172a;
+                    color: #f1f5f9;
+                    padding: 9px 12px;
+                    border-radius: 9px;
+                    width: 220px;
+                    box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.45);
+                    border: 1px solid #334155;
+                    z-index: 1000;
+                    pointer-events: none;
+                    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+                    text-align: left;
+                    white-space: normal;
+                }
+                .cv-tooltip-body::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    border-width: 6px;
+                    border-style: solid;
+                }
+                .cv-tooltip-trigger:hover .cv-tooltip-body {
+                    visibility: visible;
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                .cv-tip-left {
+                    left: -8px;
+                    transform: translateY(6px);
+                }
+                .cv-tip-left::after {
+                    left: 12px;
+                    border-color: #0f172a transparent transparent transparent;
+                }
+                .cv-tip-center {
+                    left: 50% !important;
+                    transform: translateX(-50%) translateY(6px) !important;
+                }
+                .cv-tooltip-trigger:hover .cv-tip-center {
+                    transform: translateX(-50%) translateY(0) !important;
+                }
+                .cv-tip-center::after {
+                    left: 50% !important;
+                    transform: translateX(-50%) !important;
+                    border-color: #0f172a transparent transparent transparent;
+                }
+                .cv-tip-right {
+                    left: auto !important;
+                    right: -8px !important;
+                    transform: translateY(6px);
+                }
+                .cv-tip-right::after {
+                    right: 12px !important;
+                    border-color: #0f172a transparent transparent transparent;
+                }
+                .cv-tip-title {
+                    display: block;
+                    font-weight: 700;
+                    font-size: 0.74rem;
+                    color: #38bdf8;
+                    margin-bottom: 3px;
+                }
+                .cv-tip-text {
+                    display: block;
+                    color: #cbd5e1;
+                    font-size: 0.72rem;
+                    line-height: 1.42;
+                    font-weight: 400;
+                }
+
+                /* ── BALANCE STATUS BAR ── */
+                .cv-balance-bar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    padding: 10px 14px;
+                    border-radius: 9px;
+                    font-size: 0.82rem;
+                }
+                .cv-balance-bar.balanced {
+                    background: #f0fdf4;
+                    border: 1px solid #bbf7d0;
+                    color: #166534;
+                }
+                .cv-balance-bar.unbalanced {
+                    background: #fef2f2;
+                    border: 1px solid #fecaca;
+                    color: #991b1b;
+                }
+                .cv-bal-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .cv-bal-icon {
+                    font-size: 1rem;
+                }
+                .cv-reset-link {
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    padding: 5px 10px;
+                    border-radius: 6px;
+                    color: #475569;
+                    font-size: 0.74rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    transition: all 0.15s ease;
+                }
+                .cv-reset-link:hover {
+                    background: #f8fafc;
+                    color: #0f172a;
+                    border-color: #94a3b8;
+                }
+
+                /* ── BOTTOM DOCKED BAR ── */
+                .cv-bottom-bar {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                    margin-top: 24px;
+                    padding: 16px 20px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                }
+                .cv-bottom-summary {
+                    display: flex;
+                    align-items: center;
+                    gap: 14px;
+                    flex-wrap: wrap;
+                    font-size: 0.8rem;
+                    color: #64748b;
+                }
+                .cv-bs-item strong {
+                    color: #1e293b;
+                }
+                .cv-bottom-actions {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    gap: 10px;
+                    margin-left: auto;
+                }
+
+                /* ── MODALS ── */
+                .cv-modal-backdrop {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(15, 23, 42, 0.6);
+                    backdrop-filter: blur(4px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 2000;
+                    padding: 20px;
+                }
+                .cv-modal-card {
+                    background: #ffffff;
+                    width: 100%;
+                    max-width: 680px;
+                    max-height: 85vh;
+                    border-radius: 16px;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    animation: cvModalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                @keyframes cvModalIn {
+                    from { opacity: 0; transform: scale(0.96) translateY(8px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+                .cv-modal-header {
+                    padding: 18px 22px;
+                    border-bottom: 1px solid #f1f5f9;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .cv-modal-title-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .cv-modal-icon-wrap {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 9px;
+                    background: #fffbeb;
+                    color: #b45309;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.1rem;
+                }
+                .cv-modal-header h3 {
+                    margin: 0;
+                    font-size: 1.05rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                }
+                .cv-modal-header p {
+                    margin: 2px 0 0;
+                    font-size: 0.78rem;
+                    color: #64748b;
+                }
+                .cv-modal-close-btn {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: #f1f5f9;
+                    border: none;
+                    color: #64748b;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    font-size: 1.1rem;
+                }
+                .cv-modal-close-btn:hover { background: #e2e8f0; color: #0f172a; }
+                .cv-modal-content {
+                    padding: 20px 22px;
                     overflow-y: auto;
                     flex: 1;
                 }
-
-                .loading-state, .empty-state {
+                .cv-modal-empty {
                     text-align: center;
-                    padding: 60px 20px;
-                    color: var(--text-muted);
+                    padding: 40px 20px;
+                    color: #94a3b8;
+                    font-size: 0.88rem;
                 }
-
-                .spinner-p {
-                    width: 40px;
-                    height: 40px;
-                    border: 3px solid rgba(200, 169, 81, 0.1);
-                    border-top-color: var(--gold-accent);
+                .cv-spinner {
+                    width: 32px;
+                    height: 32px;
+                    border: 3px solid #f1f5f9;
+                    border-top-color: #7A1228;
                     border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                    margin: 0 auto 15px;
+                    animation: spin 0.8s linear infinite;
+                    margin: 0 auto 12px;
                 }
-
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-
-                .match-list {
+                .cv-cand-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 16px;
+                    gap: 10px;
                 }
-
-                .match-item-card {
+                .cv-cand-item {
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
-                    padding: 16px;
+                    justify-content: space-between;
+                    gap: 12px;
+                    padding: 12px 14px;
                     background: #f8fafc;
                     border: 1px solid #e2e8f0;
-                    border-radius: var(--radius-md);
-                    transition: all 0.2s;
+                    border-radius: 10px;
                 }
-
-                .match-item-card:hover {
-                    border-color: var(--gold-accent);
-                    background: #fff;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                }
-
-                .cand-main-info {
-                    display: flex;
-                    gap: 15px;
-                    align-items: flex-start;
-                }
-
-                .cand-avatar {
-                    width: 45px;
-                    height: 45px;
+                .cv-cand-avatar {
+                    width: 38px;
+                    height: 38px;
                     border-radius: 50%;
-                    background: #fff;
+                    background: #ffffff;
                     border: 1px solid #e2e8f0;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: var(--gold-accent);
-                    font-size: 1.2rem;
+                    color: #7A1228;
+                    font-size: 1.1rem;
+                    flex-shrink: 0;
                 }
-
-                .cand-details-p h3 {
+                .cv-cand-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .cv-cand-info h4 {
                     margin: 0;
-                    font-size: 1rem;
-                    color: var(--text-primary);
+                    font-size: 0.9rem;
+                    font-weight: 700;
+                    color: #0f172a;
                 }
-
-                .last-applied {
-                    margin: 4px 0 8px;
-                    font-size: 0.8rem;
-                    color: var(--text-muted);
+                .cv-cand-applied {
+                    margin: 2px 0 6px;
+                    font-size: 0.74rem;
+                    color: #64748b;
                 }
-
-                .cand-tags {
+                .cv-cand-badges {
                     display: flex;
-                    gap: 8px;
+                    gap: 6px;
                 }
-
-                .tag-p {
-                    font-size: 0.7rem;
-                    padding: 2px 8px;
-                    background: #fff;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 4px;
+                .cv-badge {
+                    font-size: 0.68rem;
                     font-weight: 600;
-                    color: var(--text-secondary);
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    color: #475569;
                 }
+                .cv-cand-buttons {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .cv-btn-sm-outline {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    background: #ffffff;
+                    border: 1px solid #cbd5e1;
+                    color: #334155;
+                    font-size: 0.76rem;
+                    font-weight: 600;
+                    padding: 6px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    text-decoration: none;
+                }
+                .cv-btn-sm-outline:hover { background: #f8fafc; }
 
-                .cand-actions-p {
+                /* ── SUCCESS MODAL ── */
+                .cv-modal-success {
+                    max-width: 440px;
+                    text-align: center;
+                    padding: 32px 28px;
+                }
+                .cv-success-icon-wrap {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 18px;
+                    background: #ecfdf5;
+                    border: 1px solid #a7f3d0;
+                    color: #059669;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 2rem;
+                    margin: 0 auto 16px;
+                }
+                .cv-modal-success h2 {
+                    margin: 0 0 8px;
+                    font-size: 1.35rem;
+                    font-weight: 800;
+                    color: #0f172a;
+                }
+                .cv-success-desc {
+                    margin: 0 0 20px;
+                    font-size: 0.86rem;
+                    color: #64748b;
+                    line-height: 1.45;
+                }
+                .cv-approval-status-box {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    padding: 12px 14px;
+                    margin-bottom: 24px;
+                    text-align: left;
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 10px;
+                }
+                .cv-as-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: #10b981;
+                    margin-top: 5px;
+                    flex-shrink: 0;
+                }
+                .cv-as-title {
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                }
+                .cv-as-desc {
+                    font-size: 0.74rem;
+                    color: #64748b;
+                    margin-top: 2px;
+                }
+                .cv-success-actions {
                     display: flex;
                     flex-direction: column;
                     gap: 8px;
-                }
-
-                .btn-sm {
-                   padding: 6px 14px;
-                   font-size: 0.75rem;
-                }
-
-                .animate-bounce-in {
-                    animation: bounceIn 0.5s ease-out;
-                }
-
-                @keyframes bounceIn {
-                    0% { transform: scale(0.8); opacity: 0; }
-                    70% { transform: scale(1.05); }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-
-                /* ── RESPONSIVENESS ─────────────────────────── */
-
-                @media (max-width: 1200px) {
-                    .premium-form-layout {
-                        grid-template-columns: 1fr 300px;
-                    }
-                }
-
-                @media (max-width: 1024px) {
-                    .create-vacancy-page {
-                        padding: 20px;
-                    }
-
-                    .vacancies-orchestration-header {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        padding: 24px 20px;
-                        border-radius: 18px;
-                        gap: 16px;
-                    }
-
-                    .hero-title-p { font-size: 1.6rem; }
-
-                    .premium-form-layout {
-                        grid-template-columns: 1fr;
-                        margin-top: 1.5rem;
-                    }
-
-                    .sticky-sidebar {
-                        position: static;
-                        top: auto;
-                    }
-
-                    .form-sidebar-container {
-                        order: 1;
-                    }
-
-                    /* Sidebar becomes a horizontal summary strip on tablet */
-                    .status-preview-card {
-                        padding: 16px;
-                    }
-                }
-
-                @media (max-width: 768px) {
-                    .create-vacancy-page {
-                        padding: 12px;
-                    }
-
-                    .vacancies-orchestration-header {
-                        padding: 18px 16px;
-                        border-radius: 14px;
-                        gap: 12px;
-                        margin-bottom: 16px;
-                    }
-
-                    .hero-title-p { font-size: 1.35rem; }
-                    .hero-subtitle-p { font-size: 0.82rem; }
-
-                    .badge-p {
-                        font-size: 0.62rem;
-                        padding: 4px 10px;
-                        margin-bottom: 8px;
-                    }
-
-                    .form-section-card {
-                        padding: 16px;
-                        border-radius: 14px;
-                    }
-
-                    .section-header {
-                        flex-direction: row;
-                        align-items: center;
-                        gap: 12px;
-                        margin-bottom: 16px;
-                        padding-bottom: 12px;
-                    }
-
-                    .section-icon {
-                        width: 36px;
-                        height: 36px;
-                        font-size: 1rem;
-                        flex-shrink: 0;
-                    }
-
-                    /* Force 2-col grids to single column on mobile */
-                    .form-grid-2,
-                    .form-grid-3 {
-                        grid-template-columns: 1fr;
-                        gap: 14px;
-                    }
-
-                    .full-width {
-                        grid-column: 1;
-                    }
-
-                    .premium-input,
-                    .premium-textarea {
-                        font-size: 1rem; /* prevents iOS zoom */
-                    }
-
-                    /* Sidebar action buttons full-width on mobile */
-                    .form-actions-p .btn {
-                        width: 100%;
-                        justify-content: center;
-                    }
-
-                    /* Tips card compact */
-                    .tips-card {
-                        padding: 14px;
-                    }
-
-                    .status-preview-card {
-                        padding: 14px;
-                    }
-
-                    /* Match modal */
-                    .match-item-card {
-                        flex-direction: column;
-                        align-items: flex-start;
-                        gap: 12px;
-                    }
-
-                    .cand-actions-p {
-                        flex-direction: row;
-                        width: 100%;
-                    }
-
-                    .cand-actions-p .btn {
-                        flex: 1;
-                        justify-content: center;
-                    }
-
-                    .modal-header-p {
-                        padding: 16px 18px;
-                        flex-direction: column;
-                        align-items: flex-start !important;
-                        gap: 12px;
-                    }
-
-                    .header-info-p {
-                        flex-direction: row;
-                        align-items: flex-start;
-                        gap: 10px;
-                    }
-
-                    .match-modal-p {
-                        max-width: 100%;
-                        border-radius: 16px;
-                    }
-
-                    .modal-overlay-p {
-                        padding: 10px;
-                    }
-                }
-
-                @media (max-width: 480px) {
-                    .hero-title-p { font-size: 1.15rem; }
-
-                    .vacancies-orchestration-header {
-                        padding: 14px 12px;
-                    }
-
-                    .form-section-card {
-                        padding: 12px;
-                    }
-
-                    .skills-tag-box {
-                        padding: 6px 10px;
-                        gap: 6px;
-                    }
-
-                    .skill-tag-input {
-                        min-width: 100px;
-                        font-size: 0.95rem;
-                    }
-
-                    .cand-actions-p {
-                        flex-direction: column;
-                    }
-
-                    .match-modal-p {
-                        height: 100%;
-                        max-height: 100%;
-                        border-radius: 0;
-                    }
-
-                    .modal-overlay-p {
-                        padding: 0;
-                    }
                 }
             `}</style>
         </div>

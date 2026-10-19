@@ -17,6 +17,7 @@ import {
     FiGlobe,
     FiFacebook,
     FiLinkedin,
+    FiUser,
 } from "react-icons/fi";
 
 function HomePage() {
@@ -73,7 +74,16 @@ function HomePage() {
                 <div className={`navbar-links ${mobileMenuOpen ? "open" : ""}`}>
                     <Link to="/" className="navbar-link active" onClick={closeMobileMenu}>Home</Link>
                     <Link to="/vacancies" className="navbar-link" onClick={closeMobileMenu}>Vacancies</Link>
-                    <Link to="/admin/login" className="navbar-link btn-primary" onClick={closeMobileMenu}>Admin Portal</Link>
+                    <Link 
+                        to="/admin/login" 
+                        className="navbar-link admin-icon-link" 
+                        onClick={closeMobileMenu}
+                        title="Admin Portal"
+                        aria-label="Admin Portal"
+                    >
+                        <FiUser size={19} />
+                        <span className="admin-link-text">Admin Portal</span>
+                    </Link>
                 </div>
 
                 <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen((s) => !s)}>
@@ -91,14 +101,14 @@ function HomePage() {
                     <div className="hero-left">
                         <div className="hero-badge animate-fade-in">
                             <FiAward className="badge-icon" />
-                            <span>ESTD. 1835 — 190 Years of Trust</span>
+                            <span>ESTD. 1835 — 190+ Years of Trust</span>
                         </div>
                         <h1 className="hero-title animate-slide-up">
                             Build Your Legacy <br />
                             <span className="title-accent">With George Steuart</span>
                         </h1>
                         <p className="hero-subtitle animate-slide-up">
-                            Join Sri Lanka's oldest mercantile firm and be part of a 185-year heritage of excellence.
+                            Join Sri Lanka's oldest mercantile firm and be part of a 190+ year heritage of excellence.
                             We don't just offer jobs; we offer the chance to shape history.
                         </p>
                         <div className="hero-actions animate-slide-up">
@@ -122,7 +132,7 @@ function HomePage() {
                                 <FiUsers />
                                 <div>
                                     <strong>1,500+</strong>
-                                    <span>Global Team</span>
+                                    <span>Team</span>
                                 </div>
                             </div>
                         </div>
@@ -142,7 +152,7 @@ function HomePage() {
                     </div>
                     <div className="hero-stat-divider" />
                     <div className="hero-stat">
-                        <div className="hero-stat-number">185+</div>
+                        <div className="hero-stat-number">190+</div>
                         <div className="hero-stat-label">YEARS OF TRUST</div>
                     </div>
                 </div>
@@ -154,8 +164,8 @@ function HomePage() {
                     <div className="marquee-content">
                         {companies.map((comp, idx) => (
                             <div key={`comp-1-${idx}`} className="brand-item">
-                                <img 
-                                    src={comp.logo ? `${BACKEND_ROOT}/uploads/logos/${comp.logo}` : "/gs-logo.png"} 
+                                <img
+                                    src={comp.logo ? `${BACKEND_ROOT}/uploads/logos/${comp.logo}` : "/gs-logo.png"}
                                     alt={comp.name}
                                     onError={(e) => e.target.src = "/gs-logo.png"}
                                     style={{ height: '40px', width: 'auto', objectFit: 'contain', filter: 'grayscale(1)', opacity: 0.6, transition: 'all 0.3s' }}
@@ -166,8 +176,8 @@ function HomePage() {
                         {/* Repeat for seamless scroll */}
                         {companies.map((comp, idx) => (
                             <div key={`comp-2-${idx}`} className="brand-item">
-                                <img 
-                                    src={comp.logo ? `${BACKEND_ROOT}/uploads/logos/${comp.logo}` : "/gs-logo.png"} 
+                                <img
+                                    src={comp.logo ? `${BACKEND_ROOT}/uploads/logos/${comp.logo}` : "/gs-logo.png"}
                                     alt={comp.name}
                                     onError={(e) => e.target.src = "/gs-logo.png"}
                                     style={{ height: '40px', width: 'auto', objectFit: 'contain', filter: 'grayscale(1)', opacity: 0.6, transition: 'all 0.3s' }}
@@ -188,14 +198,16 @@ function HomePage() {
                             <span className="section-badge">Our Legacy</span>
                             <h2 className="section-title-creative">Established In 1835</h2>
                             <p className="section-desc">
-                                From 1835 to the present day, George Steuart & Company has stood as a beacon of stability and growth in Sri Lanka. Our diverse portfolio spans Tea, Pharmaceuticals, Leisure, Travel, Real Estate, and Financial Services.
+                                From 1835 to the present day, George Steuart & Company has stood as a beacon of stability and growth in Sri Lanka. Rooted in a rich heritage, we continue to embrace innovation, pursue excellence, and create lasting value for future generations.
                             </p>
                             <div className="heritage-features">
                                 <div className="h-feature">
                                     <div className="h-icon"><FiGlobe /></div>
                                     <div>
                                         <h4>Global Presence</h4>
-                                        <p>Exporting excellence to over 50 countries worldwide.</p>
+                                        <p>Global Presence
+
+                                            Connecting markets, building partnerships, and extending our legacy of excellence beyond borders.</p>
                                     </div>
                                 </div>
                                 <div className="h-feature">
@@ -241,7 +253,7 @@ function HomePage() {
                         <div className="value-item">
                             <div className="value-icon">H</div>
                             <h3>Heritage</h3>
-                            <p>Continuing a 190-year journey of mercantile leadership in Sri Lanka.</p>
+                            <p>Continuing a 190+ year journey of mercantile leadership in Sri Lanka.</p>
                         </div>
                     </div>
                 </div>
@@ -286,7 +298,6 @@ function HomePage() {
                                 <li><Link to="/">Home</Link></li>
                                 <li><Link to="/vacancies">All Vacancies</Link></li>
                                 <li><a href="#heritage">Our Heritage</a></li>
-                                <li><Link to="/admin/login">Admin Portal</Link></li>
                             </ul>
                         </div>
 

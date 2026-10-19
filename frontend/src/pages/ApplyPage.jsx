@@ -1953,7 +1953,16 @@ function ApplyPage() {
                 <div className={`navbar-links ${mobileMenuOpen ? 'open' : ''}`}>
                     <Link to="/" className="navbar-link" onClick={() => setMobileMenuOpen(false)}>Home</Link>
                     <Link to="/vacancies" className="navbar-link" onClick={() => setMobileMenuOpen(false)}>Vacancies</Link>
-                    <Link to="/admin/login" className="navbar-link btn-primary" onClick={() => setMobileMenuOpen(false)}>Admin Portal</Link>
+                    <Link 
+                        to="/admin/login" 
+                        className="navbar-link admin-icon-link" 
+                        onClick={() => setMobileMenuOpen(false)}
+                        title="Admin Portal"
+                        aria-label="Admin Portal"
+                    >
+                        <FiUser size={19} />
+                        <span className="admin-link-text">Admin Portal</span>
+                    </Link>
                 </div>
                 <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(v => !v)}>
                     {mobileMenuOpen ? <FiX /> : <FiMenu />}
@@ -2427,7 +2436,6 @@ function ApplyPage() {
                             <ul className="footer-links-list">
                                 <li><Link to="/">Home</Link></li>
                                 <li><Link to="/vacancies">All Vacancies</Link></li>
-                                <li><Link to="/admin/login">Admin Portal</Link></li>
                             </ul>
                         </div>
                         <div className="footer-col contact-col">

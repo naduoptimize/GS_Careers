@@ -518,6 +518,21 @@ const extractCertificationsFromCVText = (cvText, existingCerts = []) => {
     return Array.from(new Set(result));
 };
 
+const makeSafeSkillRegex = (term) => {
+    if (!term || typeof term !== 'string') return null;
+    const termClean = term.trim();
+    if (!termClean) return null;
+    const escaped = termClean.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const hasSpecial = /[^a-zA-Z0-9\s]/.test(termClean);
+    try {
+        return hasSpecial
+            ? new RegExp(`(?<![a-zA-Z0-9])${escaped}(?![a-zA-Z0-9])`, 'i')
+            : new RegExp(`\\b${escaped}\\b`, 'i');
+    } catch (e) {
+        return null;
+    }
+};
+
 const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candidateObj = {}) => {
     const tryParse = (val) => {
         if (!val) return null;
@@ -677,10 +692,10 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
             kwList.forEach(kw => {
                 let matched = false;
                 if (kw === 'C') {
-                    matched = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|\bC\+\+\b)/i.test(cvTextContent);
+                    matched = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|(?<![a-zA-Z0-9])c\+\+(?![a-zA-Z0-9]))/i.test(cvTextContent);
                 } else {
-                    const regex = new RegExp(`\\b${kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
-                    matched = regex.test(cvTextContent);
+                    const regex = makeSafeSkillRegex(kw);
+                    matched = regex ? regex.test(cvTextContent) : cvTextContent.toLowerCase().includes(kw.toLowerCase());
                 }
                 if (matched) {
                     const key = kw.toLowerCase();
@@ -772,9 +787,10 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
         if (!targetDomain) {
             const hasMatch = kwList.some(k => {
                 if (k.length <= 3) {
-                    return new RegExp(`\\b${k}\\b`, 'i').test(fullJobContextText);
+                    const regex = makeSafeSkillRegex(k);
+                    return regex ? regex.test(fullJobContextText) : fullJobContextText.toLowerCase().includes(k.toLowerCase());
                 }
-                return fullJobContextText.includes(k);
+                return fullJobContextText.includes(k.toLowerCase());
             });
             if (hasMatch) {
                 targetDomain = dName;
@@ -828,13 +844,13 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
 
         if (fullJobContextText && sLower.length >= 2) {
             if (sLower === 'c') {
-                isDirectJobMatch = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|\bC\+\+\b)/i.test(fullJobContextText);
+                isDirectJobMatch = /(?:c\s*[\/\+]\s*c\+\+|c\s+(?:language|programming|developer|code)|(?<![a-zA-Z0-9])c\+\+(?![a-zA-Z0-9]))/i.test(fullJobContextText);
             } else if (sLower.length <= 3) {
-                const escaped = sLower.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                isDirectJobMatch = new RegExp(`\\b${escaped}\\b`, 'i').test(fullJobContextText);
+                const regex = makeSafeSkillRegex(sLower);
+                isDirectJobMatch = regex ? regex.test(fullJobContextText) : fullJobContextText.includes(sLower);
             } else {
-                const escaped = sLower.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-                if (new RegExp(`\\b${escaped}\\b`, 'i').test(fullJobContextText) || fullJobContextText.includes(sLower)) {
+                const regex = makeSafeSkillRegex(sLower);
+                if ((regex && regex.test(fullJobContextText)) || fullJobContextText.includes(sLower)) {
                     isDirectJobMatch = true;
                 } else {
                     const words = sLower
@@ -910,7 +926,8 @@ const getNormalizedSkills = (skillsMetadataStr, tags, extractedDataInput, candid
                 if (k.length <= 3) {
                     return sName === k.toLowerCase();
                 }
-                return sName === k.toLowerCase() || new RegExp(`\\b${k.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i').test(sName);
+                const regex = makeSafeSkillRegex(k);
+                return sName === k.toLowerCase() || (regex && regex.test(sName));
             });
         });
     }
@@ -1054,6 +1071,240 @@ const formatExpVal = (val) => {
     return val;
 };
 
+const getMatchBreakdown = (app, vacanciesList = []) => {
+    if (!app) return { overall: 0, salary: 0, experience: 0, qualification: 0, skills: 0, jdAlignment: 0, jdSkills: 0 };
+    const res = calculateCandidateMatchScore(app, vacanciesList);
+    const score = res.score || 0;
+    const factors = res.details?.factors || {};
+
+    let salary = typeof factors.salary === 'number' ? factors.salary : 100;
+    let experience = typeof factors.experience === 'number' ? factors.experience : 0;
+    let qualification = typeof factors.qualification === 'number' ? factors.qualification : 0;
+    let skills = typeof factors.skills === 'number' ? factors.skills : 0;
+    let jdAlignment = typeof factors.keyword === 'number' ? factors.keyword : 0;
+
+    // Check direct AI breakdown from skills_metadata
+    if (app.skills_metadata) {
+        try {
+            const meta = typeof app.skills_metadata === 'string' ? JSON.parse(app.skills_metadata) : app.skills_metadata;
+            if (meta?.ai_score_breakdown) {
+                const bd = meta.ai_score_breakdown;
+                const hasBudget = Boolean(app.min_salary || app.max_salary || app.v_min_salary || app.v_max_salary);
+                if (hasBudget && typeof factors.salary === 'number') {
+                    salary = factors.salary;
+                } else if (typeof bd.salary_match_score === 'number') {
+                    salary = bd.salary_match_score;
+                }
+                if (typeof bd.experience_match_score === 'number') {
+                    experience = bd.experience_match_score;
+                }
+                if (typeof bd.qualification_match_score === 'number') qualification = bd.qualification_match_score;
+                if (typeof bd.skills_match_score === 'number') skills = bd.skills_match_score;
+                if (typeof bd.job_description_match_score === 'number') jdAlignment = bd.job_description_match_score;
+            }
+        } catch (e) {}
+    }
+
+    const jdSkills = skills > 0 ? skills : (jdAlignment > 0 ? jdAlignment : 0);
+    const mismatchReason = extractCandidateMismatchReason(app, res);
+
+    const weights = res.details?.weights || {
+        skills: app.weight_skills !== null && app.weight_skills !== undefined ? Number(app.weight_skills) : 35,
+        experience: app.weight_experience !== null && app.weight_experience !== undefined ? Number(app.weight_experience) : 30,
+        qualification: app.weight_qualification !== null && app.weight_qualification !== undefined ? Number(app.weight_qualification) : 20,
+        jdAlignment: app.weight_jd_alignment !== null && app.weight_jd_alignment !== undefined ? Number(app.weight_jd_alignment) : 10,
+        salary: app.weight_salary !== null && app.weight_salary !== undefined ? Number(app.weight_salary) : 5,
+        isCustom: app.weight_skills !== null && app.weight_skills !== undefined
+    };
+
+    return {
+        overall: score,
+        salary,
+        experience,
+        qualification,
+        skills,
+        jdAlignment,
+        jdSkills,
+        weights,
+        mismatchReason
+    };
+};
+
+const getAssessmentPoints = (isMismatch, parsedReport, candidate, breakdown, minMed) => {
+    const points = [];
+    if (isMismatch) {
+        // Collect raw reasons
+        let rawReason = (
+            parsedReport?.mismatch_reason ||
+            breakdown?.mismatchReason ||
+            extractCandidateMismatchReason(candidate) ||
+            ''
+        ).trim();
+
+        // If rawReason empty, check ai_match_reason for mismatch text
+        if (!rawReason && parsedReport?.ai_match_reason) {
+            const r = parsedReport.ai_match_reason;
+            if (/mismatch|differ|unrelated|penaliz|lack|does not match/i.test(r)) {
+                rawReason = r.replace(/^Job & CV Mismatch Warning:\s*/i, '').trim();
+            }
+        }
+
+        if (rawReason) {
+            // Check for ", whereas " or " whereas "
+            if (/,\s*whereas\s+|\s+whereas\s+/i.test(rawReason)) {
+                const parts = rawReason.split(/,\s*whereas\s+|\s+whereas\s+/i);
+                if (parts[0] && parts[0].trim()) {
+                    let p0 = parts[0].trim();
+                    if (!/[.!?]$/.test(p0)) p0 += '.';
+                    points.push(p0);
+                }
+                if (parts[1] && parts[1].trim()) {
+                    let p1 = parts[1].trim();
+                    p1 = p1.charAt(0).toUpperCase() + p1.slice(1);
+                    if (!/[.!?]$/.test(p1)) p1 += '.';
+                    points.push(`Role Requirement Gap: ${p1}`);
+                }
+            } else if (rawReason.includes('. ')) {
+                rawReason.split(/\.\s+/).forEach(sent => {
+                    const clean = sent.trim();
+                    if (clean.length > 10) {
+                        points.push(clean.endsWith('.') ? clean : clean + '.');
+                    }
+                });
+            } else {
+                points.push(rawReason.endsWith('.') ? rawReason : rawReason + '.');
+            }
+        }
+
+        // Requirements without evidence
+        if (Array.isArray(parsedReport?.requirements_without_evidence) && parsedReport.requirements_without_evidence.length > 0) {
+            points.push(`Missing / Unverified Tech Stack: ${parsedReport.requirements_without_evidence.slice(0, 5).join(', ')}.`);
+        }
+
+        if (points.length === 0) {
+            points.push(`Candidate background and skillset diverge from the requirements of "${candidate?.vacancy_title || candidate?.applied_vacancy || 'target position'}".`);
+            points.push(`Overall match score (${breakdown.overall}%) is below the required screening criteria.`);
+        }
+    } else {
+        // MATCHED POINTS
+        // 1. Check ai_match_reason
+        const matchReason = (parsedReport?.ai_match_reason || '').trim();
+        if (matchReason && !/mismatch|differs|penalty/i.test(matchReason)) {
+            if (matchReason.includes('. ')) {
+                matchReason.split(/\.\s+/).forEach(sent => {
+                    const clean = sent.trim();
+                    if (clean.length > 15 && points.length < 2) {
+                        points.push(clean.endsWith('.') ? clean : clean + '.');
+                    }
+                });
+            } else {
+                points.push(matchReason.endsWith('.') ? matchReason : matchReason + '.');
+            }
+        }
+
+        // 2. Demonstrated core skills
+        if (Array.isArray(parsedReport?.fully_demonstrated_skills) && parsedReport.fully_demonstrated_skills.length > 0) {
+            points.push(`Demonstrated Core Competencies: ${parsedReport.fully_demonstrated_skills.slice(0, 6).join(', ')}.`);
+        } else if (candidate?.tags) {
+            const tList = candidate.tags.split(',').map(t => t.trim()).filter(Boolean);
+            if (tList.length > 0) {
+                points.push(`Key Technical Proficiencies: ${tList.slice(0, 5).join(', ')}.`);
+            }
+        }
+
+        // 3. Relevant experience
+        if (candidate?.relevant_experience && candidate.relevant_experience !== '0 years' && !points.some(p => /experience/i.test(p))) {
+            points.push(`Experience Alignment: ${candidate.relevant_experience} relevant experience (Overall: ${candidate.overall_experience || candidate.relevant_experience}).`);
+        }
+
+        // 4. Education
+        if (candidate?.qualification && !points.some(p => /qualification|degree|bsc|hnd|diploma/i.test(p))) {
+            points.push(`Educational Qualification: ${candidate.qualification} fulfills position prerequisite.`);
+        }
+
+        // 5. Budget
+        if (candidate?.salary_expectation && (candidate.min_salary || candidate.max_salary) && !points.some(p => /salary|budget/i.test(p))) {
+            points.push(`Budget Compatibility: Salary expectation fits comfortably within the allocated position budget.`);
+        }
+
+        // Fallback
+        if (points.length === 0) {
+            points.push(`High profile alignment with target vacancy "${candidate?.vacancy_title || candidate?.applied_vacancy || 'Vacancy'}" (${breakdown.overall}% match).`);
+            points.push(`Candidate possesses relevant domain qualifications and meets core screening criteria.`);
+        }
+    }
+
+    return points;
+};
+
+const parsePointDetail = (rawPoint, isMismatch, index) => {
+    if (!rawPoint) return { label: '', text: '' };
+
+    let str = typeof rawPoint === 'string' ? rawPoint.trim() : String(rawPoint).trim();
+    let label = '';
+    let text = str;
+
+    // Check if the string already has an explicit label followed by a colon
+    const colonIdx = str.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 40) {
+        const potentialLabel = str.substring(0, colonIdx).trim();
+        const remainder = str.substring(colonIdx + 1).trim();
+
+        if (/missing|unverified|tech stack/i.test(potentialLabel)) {
+            label = 'Missing Tech Stack';
+            text = remainder;
+        } else if (/requirement gap|role requirement gap|role gap/i.test(potentialLabel)) {
+            label = 'Requirement Gap';
+            text = remainder;
+        } else if (/demonstrated core competencies|core competencies|competencies/i.test(potentialLabel)) {
+            label = 'Core Competencies';
+            text = remainder;
+        } else if (/technical proficiencies|key technical proficiencies|proficiencies/i.test(potentialLabel)) {
+            label = 'Core Competencies';
+            text = remainder;
+        } else if (/experience alignment|experience fit|experience/i.test(potentialLabel)) {
+            label = 'Experience Fit';
+            text = remainder;
+        } else if (/educational qualification|qualification/i.test(potentialLabel)) {
+            label = 'Qualifications';
+            text = remainder;
+        } else if (/budget compatibility|budget match|budget|salary/i.test(potentialLabel)) {
+            label = 'Budget Match';
+            text = remainder;
+        } else {
+            label = potentialLabel.replace(/^(Job & CV Mismatch Warning|Demonstrated|Verified|Key)\s*/i, '').trim();
+            text = remainder;
+        }
+    }
+
+    // If no label was found via colon, infer based on content and position
+    if (!label) {
+        if (isMismatch) {
+            if (/strictly focused|focused on|experience and skillset|background|career/i.test(str)) {
+                label = 'Candidate Focus';
+            } else if (/requires|lacks|requirement|gap|intern|developer/i.test(str)) {
+                label = 'Requirement Gap';
+            } else if (/missing|tech stack|competenc/i.test(str)) {
+                label = 'Missing Tech Stack';
+            } else {
+                label = index === 0 ? 'Candidate Focus' : (index === 1 ? 'Requirement Gap' : 'Mismatch Factor');
+            }
+        } else {
+            if (/strong fit|hands-on|experience|support|holdings|associate|tenure/i.test(str) && index === 0) {
+                label = 'Role & Experience';
+            } else if (/qualification|salary|budget|bound|lkr|expectation/i.test(str)) {
+                label = 'Qualifications & Budget';
+            } else if (/competenc|infrastructure|troubleshooting|windows|network|proficienc/i.test(str)) {
+                label = 'Core Competencies';
+            } else {
+                label = index === 0 ? 'Role & Experience' : (index === 1 ? 'Qualifications & Budget' : 'Core Competencies');
+            }
+        }
+    }
+
+    return { label, text };
+};
+
 function Applicants({ admin }) {
     const [searchParams] = useSearchParams();
     const [applications, setApplications] = useState([]);
@@ -1111,6 +1362,7 @@ function Applicants({ admin }) {
 
     const [showJobDetails, setShowJobDetails] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
     const [activeAdminTab, setActiveAdminTab] = useState('Relevant Skills');
     const selVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id)) || {};
 
@@ -1222,6 +1474,9 @@ function Applicants({ admin }) {
     };
 
     const handleExport = async () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        const toastId = toast.loading('Preparing candidate export (ranking by score)...');
         try {
             const params = {};
             Object.entries(filters).forEach(([k, v]) => {
@@ -1229,18 +1484,39 @@ function Applicants({ admin }) {
             });
             const res = await exportApplications(params);
 
-            const blob = new Blob([res.data], { type: 'text/csv' });
+            // In case backend returned a JSON error blob (e.g., 401 or 500)
+            if (res.data && res.data.type && res.data.type.includes('application/json')) {
+                const text = await res.data.text();
+                const errJson = JSON.parse(text);
+                throw new Error(errJson.message || 'Export error');
+            }
+
+            const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
+            a.style.display = 'none';
             a.href = url;
-            a.download = `applicants_${new Date().toISOString().slice(0, 10)}.csv`;
+            const selectedVac = vacancies.find(v => String(v.id) === String(filters.vacancy_id));
+            const vacSlug = selectedVac?.title ? selectedVac.title.toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_' : '';
+            a.download = `applicants_${vacSlug}${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            toast.success('Excel/CSV downloaded successfully');
+
+            setTimeout(() => {
+                if (document.body.contains(a)) {
+                    document.body.removeChild(a);
+                }
+                window.URL.revokeObjectURL(url);
+            }, 2500);
+
+            toast.dismiss(toastId);
+            toast.success('Excel/CSV downloaded successfully (Ranked by Match Score)');
         } catch (err) {
-            toast.error('Export failed');
+            console.error('Export error:', err);
+            toast.dismiss(toastId);
+            toast.error(err?.response?.data?.message || err?.message || 'Export failed');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -1541,8 +1817,8 @@ function Applicants({ admin }) {
                     <h1 className="serif-title-p">Applications</h1>
                     <p className="hero-subline">Review and manage candidates for all active roles across George Steuart & Company.</p>
                 </div>
-                <button className="btn-establish-p" onClick={handleExport}>
-                    <FiDownload /> <span>Export to CSV</span>
+                <button className="btn-establish-p" onClick={handleExport} disabled={isExporting} style={{ opacity: isExporting ? 0.7 : 1 }}>
+                    <FiDownload /> <span>{isExporting ? 'Exporting...' : 'Export to CSV'}</span>
                 </button>
             </div>
 
@@ -1644,24 +1920,42 @@ function Applicants({ admin }) {
                     </div>
                 </div>
 
-                {/* Active Filters Chips Bar (Always visible if chips exist) */}
+                {/* Active Filters Chips Ribbon (Always visible if chips exist) */}
                 {activeChips.length > 0 && (
                     <div className="active-filter-chips-row">
-                        <span className="chips-label">Active Filters:</span>
-                        <div className="chips-list">
-                            {activeChips.map(chip => (
-                                <button
-                                    key={chip.key}
-                                    type="button"
-                                    className="filter-chip"
-                                    onClick={chip.clear}
-                                    title={`Remove ${chip.label}`}
-                                >
-                                    <span>{chip.label}</span>
-                                    <FiX size={12} className="chip-remove" />
-                                </button>
-                            ))}
+                        <div className="chips-left-group">
+                            <span className="chips-label-badge">
+                                <FiFilter size={12} />
+                                <span>Active Filters</span>
+                                <span className="chips-count-dot">{activeChips.length}</span>
+                            </span>
+                            <div className="chips-list">
+                                {activeChips.map(chip => (
+                                    <button
+                                        key={chip.key}
+                                        type="button"
+                                        className="filter-chip"
+                                        onClick={chip.clear}
+                                        title={`Remove ${chip.label}`}
+                                    >
+                                        <span className="chip-text">{chip.label}</span>
+                                        <span className="chip-remove-circle">
+                                            <FiX size={10} />
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
+
+                        <button
+                            type="button"
+                            className="chips-clear-all-btn"
+                            onClick={clearFilters}
+                            title="Reset all filters"
+                        >
+                            <FiRotateCcw size={11} />
+                            <span>Clear All</span>
+                        </button>
                     </div>
                 )}
 
@@ -2420,7 +2714,7 @@ function Applicants({ admin }) {
                                             </td>
                                         )}
                                         <td data-label="Candidate">
-                                            <div className="candidate-cell">
+                                            <div className="candidate-cell" onClick={() => setShowDetail(app)} style={{ cursor: 'pointer' }} title="Click to view candidate assessment & details">
                                                 <div className="candidate-avatar">
                                                     {app.first_name?.[0]}{app.last_name?.[0]}
                                                 </div>
@@ -2453,7 +2747,7 @@ function Applicants({ admin }) {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td data-label="CV Match" style={{ whiteSpace: 'nowrap' }}>
+                                        <td data-label="CV Match" style={{ whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => setShowDetail(app)} title="Click to view full CV vs JD assessment">
                                             {(() => {
                                                 const scoreData = calculateCandidateMatchScore(app, vacancies);
                                                 const matchScore = scoreData.score || 0;
@@ -2725,6 +3019,24 @@ function Applicants({ admin }) {
             {showDetail && (() => {
                 const { name: cleanName, location: cleanLocation } = cleanCandidateNameAndLocation(showDetail.first_name, showDetail.last_name);
                 const initials = cleanName.split(/\s+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                const modalBreakdown = getMatchBreakdown(showDetail, vacancies);
+                const mScore = modalBreakdown.overall;
+                const isLow = mScore < minMediumScore;
+                const { skills, parsedReport } = getNormalizedSkills(
+                    showDetail.skills_metadata,
+                    showDetail.tags,
+                    showDetail.extracted_data,
+                    showDetail,
+                    minMediumScore
+                );
+                const isMismatch = Boolean(
+                    parsedReport?.is_job_mismatch || 
+                    isLow || 
+                    modalBreakdown.mismatchReason || 
+                    parsedReport?.mismatch_reason
+                );
+                const assessmentPoints = getAssessmentPoints(isMismatch, parsedReport, showDetail, modalBreakdown, minMediumScore);
+
                 return (
                     <div className="confirm-overlay" onClick={() => setShowDetail(null)}>
                         <div className="confirm-modal candidate-detail-modal card-p animated-zoom" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '1450px', width: '96%', textAlign: 'left', overflow: 'hidden' }}>
@@ -2792,6 +3104,135 @@ function Applicants({ admin }) {
                                         <p style={{ margin: 0 }}>This prospect matched your criteria from the Talent Pool. They previously applied for "{showDetail.last_applied_vacancy}" and consented to being contacted for future roles.</p>
                                     </div>
                                 )}
+
+                                {/* Dual-Card Assessment Layout (Left: Pre-Extraction Assessment, Right: AI Match / Mismatch Analysis) */}
+                                <div className="cve-assessment-two-col">
+                                    {/* Left Card: Pre-Extraction Assessment */}
+                                    <div className="cve-assessment-card">
+                                        <div className="cve-assessment-header">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <h4 className="cve-card-title">
+                                                    <FiTarget style={{ color: '#7A1228', fontSize: '1.05rem', flexShrink: 0 }} /> Pre-Extraction Assessment: <span style={{ color: '#64748b', fontWeight: 600 }}>CV vs JD Match</span>
+                                                </h4>
+                                                {modalBreakdown.weights?.isCustom ? (
+                                                    <span className="cve-custom-formula-badge">
+                                                        ⚡ Custom Formula
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <div className="cve-overall-score-badge">
+                                                Overall: <strong>{mScore}%</strong>
+                                            </div>
+                                        </div>
+
+                                        <div className="cve-metric-grid-5">
+                                            {/* 1. Technical Skills Match Rate */}
+                                            <div
+                                                className="cve-metric-tile"
+                                                title={`Candidate technical skills match: ${modalBreakdown.skills}% against required competencies`}
+                                            >
+                                                <div className="cve-metric-tile-label">
+                                                    <span>🛠️ Skills Match</span>
+                                                    <span className="cve-metric-weight">({modalBreakdown.weights?.skills ?? 35}%)</span>
+                                                </div>
+                                                <span className={`cve-metric-score-tag ${modalBreakdown.skills >= 75 ? 'score-high' : modalBreakdown.skills >= 50 ? 'score-med' : 'score-low'}`}>
+                                                    {modalBreakdown.skills}%
+                                                </span>
+                                            </div>
+
+                                            {/* 2. Job Description & Scope Alignment */}
+                                            <div
+                                                className="cve-metric-tile"
+                                                title={`Candidate CV alignment with job description and duties: ${modalBreakdown.jdAlignment}%`}
+                                            >
+                                                <div className="cve-metric-tile-label">
+                                                    <span>📋 JD Alignment</span>
+                                                    <span className="cve-metric-weight">({modalBreakdown.weights?.jdAlignment ?? 10}%)</span>
+                                                </div>
+                                                <span className={`cve-metric-score-tag ${modalBreakdown.jdAlignment >= 75 ? 'score-high' : modalBreakdown.jdAlignment >= 50 ? 'score-med' : 'score-low'}`}>
+                                                    {modalBreakdown.jdAlignment}%
+                                                </span>
+                                            </div>
+
+                                            {/* 3. Relevant Experience Match Rate */}
+                                            <div
+                                                className="cve-metric-tile"
+                                                title={`Relevant: ${showDetail.relevant_experience || '0-1 years'} | Overall: ${showDetail.overall_experience || '0-1 years'}`}
+                                            >
+                                                <div className="cve-metric-tile-label">
+                                                    <span>💼 Experience</span>
+                                                    <span className="cve-metric-weight">({modalBreakdown.weights?.experience ?? 30}%)</span>
+                                                </div>
+                                                <span className={`cve-metric-score-tag ${modalBreakdown.experience >= 75 ? 'score-high' : modalBreakdown.experience >= 50 ? 'score-med' : 'score-low'}`}>
+                                                    {modalBreakdown.experience}%
+                                                </span>
+                                            </div>
+
+                                            {/* 4. Relevant Qualifications Match Rate */}
+                                            <div
+                                                className="cve-metric-tile"
+                                                title={`Candidate Qualification: ${showDetail.qualification || 'Bachelors Degree'}`}
+                                            >
+                                                <div className="cve-metric-tile-label">
+                                                    <span>🎓 Qualifications</span>
+                                                    <span className="cve-metric-weight">({modalBreakdown.weights?.qualification ?? 20}%)</span>
+                                                </div>
+                                                <span className={`cve-metric-score-tag ${modalBreakdown.qualification >= 75 ? 'score-high' : modalBreakdown.qualification >= 50 ? 'score-med' : 'score-low'}`}>
+                                                    {modalBreakdown.qualification}%
+                                                </span>
+                                            </div>
+
+                                            {/* 5. Salary Budget Match Rate (Full Width) */}
+                                            <div
+                                                className="cve-metric-tile cve-metric-tile-full"
+                                                title={`Salary Expectation: ${showDetail.salary_expectation ? `LKR ${Number(String(showDetail.salary_expectation).replace(/[^0-9.]/g, '')).toLocaleString()}` : 'Not Specified'} vs Job Budget${showDetail.min_salary || showDetail.max_salary ? `: LKR ${Number(showDetail.min_salary || 0).toLocaleString()} - ${showDetail.max_salary ? Number(showDetail.max_salary).toLocaleString() : 'Uncapped'}` : ''}`}
+                                            >
+                                                <div className="cve-metric-tile-label">
+                                                    <span>💵 Salary Budget Match</span>
+                                                    <span className="cve-metric-weight">({modalBreakdown.weights?.salary ?? 5}%)</span>
+                                                </div>
+                                                <span className={`cve-metric-score-tag ${modalBreakdown.salary >= 75 ? 'score-high' : modalBreakdown.salary >= 50 ? 'score-med' : 'score-low'}`}>
+                                                    {modalBreakdown.salary}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Card: AI Match Analysis / Mismatch Warning in Point Form */}
+                                    <div className="cve-assessment-card">
+                                        <div className="cve-assessment-header">
+                                            <h4 className="cve-card-title">
+                                                {isMismatch ? (
+                                                    <><FiAlertTriangle style={{ color: '#dc2626', fontSize: '0.98rem', flexShrink: 0 }} /> Job Mismatch Warning</>
+                                                ) : (
+                                                    <><FiCheckCircle style={{ color: '#16a34a', fontSize: '0.98rem', flexShrink: 0 }} /> Verified Job Alignment</>
+                                                )}
+                                            </h4>
+                                            <span className={isMismatch ? 'cve-pill-warning' : 'cve-pill-success'}>
+                                                {isMismatch ? 'Mismatch' : 'Verified Fit'}
+                                            </span>
+                                        </div>
+
+                                        <ul className={`cve-assessment-points-list ${isMismatch ? 'mismatch' : 'matched'}`}>
+                                            {assessmentPoints.slice(0, 3).map((rawPoint, pIdx) => {
+                                                const { label, text } = parsePointDetail(rawPoint, isMismatch, pIdx);
+                                                return (
+                                                    <li key={pIdx}>
+                                                        <span className="cve-bullet-icon">{isMismatch ? '!' : '✓'}</span>
+                                                        <div className="cve-point-content">
+                                                            {label && (
+                                                                <span className={`cve-point-tag ${isMismatch ? 'tag-mismatch' : 'tag-matched'}`}>
+                                                                    {label}
+                                                                </span>
+                                                            )}
+                                                            <span className="cve-point-text">{text}</span>
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                </div>
 
                                 {/* ── TOP INFO ROW: Contact + Profile + Submission in one strip ── */}
                                 <div className="modal-info-grid">

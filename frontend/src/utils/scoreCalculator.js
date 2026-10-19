@@ -275,7 +275,12 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
             min_relevant_experience: app.min_relevant_experience || '',
             min_salary: app.min_salary || app.minSalary || app.v_min_salary || null,
             max_salary: app.max_salary || app.maxSalary || app.v_max_salary || null,
-            designation: app.designation || ''
+            designation: app.designation || '',
+            weight_skills: app.weight_skills ?? null,
+            weight_experience: app.weight_experience ?? null,
+            weight_qualification: app.weight_qualification ?? null,
+            weight_jd_alignment: app.weight_jd_alignment ?? null,
+            weight_salary: app.weight_salary ?? null
         };
     }
 
@@ -635,12 +640,13 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
     }
 
     const hasSalaryBudget = Boolean(minSalary || maxSalary);
-    // Configured recruitment weights: Skills (35%), Experience (30%), Qualification (20%), JD Alignment (10%), Salary (5%)
-    const wSkills = 35;
-    const wExp = 30;
-    const wQual = 20;
-    const wJd = 10;
-    const wSal = 5;
+    // Configured recruitment weights: check vacancy-level custom weights first, otherwise fallback to defaults (35%, 30%, 20%, 10%, 5%)
+    const parseWeight = (val, fallback) => (val !== null && val !== undefined && val !== '' && !isNaN(Number(val))) ? Number(val) : fallback;
+    const wSkills = parseWeight(selectedVac?.weight_skills ?? app?.weight_skills, 35);
+    const wExp = parseWeight(selectedVac?.weight_experience ?? app?.weight_experience, 30);
+    const wQual = parseWeight(selectedVac?.weight_qualification ?? app?.weight_qualification, 20);
+    const wJd = parseWeight(selectedVac?.weight_jd_alignment ?? app?.weight_jd_alignment, 10);
+    const wSal = parseWeight(selectedVac?.weight_salary ?? app?.weight_salary, 5);
 
     let finalScore = 0;
     if (hasSalaryBudget) {
@@ -658,6 +664,18 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
     }
 
     const calculatedScore = Math.min(100, Math.max(0, Math.round(finalScore)));
+
+    details.weights = {
+        skills: wSkills,
+        experience: wExp,
+        qualification: wQual,
+        jdAlignment: wJd,
+        salary: wSal,
+        isCustom: Boolean(
+            (selectedVac?.weight_skills !== null && selectedVac?.weight_skills !== undefined) ||
+            (app?.weight_skills !== null && app?.weight_skills !== undefined)
+        )
+    };
 
     // Ensure the badge score directly and consistently reflects the calculated mathematical composite of the breakdown factors
     const resultScore = calculatedScore;

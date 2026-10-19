@@ -418,11 +418,27 @@ function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $rele
         }
     }
 
-    $wSkills = $configuredWeights['skills'];
-    $wExp = $configuredWeights['experience'];
-    $wQual = $configuredWeights['qualification'];
-    $wJd = $configuredWeights['jd'];
-    $wSal = $configuredWeights['salary'];
+    $hasCustomVacancyWeights = is_array($vacancy) && (
+        (isset($vacancy['weight_skills']) && $vacancy['weight_skills'] !== null && $vacancy['weight_skills'] !== '') ||
+        (isset($vacancy['weight_experience']) && $vacancy['weight_experience'] !== null && $vacancy['weight_experience'] !== '') ||
+        (isset($vacancy['weight_qualification']) && $vacancy['weight_qualification'] !== null && $vacancy['weight_qualification'] !== '') ||
+        (isset($vacancy['weight_jd_alignment']) && $vacancy['weight_jd_alignment'] !== null && $vacancy['weight_jd_alignment'] !== '') ||
+        (isset($vacancy['weight_salary']) && $vacancy['weight_salary'] !== null && $vacancy['weight_salary'] !== '')
+    );
+
+    if ($hasCustomVacancyWeights) {
+        $wSkills = (isset($vacancy['weight_skills']) && $vacancy['weight_skills'] !== null && $vacancy['weight_skills'] !== '') ? (float)$vacancy['weight_skills'] : $configuredWeights['skills'];
+        $wExp = (isset($vacancy['weight_experience']) && $vacancy['weight_experience'] !== null && $vacancy['weight_experience'] !== '') ? (float)$vacancy['weight_experience'] : $configuredWeights['experience'];
+        $wQual = (isset($vacancy['weight_qualification']) && $vacancy['weight_qualification'] !== null && $vacancy['weight_qualification'] !== '') ? (float)$vacancy['weight_qualification'] : $configuredWeights['qualification'];
+        $wJd = (isset($vacancy['weight_jd_alignment']) && $vacancy['weight_jd_alignment'] !== null && $vacancy['weight_jd_alignment'] !== '') ? (float)$vacancy['weight_jd_alignment'] : $configuredWeights['jd'];
+        $wSal = (isset($vacancy['weight_salary']) && $vacancy['weight_salary'] !== null && $vacancy['weight_salary'] !== '') ? (float)$vacancy['weight_salary'] : $configuredWeights['salary'];
+    } else {
+        $wSkills = $configuredWeights['skills'];
+        $wExp = $configuredWeights['experience'];
+        $wQual = $configuredWeights['qualification'];
+        $wJd = $configuredWeights['jd'];
+        $wSal = $configuredWeights['salary'];
+    }
 
     $hasSalaryBudget = (!empty($jobMinSal) || !empty($jobMaxSal));
     if ($hasSalaryBudget) {
@@ -1571,10 +1587,10 @@ function exportApplications()
     $qualification = $_GET['qualification'] ?? '';
     $status = $_GET['status'] ?? '';
 
-    $sql = "SELECT a.first_name, a.last_name, a.email, a.contact_number, 
-            a.overall_experience, a.relevant_experience, a.qualification, 
-            a.salary_expectation, a.applied_at, a.status, a.rejection_reason,
-            v.title as vacancy_title, v.reference_number as job_ref, v.designation, c.name as company_name
+    $sql = "SELECT a.*, 
+            v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements,
+            v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience,
+            v.min_salary, v.max_salary, v.reference_number as job_ref, v.designation, c.name as company_name
             FROM applications a
             JOIN vacancies v ON a.vacancy_id = v.id
             JOIN companies c ON v.company_id = c.id
@@ -1624,7 +1640,42 @@ function exportApplications()
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
-    $applications = $stmt->fetchAll();
+    $applications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Compute dynamic Match Score (%) for each candidate
+    foreach ($applications as &$item) {
+        $meta = !empty($item['skills_metadata']) ? (is_array($item['skills_metadata']) ? $item['skills_metadata'] : json_decode($item['skills_metadata'], true)) : null;
+        if (!empty($meta) && isset($meta['ai_match_score']) && is_numeric($meta['ai_match_score'])) {
+            $effectiveScore = (int)$meta['ai_match_score'];
+        } else {
+            $cvTextToUse = $item['cv_text'] ?? '';
+            $effectiveScore = computeCandidateMatchScore(
+                $item,
+                $item['qualification'] ?? '',
+                $item['overall_experience'] ?? '',
+                $item['relevant_experience'] ?? '',
+                $cvTextToUse,
+                $item['tags'] ?? '',
+                $item['skills_metadata'] ?? '',
+                $item['salary_expectation'] ?? null
+            );
+        }
+        $item['match_score'] = $effectiveScore;
+    }
+    unset($item);
+
+    // Sort by Match Score descending (highest score first); if tied, newest applied first
+    usort($applications, function ($a, $b) {
+        if ($b['match_score'] !== $a['match_score']) {
+            return $b['match_score'] <=> $a['match_score'];
+        }
+        return strcmp($b['applied_at'], $a['applied_at']);
+    });
+
+    // Clean any prior output buffers
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
 
     // Generate CSV (lightweight, no library needed)
     header('Content-Type: text/csv; charset=UTF-8');
@@ -1640,11 +1691,31 @@ function exportApplications()
     // BOM for Excel UTF-8
     fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-    // Header row
-    fputcsv($output, ['First Name', 'Last Name', 'Email', 'Contact Number', 'Overall Experience', 'Relevant Experience', 'Qualification', 'Salary Expectation', 'Applied Date', 'Vacancy', 'Designation', 'Company', 'Status', 'Rejection Reason']);
+    // Header row with Rank & Match Score %
+    fputcsv($output, [
+        'Rank',
+        'Match Score (%)',
+        'First Name',
+        'Last Name',
+        'Email',
+        'Contact Number',
+        'Overall Experience',
+        'Relevant Experience',
+        'Qualification',
+        'Salary Expectation',
+        'Applied Date',
+        'Vacancy',
+        'Designation',
+        'Company',
+        'Status',
+        'Rejection Reason'
+    ]);
 
+    $rank = 1;
     foreach ($applications as $app) {
         fputcsv($output, [
+            $rank++,
+            $app['match_score'] . '%',
             $app['first_name'],
             $app['last_name'],
             $app['email'],
@@ -2352,10 +2423,8 @@ function handleListExtractions()
     $params = [];
 
     if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
-        if (!empty($auth['company_id'])) {
-            $where[] = "v.company_id = ?";
-            $params[] = $auth['company_id'];
-        }
+        $where[] = "v.company_id = ?";
+        $params[] = (int)($auth['company_id'] ?? 0);
     }
 
     if ($vacancyId > 0) {
@@ -2372,7 +2441,8 @@ function handleListExtractions()
     $whereStr = implode(' AND ', $where);
 
     // Get all candidate records for current company/search
-    $sql = "SELECT a.id, a.vacancy_id, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation, c.name as company_name,
+    $sql = "SELECT a.id, a.vacancy_id, v.company_id, v.title as vacancy_title, v.description as vacancy_description, v.requirements as vacancy_requirements, v.required_skills as vacancy_required_skills, v.min_experience, v.min_relevant_experience, v.min_salary, v.max_salary, v.designation, c.name as company_name,
+                   v.weight_skills, v.weight_experience, v.weight_qualification, v.weight_jd_alignment, v.weight_salary,
                    a.first_name, a.last_name, a.email, a.contact_number,
                    a.overall_experience, a.relevant_experience, a.qualification, a.salary_expectation,
                    a.cv_path, a.cv_text, a.extraction_status, a.is_manual_extracted, a.extracted_at, a.extracted_data,
@@ -2590,6 +2660,12 @@ function handleExtractCV()
         $app = $stmt->fetch();
         if (!$app) continue;
 
+        if ($auth['role'] !== 'super_admin' && $auth['role'] !== 'admin') {
+            if ((int)$app['company_id'] !== (int)($auth['company_id'] ?? 0)) {
+                continue;
+            }
+        }
+
         $cvFilePath = (!empty($app['cv_path']) && file_exists(UPLOAD_DIR . $app['cv_path'])) ? (UPLOAD_DIR . $app['cv_path']) : null;
         $cvText = $cvFilePath ? PdfExtractor::extractTextFromFile($cvFilePath) : '';
         if (!$cvText || strlen(trim($cvText)) < 30 || PdfExtractor::isGarbledText($cvText)) {
@@ -2615,7 +2691,12 @@ function handleExtractCV()
             'max_salary' => $app['max_salary'] ?? '',
             'required_skills' => $app['vacancy_required_skills'] ?: ($app['required_skills'] ?? ''),
             'description' => $app['vacancy_description'] ?: ($app['description'] ?? ''),
-            'requirements' => $app['vacancy_requirements'] ?: ($app['requirements'] ?? '')
+            'requirements' => $app['vacancy_requirements'] ?: ($app['requirements'] ?? ''),
+            'weight_skills' => $app['weight_skills'] ?? null,
+            'weight_experience' => $app['weight_experience'] ?? null,
+            'weight_qualification' => $app['weight_qualification'] ?? null,
+            'weight_jd_alignment' => $app['weight_jd_alignment'] ?? null,
+            'weight_salary' => $app['weight_salary'] ?? null
         ];
 
         $candData = [
@@ -2749,7 +2830,7 @@ function handleGetExtractionSetting()
 
 function handleUpdateExtractionSetting()
 {
-    $auth = verifyToken();
+    $auth = requireSuperAdmin();
     $input = json_decode(file_get_contents('php://input'), true);
     $enabled = isset($input['enabled']) && ($input['enabled'] === true || $input['enabled'] === 1 || $input['enabled'] === '1' || $input['enabled'] === 'true') ? '1' : '0';
 

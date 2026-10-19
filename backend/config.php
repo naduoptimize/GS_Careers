@@ -350,12 +350,80 @@ function queueEmail($to, $toName, $subject, $body)
     }
 }
 
+function logSystemAudit($adminId, $category, $action, $entityType, $entityId, $entityName, $details = '', $oldValues = null, $newValues = null, $companyId = null)
+{
+    try {
+        $db = getDB();
+        $adminName = null;
+        $adminRole = null;
+        if ($adminId) {
+            $stmtA = $db->prepare("SELECT full_name, role, company_id FROM admins WHERE id = ?");
+            $stmtA->execute([$adminId]);
+            $admin = $stmtA->fetch();
+            if ($admin) {
+                $adminName = $admin['full_name'];
+                $adminRole = $admin['role'];
+                if (!$companyId && !empty($admin['company_id'])) {
+                    $companyId = $admin['company_id'];
+                }
+            }
+        }
+
+        $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+
+        $stmt = $db->prepare("
+            INSERT INTO audit_logs 
+            (admin_id, admin_name, admin_role, company_id, category, action, entity_type, entity_id, entity_name, old_values, new_values, details, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $adminId,
+            $adminName,
+            $adminRole,
+            $companyId,
+            $category,
+            $action,
+            $entityType,
+            $entityId,
+            $entityName,
+            is_array($oldValues) ? json_encode($oldValues) : $oldValues,
+            is_array($newValues) ? json_encode($newValues) : $newValues,
+            $details,
+            $ip,
+            $userAgent
+        ]);
+    } catch (\Exception $e) {
+        error_log("Failed to insert system audit log: " . $e->getMessage());
+    }
+}
+
 function logVacancyAction($vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason = null)
 {
     try {
         $db = getDB();
         $stmt = $db->prepare("INSERT INTO vacancy_audit_logs (vacancy_id, admin_id, action, old_status, new_status, reason) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([$vacancyId, $adminId, $action, $oldStatus, $newStatus, $reason]);
+
+        // Dual write to unified audit_logs
+        $isCandidate = strpos($action, 'candidate_') !== false || strpos($action, 'interview_') !== false;
+        $category = $isCandidate ? 'candidate' : 'recruitment';
+        $entityType = $isCandidate ? 'candidate' : 'vacancy';
+
+        $vStmt = $db->prepare("SELECT title, reference_number, company_id FROM vacancies WHERE id = ?");
+        $vStmt->execute([$vacancyId]);
+        $vac = $vStmt->fetch();
+        $entityName = $vac ? ($vac['title'] . ' (' . ($vac['reference_number'] ?? '') . ')') : 'Vacancy #' . $vacancyId;
+        $companyId = $vac['company_id'] ?? null;
+
+        if ($isCandidate && !empty($reason) && preg_match('/Candidate:\s*([^|\n]+)/i', $reason, $m)) {
+            $entityName = trim($m[1]) . ' — ' . $entityName;
+        }
+
+        $oldVal = $oldStatus ? json_encode(['status' => $oldStatus]) : null;
+        $newVal = $newStatus ? json_encode(['status' => $newStatus]) : null;
+
+        logSystemAudit($adminId, $category, $action, $entityType, $vacancyId, $entityName, $reason, $oldVal, $newVal, $companyId);
     } catch (Exception $e) {
         error_log("Failed to insert audit log: " . $e->getMessage());
     }

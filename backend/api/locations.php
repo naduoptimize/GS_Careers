@@ -40,8 +40,11 @@ function listLocations()
 function createLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage company locations');
+    $isAdmin = in_array($auth['role'], ['admin', 'super_admin']);
+    $isSubAdmin = in_array($auth['role'], ['sub_admin1', 'sub_admin2', 'sub_admin']);
+
+    if (!$isAdmin && !$isSubAdmin) {
+        jsonResponse(403, 'Admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -50,6 +53,11 @@ function createLocation()
 
     if ($company_id <= 0 || empty($location)) {
         jsonResponse(400, 'Company entity and Location name are required');
+    }
+
+    // Subadmins can only add locations for their own subsidiary
+    if ($isSubAdmin && (int)$auth['company_id'] !== $company_id) {
+        jsonResponse(403, 'You can only add locations for your own subsidiary');
     }
 
     $db = getDB();
@@ -77,8 +85,11 @@ function createLocation()
 function updateLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage company locations');
+    $isAdmin = in_array($auth['role'], ['admin', 'super_admin']);
+    $isSubAdmin = in_array($auth['role'], ['sub_admin1', 'sub_admin2', 'sub_admin']);
+
+    if (!$isAdmin && !$isSubAdmin) {
+        jsonResponse(403, 'Admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -99,6 +110,11 @@ function updateLocation()
         jsonResponse(404, 'Location not found');
     }
 
+    // Subadmins can only modify locations for their own subsidiary
+    if ($isSubAdmin && (int)$auth['company_id'] !== (int)$loc['company_id']) {
+        jsonResponse(403, 'You can only modify locations for your own subsidiary');
+    }
+
     // Check if duplicate location exists for this company
     $stmt = $db->prepare("SELECT id FROM company_locations WHERE company_id = ? AND location = ? AND id != ?");
     $stmt->execute([$loc['company_id'], $location, $id]);
@@ -115,8 +131,11 @@ function updateLocation()
 function deleteLocation()
 {
     $auth = verifyToken();
-    if ($auth['role'] !== 'admin') {
-        jsonResponse(403, 'Global admin access required to manage company locations');
+    $isAdmin = in_array($auth['role'], ['admin', 'super_admin']);
+    $isSubAdmin = in_array($auth['role'], ['sub_admin1', 'sub_admin2', 'sub_admin']);
+
+    if (!$isAdmin && !$isSubAdmin) {
+        jsonResponse(403, 'Admin access required to manage company locations');
     }
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -129,10 +148,16 @@ function deleteLocation()
     $db = getDB();
 
     // Verify location exists
-    $stmt = $db->prepare("SELECT id FROM company_locations WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, company_id FROM company_locations WHERE id = ?");
     $stmt->execute([$id]);
-    if (!$stmt->fetch()) {
+    $loc = $stmt->fetch();
+    if (!$loc) {
         jsonResponse(404, 'Location not found');
+    }
+
+    // Subadmins can only delete locations for their own subsidiary
+    if ($isSubAdmin && (int)$auth['company_id'] !== (int)$loc['company_id']) {
+        jsonResponse(403, 'You can only remove locations for your own subsidiary');
     }
 
     $stmt = $db->prepare("DELETE FROM company_locations WHERE id = ?");
