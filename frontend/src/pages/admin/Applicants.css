@@ -361,7 +361,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 100%;
+    max-width: 215px;
 }
 
 .degree-icon-subtle {
@@ -373,6 +373,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Tighten white space specifically between Credentials and Applied Date */
+.applicants-table th.th-credentials,
+.applicants-table td.td-credentials,
+.applicants-table td[data-label="Credentials"] {
+    width: 215px !important;
+    max-width: 230px !important;
+    padding-right: 6px !important;
+}
+
+.applicants-table th.th-applied-date,
+.applicants-table td.td-applied-date,
+.applicants-table td[data-label="Applied Date"] {
+    width: 115px !important;
+    max-width: 130px !important;
+    white-space: nowrap !important;
+    padding-left: 6px !important;
 }
 
 /* Timeline Column */

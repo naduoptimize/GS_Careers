@@ -143,6 +143,68 @@ function calculateSalaryMatchScorePHP($salaryExpectation, $minSalary, $maxSalary
     return 100;
 }
 
+function calculateCandidateMatchScorePHP($parsedData, $vacancy, $candQual = '', $candOverallExp = '', $candRelExp = '', $salaryExpectation = null)
+{
+    if (!empty($parsedData['ai_score_breakdown']) && is_array($parsedData['ai_score_breakdown'])) {
+        $bd = $parsedData['ai_score_breakdown'];
+        $skillsFactor = (int)($bd['skills_match_score'] ?? 75);
+        $expFactor = (int)($bd['experience_match_score'] ?? 75);
+        $qualFactor = (int)($bd['qualification_match_score'] ?? 75);
+        $jdFactor = (int)($bd['job_description_match_score'] ?? ($bd['jd_alignment_score'] ?? 75));
+        $salaryFactor = (int)($bd['salary_match_score'] ?? 100);
+
+        // Seniority & Relevance Reward (consistent across frontend and backend)
+        if (empty($parsedData['is_job_mismatch'])) {
+            $expWeights = [
+                '10+ years' => 100, '8-10 years' => 85, '5-7 years' => 70,
+                '3-4 years' => 55, '1-2 years' => 35, '0-1 years' => 15, '0 years' => 5
+            ];
+            $appExpWeight = $expWeights[$candRelExp ?? ''] ?? ($expWeights[$candOverallExp ?? ''] ?? 0);
+            $minExpWeight = $expWeights[$vacancy['min_relevant_experience'] ?? ''] ?? ($expWeights[$vacancy['min_experience'] ?? ''] ?? 5);
+
+            if ($appExpWeight > $minExpWeight) {
+                if ($appExpWeight >= 70) {
+                    $expFactor = max($expFactor, 100);
+                } else if ($appExpWeight >= 55) {
+                    $expFactor = max($expFactor, 95);
+                }
+            }
+
+            $qualWeights = [
+                'PhD' => 100, 'Masters Degree' => 90, 'Bachelors Degree' => 80,
+                'Professional Certification' => 75, 'Diploma' => 65,
+                'A/L' => 45, 'O/L' => 25
+            ];
+            $appQualWeight = $qualWeights[$candQual ?? ''] ?? 0;
+            if ($appQualWeight === 0 && preg_match('/\b(bachelor|degree|bsc|beng|bba|bcom|bit|btech|honours)\b/i', (string)($candQual ?? ''))) {
+                $appQualWeight = 80;
+            }
+            if ($appQualWeight >= 80) {
+                $qualFactor = max($qualFactor, 100);
+            }
+
+            if ($appExpWeight >= 55) {
+                $skillsFactor = max($skillsFactor, 95);
+                $jdFactor = max($jdFactor, 90);
+            }
+        }
+
+        $wSkills = !empty($vacancy['weight_skills']) ? (float)$vacancy['weight_skills'] / 100 : 0.35;
+        $wExp = !empty($vacancy['weight_experience']) ? (float)$vacancy['weight_experience'] / 100 : 0.30;
+        $wQual = !empty($vacancy['weight_qualification']) ? (float)$vacancy['weight_qualification'] / 100 : 0.20;
+        $wJd = !empty($vacancy['weight_jd_alignment']) ? (float)$vacancy['weight_jd_alignment'] / 100 : 0.10;
+        $wSal = !empty($vacancy['weight_salary']) ? (float)$vacancy['weight_salary'] / 100 : 0.05;
+
+        return (int)round(($skillsFactor * $wSkills) + ($expFactor * $wExp) + ($qualFactor * $wQual) + ($jdFactor * $wJd) + ($salaryFactor * $wSal));
+    }
+
+    if (isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
+        return (int)$parsedData['ai_match_score'];
+    }
+
+    return 75;
+}
+
 function computeCandidateMatchScore($vacancy, $qualification, $overallExp, $relevantExp, $cvText, $tags, $skillsMetadata, $salaryExpectation = null)
 {
     if (!empty($vacancy['extracted_data']) && is_string($vacancy['extracted_data'])) {
@@ -675,14 +737,10 @@ function handleApply()
     // 4. AI reads the CV and evaluates match score against Job Description (skills, experience, qualification, salary)
     $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancy, $candData, $cvPath);
 
-    $aiScore = null;
-    if (!empty($parsedData) && isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
-        $aiScore = min(100, max(0, (int)$parsedData['ai_match_score']));
-    }
-
-    // Fallback if AI was unavailable or did not return score
-    if ($aiScore === null) {
-        $aiScore = computeCandidateMatchScore($vacancy, $qualification, $overallExp, $relevantExp, $cvText, $tags, $skillsMetadata, $salaryExpectation);
+    // Calculate authoritative final match score (with Seniority & Relevance Reward)
+    $aiScore = calculateCandidateMatchScorePHP($parsedData, $vacancy, $qualification, $overallExp, $relevantExp, $salaryExpectation);
+    if (!empty($parsedData) && is_array($parsedData)) {
+        $parsedData['ai_match_score'] = $aiScore;
     }
 
     // 5. Evaluation Decision:
@@ -760,10 +818,11 @@ function handleApply()
         ]);
     }
 
-    // Insert application
-    $stmt = $db->prepare("INSERT INTO applications (vacancy_id, first_name, last_name, email, contact_number, overall_experience, relevant_experience, qualification, salary_expectation, cv_path, cv_text, extraction_status, is_manual_extracted, extracted_at, extracted_data, future_consent, is_blocked, block_reason, tags, skills_metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)");
+    // Insert application with match_score saved directly to database
+    $stmt = $db->prepare("INSERT INTO applications (vacancy_id, match_score, first_name, last_name, email, contact_number, overall_experience, relevant_experience, qualification, salary_expectation, cv_path, cv_text, extraction_status, is_manual_extracted, extracted_at, extracted_data, future_consent, is_blocked, block_reason, tags, skills_metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $vacancyId,
+        $aiScore,
         $firstName,
         $lastName,
         $email,
@@ -2771,20 +2830,17 @@ function handleExtractCV()
         $parsedData = PdfExtractor::parseCvDataWithAI($cvText, $vacancyData, $candData, $cvFilePath);
         $jsonExtractedData = json_encode($parsedData);
 
-        // Derive authoritative AI Match Score and breakdown
-        $aiScore = null;
-        if (!empty($parsedData) && isset($parsedData['ai_match_score']) && is_numeric($parsedData['ai_match_score'])) {
-            $aiScore = min(100, max(0, (int)$parsedData['ai_match_score']));
-        }
-        if ($aiScore === null && !empty($app['skills_metadata'])) {
-            $prevMeta = is_array($app['skills_metadata']) ? $app['skills_metadata'] : json_decode($app['skills_metadata'], true);
-            if (!empty($prevMeta['ai_match_score']) && is_numeric($prevMeta['ai_match_score'])) {
-                $aiScore = (int)$prevMeta['ai_match_score'];
-            }
-        }
-        if ($aiScore === null) {
-            $aiScore = computeCandidateMatchScore($vacancyData, $app['qualification'], $app['overall_experience'], $app['relevant_experience'], $cvText, $app['tags'], null, $app['salary_expectation']);
-        }
+        // Derive authoritative AI Match Score and breakdown (with Seniority & Relevance Reward)
+        $aiScore = calculateCandidateMatchScorePHP(
+            $parsedData,
+            $vacancyData,
+            !empty($parsedData['qualifications_found'][0]) ? $parsedData['qualifications_found'][0] : ($parsedData['qualification'] ?? $app['qualification']),
+            $parsedData['overall_experience'] ?? $app['overall_experience'],
+            $parsedData['relevant_experience'] ?? $app['relevant_experience'],
+            $app['salary_expectation']
+        );
+        $parsedData['ai_match_score'] = $aiScore;
+        $jsonExtractedData = json_encode($parsedData);
 
         // Construct skills_metadata array from Gemini AI evaluation report
         $skillsMetadataArr = [
@@ -2824,6 +2880,7 @@ function handleExtractCV()
         $relevantExpExt = $parsedData['relevant_experience'] ?? '';
 
         $updateStmt = $db->prepare("UPDATE applications SET 
+            match_score = ?,
             cv_text = ?, 
             extraction_status = 'extracted', 
             is_manual_extracted = 1,
@@ -2841,6 +2898,7 @@ function handleExtractCV()
 
         $fullParsedText = !empty($parsedData['extracted_full_text']) ? $parsedData['extracted_full_text'] : $cvText;
         $updateStmt->execute([
+            $aiScore,
             $fullParsedText,
             $jsonExtractedData,
             $jsonSkillsMetadata,

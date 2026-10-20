@@ -1638,19 +1638,19 @@ function CvExtractionsPage({ admin }) {
                                                         </span>
                                                         <div className="cve-match-breakdown-grid">
                                                             <span className="cve-micro-rate" title="Skills Match: Candidate skills against vacancy requirements">
-                                                                🎯 Skills: <strong>{matchBreakdown.skills}%</strong>
+                                                                Skills: <strong>{matchBreakdown.skills}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="Experience: Relevant work history vs requirements">
-                                                                💼 Exp: <strong>{matchBreakdown.experience}%</strong>
+                                                                Exp: <strong>{matchBreakdown.experience}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="Qualifications: Degree level & specialization">
-                                                                🎓 Qual: <strong>{matchBreakdown.qualification}%</strong>
+                                                                Qual: <strong>{matchBreakdown.qualification}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="JD Alignment: Alignment of responsibilities with core role duties">
-                                                                📄 JD: <strong>{matchBreakdown.jdAlignment}%</strong>
+                                                                JD: <strong>{matchBreakdown.jdAlignment}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate cve-micro-rate-wide" title="Salary Budget: Salary expectation vs vacancy budget range">
-                                                                💵 Budget: <strong>{matchBreakdown.salary}%</strong>
+                                                                Budget: <strong>{matchBreakdown.salary}%</strong>
                                                             </span>
                                                         </div>
                                                     </div>

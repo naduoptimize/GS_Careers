@@ -2770,13 +2770,13 @@ function Applicants({ admin }) {
                         <table className="premium-table applicants-table">
                             <colgroup>
                                 {admin.role !== 'super_admin' && <col style={{ width: '38px' }} />}
+                                <col style={{ width: '20%' }} />
                                 <col style={{ width: '18%' }} />
                                 <col style={{ width: '16%' }} />
-                                <col style={{ width: '16%' }} />
                                 <col style={{ width: '10%' }} />
-                                <col style={{ width: '14%' }} />
+                                <col className="col-credentials" style={{ width: '210px' }} />
+                                <col className="col-applied-date" style={{ width: '115px' }} />
                                 <col style={{ width: '11%' }} />
-                                <col style={{ width: '10%' }} />
                                 <col style={{ width: '5%' }} />
                             </colgroup>
                             <thead>
@@ -2795,8 +2795,8 @@ function Applicants({ admin }) {
                                     <th>Target Position</th>
                                     <th>CV Match</th>
                                     <th>Status</th>
-                                    <th>Credentials</th>
-                                    <th>Applied Date</th>
+                                    <th className="th-credentials">Credentials</th>
+                                    <th className="th-applied-date">Applied Date</th>
                                     <th>Interview Schedule</th>
                                     <th style={{ textAlign: 'right', paddingRight: '20px' }}>Actions</th>
                                 </tr>
@@ -2882,19 +2882,19 @@ function Applicants({ admin }) {
                                                         </span>
                                                         <div className="cve-match-breakdown-grid">
                                                             <span className="cve-micro-rate" title="Skills Match: Candidate skills against vacancy requirements">
-                                                                🎯 Skills: <strong>{skillsScore}%</strong>
+                                                                Skills: <strong>{skillsScore}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="Experience: Relevant work history vs requirements">
-                                                                💼 Exp: <strong>{experience}%</strong>
+                                                                Exp: <strong>{experience}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="Qualifications: Degree level & specialization">
-                                                                🎓 Qual: <strong>{qualification}%</strong>
+                                                                Qual: <strong>{qualification}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate" title="JD Alignment: Alignment of responsibilities with core role duties">
-                                                                📄 JD: <strong>{jdScore}%</strong>
+                                                                JD: <strong>{jdScore}%</strong>
                                                             </span>
                                                             <span className="cve-micro-rate cve-micro-rate-wide" title="Salary Budget: Salary expectation vs vacancy budget range">
-                                                                💵 Budget: <strong>{salary}%</strong>
+                                                                Budget: <strong>{salary}%</strong>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -2932,7 +2932,7 @@ function Applicants({ admin }) {
                                                 );
                                             })()}
                                         </td>
-                                        <td data-label="Credentials">
+                                        <td data-label="Credentials" className="td-credentials">
                                             <div className="credentials-cell">
                                                 <div className="credentials-badges-row">
                                                     {app.overall_experience && <span className="exp-badge">{app.overall_experience}</span>}
@@ -2988,7 +2988,7 @@ function Applicants({ admin }) {
                                                 )}
                                             </div>
                                         </td>
-                                        <td data-label="Applied Date">
+                                        <td data-label="Applied Date" className="td-applied-date">
                                             <div className="timeline-cell">
                                                 {(() => {
                                                     const rawDt = formatDateTime(app.applied_at);

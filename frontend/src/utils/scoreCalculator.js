@@ -677,8 +677,11 @@ export const calculateCandidateMatchScore = (app, vacanciesList = [], targetVacO
         )
     };
 
-    // Ensure the badge score directly and consistently reflects the calculated mathematical composite of the breakdown factors
-    const resultScore = calculatedScore;
+    // Prioritize authoritative database match_score if present, or fall back to calculatedScore
+    const dbScore = (app?.match_score !== null && app?.match_score !== undefined && app?.match_score !== '' && !isNaN(Number(app?.match_score)))
+        ? Number(app.match_score)
+        : null;
+    const resultScore = dbScore !== null ? dbScore : calculatedScore;
 
     if (report?.mismatch_reason && typeof report.mismatch_reason === 'string' && report.mismatch_reason.trim()) {
         details.mismatchReason = report.mismatch_reason.trim();
