@@ -108,14 +108,14 @@ function LoginPage() {
                         <form className="attractive-auth-form" onSubmit={handleSubmit}>
                             {/* Username Field */}
                             <div className="input-group-field">
-                                <label htmlFor="username">USERNAME / HANDLE</label>
+                                <label htmlFor="username">USERNAME / EMAIL</label>
                                 <div className="input-box-wrapper">
                                     <FiUser className="input-icon" />
                                     <input
                                         id="username"
                                         name="username"
                                         type="text"
-                                        placeholder="Enter operational handle"
+                                        placeholder="Enter username or email"
                                         autoComplete="username"
                                         value={form.username}
                                         onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -161,7 +161,7 @@ function LoginPage() {
                                     type="button"
                                     onClick={() => {
                                         if (!form.username) {
-                                            toast.warning('Please enter your username first');
+                                            toast.warning('Please enter your username or email first');
                                             return;
                                         }
                                         navigate(`/admin/forgot-password?username=${encodeURIComponent(form.username)}`);

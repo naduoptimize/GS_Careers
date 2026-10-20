@@ -28,17 +28,17 @@ function ForgotPasswordPage() {
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const username = params.get('username');
+        const username = params.get('username') || params.get('email');
         if (username && recoveryStep === 1) {
             handleAutoIdentify(username);
         }
     }, [location]);
 
-    const handleAutoIdentify = async (username) => {
+    const handleAutoIdentify = async (identifier) => {
         setIsAutoIdentifying(true);
         setLoading(true);
         try {
-            const res = await identifyAdmin({ username });
+            const res = await identifyAdmin({ username: identifier, email: identifier });
             setEmail(res.data.data.email);
             setRecoveryStep(2);
         } catch (err) {
@@ -52,15 +52,16 @@ function ForgotPasswordPage() {
     const handleEmailSubmit = async (e) => {
         e.preventDefault();
         if (!email) {
-            toast.error('Please enter your administrative email');
+            toast.error('Please enter your administrative email or username');
             return;
         }
         setLoading(true);
         try {
-            await identifyAdmin({ username: email.split('@')[0] });
+            const res = await identifyAdmin({ username: email, email: email });
+            setEmail(res.data.data.email);
             setRecoveryStep(2);
         } catch (err) {
-            toast.error('Identity verification failed. Please check the email.');
+            toast.error(err.response?.data?.message || 'Identity verification failed. Please check the email.');
         } finally {
             setLoading(false);
         }
@@ -180,15 +181,15 @@ function ForgotPasswordPage() {
                             {!isAutoIdentifying && (
                                 <form className="clean-auth-form" onSubmit={handleEmailSubmit}>
                                     <div className="form-field-group">
-                                        <label htmlFor="recovery_email">ADMINISTRATIVE EMAIL</label>
+                                        <label htmlFor="recovery_email">ADMINISTRATIVE EMAIL OR USERNAME</label>
                                         <div className="input-with-icon">
                                             <FiMail className="field-icon" />
                                             <input
                                                 id="recovery_email"
                                                 name="recovery_email"
-                                                type="email"
-                                                placeholder="name@georgesteuart.com"
-                                                autoComplete="email"
+                                                type="text"
+                                                placeholder="name@georgesteuart.com or username"
+                                                autoComplete="username email"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
                                                 required

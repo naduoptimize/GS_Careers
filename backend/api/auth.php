@@ -190,19 +190,19 @@ function handleRegisterSuperadmin()
 function handleIdentify()
 {
     $input = json_decode(file_get_contents('php://input'), true);
-    $username = sanitize($input['username'] ?? '');
+    $identifier = sanitize($input['username'] ?? $input['email'] ?? '');
 
-    if (empty($username)) {
-        jsonResponse(400, 'Username is required');
+    if (empty($identifier)) {
+        jsonResponse(400, 'Username or email is required');
     }
 
     $db = getDB();
-    $stmt = $db->prepare("SELECT email FROM admins WHERE username = ? AND is_active = 1");
-    $stmt->execute([$username]);
+    $stmt = $db->prepare("SELECT email FROM admins WHERE (username = ? OR email = ?) AND is_active = 1");
+    $stmt->execute([$identifier, $identifier]);
     $admin = $stmt->fetch();
 
     if (!$admin) {
-        jsonResponse(404, 'No account found with that username');
+        jsonResponse(404, 'No account found with that username or email');
     }
 
     jsonResponse(200, 'Account identified', [
