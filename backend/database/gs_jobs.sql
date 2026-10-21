@@ -675,10 +675,3 @@ INSERT INTO `vacancy_audit_logs` (`id`, `vacancy_id`, `admin_id`, `action`, `old
 INSERT INTO `vacancy_audit_logs` (`id`, `vacancy_id`, `admin_id`, `action`, `old_status`, `new_status`, `reason`, `created_at`) VALUES ('199', '69', '1000', 'interview_scheduled', 'shortlisted', 'shortlisted', 'Candidate: Kavindu Jayasinghe | Date: 2026-07-30 @ 16:25 | Type: On-site | Location: George Steuart Optimize — BoardRoom', '2026-07-02 12:20:10');
 INSERT INTO `vacancy_audit_logs` (`id`, `vacancy_id`, `admin_id`, `action`, `old_status`, `new_status`, `reason`, `created_at`) VALUES ('200', '69', NULL, 'interview_confirmed_yes', 'shortlisted', 'shortlisted', 'Candidate: Kavindu Jayasinghe responded: YES', '2026-07-02 12:20:37');
 INSERT INTO `vacancy_audit_logs` (`id`, `vacancy_id`, `admin_id`, `action`, `old_status`, `new_status`, `reason`, `created_at`) VALUES ('201', '69', NULL, 'interview_confirmed_yes', 'shortlisted', 'shortlisted', 'Candidate: Kavindu Jayasinghe responded: YES', '2026-07-02 12:20:37');
-
--- ========================================
--- FOREIGN KEY CONSTRAINTS
--- ========================================
-ALTER TABLE `vacancies` ADD CONSTRAINT `fk_hired_application` FOREIGN KEY (`hired_application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL;
-
-SET FOREIGN_KEY_CHECKS=1;
