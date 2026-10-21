@@ -1,5 +1,6 @@
 -- George Steuart & Company Ltd - Job Portal Database
 -- Generated: 2026-07-07 09:05:38
+-- Updated: 2026-10-21 (All current tables synchronized)
 
 CREATE DATABASE IF NOT EXISTS gs_jobs1 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE gs_jobs1;
@@ -7,6 +8,8 @@ USE gs_jobs1;
 SET FOREIGN_KEY_CHECKS=0;
 
 DROP TABLE IF EXISTS `vacancy_audit_logs`;
+DROP TABLE IF EXISTS `audit_logs`;
+DROP TABLE IF EXISTS `password_resets`;
 DROP TABLE IF EXISTS `settings`;
 DROP TABLE IF EXISTS `email_queue`;
 DROP TABLE IF EXISTS `applications`;
@@ -81,6 +84,8 @@ CREATE TABLE `vacancies` (
   `employment_type` enum('Full-Time','Part-Time','Contract','Internship') DEFAULT 'Full-Time',
   `min_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL DEFAULT '0 years',
   `min_relevant_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL DEFAULT '0 years',
+  `min_salary` decimal(12,2) DEFAULT NULL,
+  `max_salary` decimal(12,2) DEFAULT NULL,
   `publish_date` date NOT NULL,
   `expire_date` date NOT NULL,
   `is_active` tinyint(1) DEFAULT 1,
@@ -97,10 +102,16 @@ CREATE TABLE `vacancies` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `hired_application_id` int(11) DEFAULT NULL,
+  `weight_skills` int(11) DEFAULT NULL,
+  `weight_experience` int(11) DEFAULT NULL,
+  `weight_qualification` int(11) DEFAULT NULL,
+  `weight_jd_alignment` int(11) DEFAULT NULL,
+  `weight_salary` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `company_id` (`company_id`),
   KEY `created_by` (`created_by`),
   KEY `fk_hired_application` (`hired_application_id`),
+  CONSTRAINT `fk_hired_application` FOREIGN KEY (`hired_application_id`) REFERENCES `applications` (`id`) ON DELETE SET NULL,
   CONSTRAINT `vacancies_ibfk_1` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE,
   CONSTRAINT `vacancies_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -111,15 +122,21 @@ CREATE TABLE `vacancies` (
 CREATE TABLE `applications` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `vacancy_id` int(11) NOT NULL,
+  `match_score` int(11) DEFAULT NULL,
   `first_name` varchar(100) NOT NULL,
   `last_name` varchar(100) NOT NULL,
   `email` varchar(255) NOT NULL,
   `contact_number` varchar(20) NOT NULL,
   `overall_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL,
   `relevant_experience` enum('0 years','0-1 years','1-2 years','3-4 years','5-7 years','8-10 years','10+ years') NOT NULL,
-  `qualification` enum('O/L','A/L','Diploma','Bachelors Degree','Masters Degree','PhD','Professional Certification') NOT NULL,
+  `qualification` varchar(255) NOT NULL DEFAULT 'Bachelors Degree',
   `salary_expectation` varchar(100) DEFAULT NULL,
   `cv_path` varchar(500) NOT NULL,
+  `cv_text` longtext DEFAULT NULL,
+  `extraction_status` enum('extracted','unextracted','pending','failed') NOT NULL DEFAULT 'unextracted',
+  `extracted_at` datetime DEFAULT NULL,
+  `extracted_data` longtext DEFAULT NULL,
+  `is_manual_extracted` tinyint(1) NOT NULL DEFAULT 0,
   `status` enum('pending','under_review','shortlisted','rejected') DEFAULT 'pending',
   `tags` varchar(255) DEFAULT NULL,
   `skills_metadata` text DEFAULT NULL,
@@ -138,6 +155,7 @@ CREATE TABLE `applications` (
   UNIQUE KEY `unique_email_vacancy` (`email`,`vacancy_id`),
   UNIQUE KEY `unique_phone_vacancy` (`contact_number`,`vacancy_id`),
   KEY `vacancy_id` (`vacancy_id`),
+  KEY `idx_match_score` (`match_score`),
   CONSTRAINT `applications_ibfk_1` FOREIGN KEY (`vacancy_id`) REFERENCES `vacancies` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -170,6 +188,48 @@ CREATE TABLE `settings` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ========================================
+-- TABLE: AUDIT_LOGS
+-- ========================================
+CREATE TABLE `audit_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `admin_id` int(11) DEFAULT NULL,
+  `admin_name` varchar(150) DEFAULT NULL,
+  `admin_role` varchar(50) DEFAULT NULL,
+  `company_id` int(11) DEFAULT NULL,
+  `category` varchar(50) NOT NULL DEFAULT 'recruitment',
+  `action` varchar(100) NOT NULL,
+  `entity_type` varchar(50) DEFAULT NULL,
+  `entity_id` varchar(100) DEFAULT NULL,
+  `entity_name` varchar(255) DEFAULT NULL,
+  `old_values` text DEFAULT NULL,
+  `new_values` text DEFAULT NULL,
+  `details` text DEFAULT NULL,
+  `ip_address` varchar(64) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `admin_id` (`admin_id`),
+  KEY `company_id` (`company_id`),
+  KEY `category` (`category`),
+  KEY `action` (`action`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================
+-- TABLE: PASSWORD_RESETS
+-- ========================================
+CREATE TABLE `password_resets` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `type` enum('link','code') NOT NULL DEFAULT 'link',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `token` (`token`),
+  KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================
 -- TABLE: VACANCY_AUDIT_LOGS
 -- ========================================
 CREATE TABLE `vacancy_audit_logs` (
@@ -187,6 +247,7 @@ CREATE TABLE `vacancy_audit_logs` (
   CONSTRAINT `vacancy_audit_logs_ibfk_1` FOREIGN KEY (`vacancy_id`) REFERENCES `vacancies` (`id`) ON DELETE CASCADE,
   CONSTRAINT `vacancy_audit_logs_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ========================================
 -- DATA: COMPANIES
