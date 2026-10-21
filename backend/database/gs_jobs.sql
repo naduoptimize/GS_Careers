@@ -2,9 +2,6 @@
 -- Generated: 2026-07-07 09:05:38
 -- Updated: 2026-10-21 (All current tables synchronized)
 
-CREATE DATABASE IF NOT EXISTS gs_jobs1 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE gs_jobs1;
-
 SET FOREIGN_KEY_CHECKS=0;
 
 DROP TABLE IF EXISTS `vacancy_audit_logs`;
